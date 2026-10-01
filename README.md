@@ -1,4 +1,8 @@
-# FS25_NachbarFelder
+# Lebendige Straßen (FS25_NachbarFelder)
+
+Angezeigter Name seit Build 151: **Lebendige Straßen** (en „Living Roads“, fr „Routes vivantes“). Technisch heißt die
+Mod weiter `FS25_NachbarFelder` – ZIP-Name, Ordner `modSettings/FS25_NachbarFelder/`, Spielstände und Tastenbelegungen
+bleiben dadurch gültig.
 
 Script-Mod für den Landwirtschafts-Simulator 25. KI-Nachbarn fahren mit Traktoren und Gespannen
 eigenständig über die KI-Straßen der Karte, halten an Wegpunkten, parken eine Weile und fahren weiter –
@@ -11,8 +15,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 150` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 150)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 151` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 151)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 

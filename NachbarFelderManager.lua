@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 150
+NachbarFelderManager.BUILD = 151
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -466,7 +466,7 @@ function NachbarFelderManager:notifyAdminRequired()
         pcall(function()
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
-                "NachbarFelder: Nur fuer Admins - bitte zuerst im Menue als Admin anmelden")
+                "Lebendige Straßen: Nur fuer Admins - bitte zuerst im Menue als Admin anmelden")
         end)
     end
 end
@@ -1295,7 +1295,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
             print("NachbarFelder: [TRAFFIC] " .. art .. " - " .. grund)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
-                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL, "NachbarFelder: " .. art .. " " .. grund)
+                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL, "Lebendige Straßen: " .. art .. " " .. grund)
             end
             return false, grund
         end
@@ -1312,7 +1312,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(op, x, z, ry))
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "NachbarFelder: " .. art .. " an Server gesendet (" ..
+            "Lebendige Straßen: " .. art .. " an Server gesendet (" ..
             tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz)
         return true
     end
@@ -1324,7 +1324,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "NachbarFelder: " .. art .. " " .. tostring(#self.userTrafficWaypoints) ..
+            "Lebendige Straßen: " .. art .. " " .. tostring(#self.userTrafficWaypoints) ..
             " gesetzt (" .. tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz
         )
     end
@@ -1342,7 +1342,7 @@ function NachbarFelderManager:onInputManageWaypoints(actionName, inputValue, cal
         if g_currentMission ~= nil then
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "NachbarFelder: Keine Wegpunkte - setzen unter ESC > Einstellungen > Wegpunkte")
+                "Lebendige Straßen: Keine Wegpunkte - setzen unter ESC > Einstellungen > Wegpunkte")
         end
         return
     end
@@ -1379,7 +1379,7 @@ function NachbarFelderManager:_teleportToWp(wp)
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            string.format("NachbarFelder: Teleportiert zu x=%d z=%d", math.floor(x), math.floor(z)))
+            string.format("Lebendige Straßen: Teleportiert zu x=%d z=%d", math.floor(x), math.floor(z)))
     end
     print("NachbarFelder: [MGR] Teleport x=" .. math.floor(x) .. " z=" .. math.floor(z))
 end
@@ -1404,7 +1404,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
                 NachbarFelderWaypointEditEvent.OP_REMOVELAST))
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "NachbarFelder: Wegpunkt-Löschung an Server gesendet")
+                "Lebendige Straßen: Wegpunkt-Löschung an Server gesendet")
         end
         return
     end
@@ -1416,7 +1416,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_INFO,
-            "NachbarFelder: Wegpunkt entfernt. Verbleibend: " .. tostring(#self.userTrafficWaypoints)
+            "Lebendige Straßen: Wegpunkt entfernt. Verbleibend: " .. tostring(#self.userTrafficWaypoints)
         )
     end
 end
@@ -3269,7 +3269,7 @@ function NachbarFelderManager:hinweisSpawnpunkt(grund)
     if g_client ~= nil and g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
         pcall(function()
             g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "NachbarFelder: " .. g_i18n:getText("NF_hinweisSpawnpunkt"))
+                "Lebendige Straßen: " .. g_i18n:getText("NF_hinweisSpawnpunkt"))
         end)
     end
 end

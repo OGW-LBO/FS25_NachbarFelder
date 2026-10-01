@@ -690,7 +690,7 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
                     FSBaseMission.INGAME_NOTIFICATION_OK,
-                    string.format("NachbarFelder: WP%d Löschung an Server gesendet", idx))
+                    string.format("Lebendige Straßen: WP%d Löschung an Server gesendet", idx))
             end
         else
             table.remove(wps, idx)
@@ -701,7 +701,7 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
                     FSBaseMission.INGAME_NOTIFICATION_OK,
-                    string.format("NachbarFelder: WP%d geloescht (x=%d z=%d). Noch %d WP.",
+                    string.format("Lebendige Straßen: WP%d geloescht (x=%d z=%d). Noch %d WP.",
                         idx, math.floor(wp.x), math.floor(wp.z), count))
             end
         end

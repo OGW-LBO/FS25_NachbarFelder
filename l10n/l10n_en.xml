@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <l10n>
     <texts>
-        <text name="NachbarFelder" text="NachbarFelder"/>
-        <text name="NF_setting_title" text="Activity on Other Fields"/>
+        <text name="NachbarFelder" text="Living Roads"/>
+        <text name="NF_setting_title" text="Living Roads"/>
         <text name="NF_active_short" text="Activity on Other Fields"/>
         <text name="NF_active_long" text="Enables/Disables activity on other fields"/>
         <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Number of Workers"/>
@@ -29,10 +29,10 @@
         <text name="NF_herbicideMission_long" text="Generate herbicide spraying mission"/>
         <text name="NF_fertilizeMission_short" text="Fertilizing"/>
         <text name="NF_fertilizeMission_long" text="Generate fertilizing mission"/>
-        <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Remove all neighbour vehicles"/>
-        <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Set waypoint"/>
-        <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Remove last waypoint"/>
-        <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Show waypoints one by one"/>
+        <text name="input_NF_DELETE_HELPER" text="Living Roads: Remove all neighbour vehicles"/>
+        <text name="input_NF_ADD_WAYPOINT" text="Living Roads: Set waypoint"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="Living Roads: Remove last waypoint"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="Living Roads: Show waypoints one by one"/>
         <text name="NF_wpPage_tabTitle" text="Waypoints"/>
         <text name="NF_WPPAGE_TABTITLE" text="Waypoints"/>
         <text name="NF_wpActions_title" text="Actions"/>

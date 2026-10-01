@@ -3,8 +3,9 @@
     <author>OGW</author>
     <version>1.1.42.0</version>
     <title>
-        <en>NachbarFelder</en>
-        <fr>Champs Voisins</fr>
+        <de>Lebendige Straßen</de>
+        <en>Living Roads</en>
+        <fr>Routes vivantes</fr>
     </title>
     <description>
         <de><![CDATA[
@@ -22,7 +23,7 @@ Features:
 - Laeuft auf jeder Karte mit KI-Strassen, Singleplayer und Dedicated Server
 
 Wegpunkte und Spawnpunkte setzt du unter ESC > Einstellungen > Wegpunkte.
-Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten aenderbar in der Steuerung, Eintraege „NachbarFelder: …“).
+Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten aenderbar in der Steuerung, Eintraege „Lebendige Straßen: …“).
 ]]></de>
     <en><![CDATA[
 No more empty roads – it’s time to bring your world to life!
@@ -39,7 +40,7 @@ Features:
 - Works on every map with AI roads, single player and dedicated server
 
 Waypoints and spawn points are set in ESC > Settings > Waypoints.
-All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "NachbarFelder: …").
+All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "Living Roads: …").
 ]]></en>
     <fr><![CDATA[
 Fini les routes vides – donne vie à ton monde !
@@ -56,7 +57,7 @@ Fonctionnalités :
 - Fonctionne sur toutes les cartes avec routes IA, en solo et sur serveur dédié
 
 Les points de passage et les points d’apparition se placent dans ÉCHAP > Paramètres > Waypoints.
-Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « NachbarFelder: … »).
+Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « Routes vivantes: … »).
 ]]></fr>
     </description>
     <iconFilename>icon_NachbarFelder.dds</iconFilename>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <l10n>
     <texts>
-        <text name="NachbarFelder" text="NachbarFelder"/>
-        <text name="NF_setting_title" text="Aktivitaet auf fremden Feldern"/>
+        <text name="NachbarFelder" text="Lebendige Straßen"/>
+        <text name="NF_setting_title" text="Lebendige Straßen"/>
         <text name="NF_active_short" text="Aktivitaet auf fremden Feldern"/>
         <text name="NF_active_long" text="Aktiviert/Deaktiviert die Aktivitaet auf fremden Feldern"/>
         <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Anzahl Arbeiter"/>
@@ -29,10 +29,10 @@
         <text name="NF_herbicideMission_long" text="Herbizid-Spritzmission generieren"/>
         <text name="NF_fertilizeMission_short" text="Duengen"/>
         <text name="NF_fertilizeMission_long" text="Duengemission generieren"/>
-        <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Alle Nachbar-Fahrzeuge entfernen"/>
-        <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Wegpunkt setzen"/>
-        <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Letzten Wegpunkt entfernen"/>
-        <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Wegpunkte nacheinander anzeigen"/>
+        <text name="input_NF_DELETE_HELPER" text="Lebendige Straßen: Alle Nachbar-Fahrzeuge entfernen"/>
+        <text name="input_NF_ADD_WAYPOINT" text="Lebendige Straßen: Wegpunkt setzen"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="Lebendige Straßen: Letzten Wegpunkt entfernen"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="Lebendige Straßen: Wegpunkte nacheinander anzeigen"/>
         <text name="NF_wpPage_tabTitle" text="Wegpunkte"/>
         <text name="NF_WPPAGE_TABTITLE" text="Wegpunkte"/>
         <text name="NF_wpActions_title" text="Aktionen"/>

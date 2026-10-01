@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 151 (01.10.): Angezeigter Name „Lebendige Straßen“** (en Living Roads, fr Routes vivantes) — nur Titel, Tastennamen,
+>   Settings-Überschrift und Ingame-Meldungen. Technischer Name bleibt `FS25_NachbarFelder` (ZIP, modSettings, Spielstand,
+>   Tasten, Log-Präfix `NachbarFelder:`). Abschnitt Build 151.
 > - **Build 150 (01.10.): Alle Feldhelfer entfernt — nur noch Verkehr.** Wunsch des Users: Lohnunternehmer UND zufällige
 >   Feldarbeit raus (Feld bearbeitet er selbst mit eigenem Trecker + seiner anderen Helfer-Mod). Entfernt: `NachbarFelderAuftrag.lua`,
 >   Feldwahl/Feldarbeit/Anfahrt/Gespannwahl, Tasten `NF_START_NOW`/`NF_ORDER_FIELD`, Konsole `nachbarFelderStart`/`…Sperre`,
@@ -1259,3 +1262,23 @@ Lauftest mit Platzhalter-Umgebung: Manager anlegen, `update()` räumt einen Verk
 **Unverifiziert im Spiel.** Prüfpunkte: Start ohne Lua-Fehler (`loadMap auf SERVER (Build 150)`), Verkehr spawnt
 (`[TRAFFIC] …`), keine Zeilen „Feld … gewaehlt“/„generateWorkMission“ mehr, Einstellungsseite ohne „Anzahl Arbeiter“
 und Arbeitsarten, Reiter Wegpunkte ohne Abschnitt Lohnunternehmer, Strg+Alt+L entfernt weiter alle Fahrzeuge.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 151: Angezeigter Name „Lebendige Straßen“
+
+Nach Build 150 (nur noch Verkehr) passte „NachbarFelder“ nicht mehr. Entscheidung User: Name „Lebendige Straßen“,
+umgesetzt als **reiner Anzeigename** (Empfehlung, kein Risiko):
+- `modDesc.xml` `<title>`: de „Lebendige Straßen“, en „Living Roads“, fr „Routes vivantes“; Hinweis auf die Tasteneinträge
+  in der Beschreibung angepasst.
+- l10n de/en: Schlüssel `NachbarFelder`, `NF_setting_title` (Überschrift auf der Einstellungsseite, vorher „Aktivitaet auf
+  fremden Feldern“) und die Tastennamen `input_NF_*` mit Präfix „Lebendige Straßen:“ bzw. „Living Roads:“.
+- Wegpunkt-Dialog-Titel und Ingame-Meldungen (`addIngameNotification`) mit Präfix „Lebendige Straßen:“.
+
+**Bewusst NICHT geändert:** ZIP-Name `FS25_NachbarFelder.zip` (= Mod-Name), `g_currentModName` in `NachbarFelder.lua`
+(daran hängt die Registrierung der Spezialisierung `FS25_NachbarFelder.NachbarFelderWorker`), Ordner
+`modSettings/FS25_NachbarFelder/`, Spielstand-Datei `NachbarFelder.xml`, Aktionsnamen `NF_*`, Dateinamen, Log-Präfix
+`NachbarFelder:` (Logs bleiben vergleichbar). Eine echte Umbenennung bräuchte Übernahme der modSettings-Dateien,
+Anpassung von `g_currentModName`, neue Tastenbelegung bei allen Spielern und wäre für das Spiel eine neue Mod.
+
+**Tests:** XML (minidom), Strukturcheck, Vollparse. Im Spiel prüfen: Mod-Menü zeigt „Lebendige Straßen“, Steuerung zeigt
+„Lebendige Straßen: …“, Einstellungsseite Überschrift „Lebendige Straßen“.
