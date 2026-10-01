@@ -76,5 +76,35 @@
         <text name="NF_help_page_verkehr_title" text="Game traffic and problems"/>
         <text name="NF_help_verkehr_text1" text="The cars of the game traffic brake for the neighbour vehicles. If they still collide in narrow spots, switch off traffic in the game menu or set &quot;spielverkehrAnmelden&quot; to false in the server config."/>
         <text name="NF_help_verkehr_text2" text="A vehicle that stays stuck picks a new destination and is removed if necessary. Loading spots where vehicles cannot get away are locked for that map. For problem reports the lines starting with &quot;NachbarFelder:&quot; from log.txt help most."/>
+        <text name="NF_wpArt_wegpunkt" text="Waypoint"/>
+        <text name="NF_wpArt_spawn" text="Spawn point"/>
+        <text name="NF_richtungAus" text="Direction from %s"/>
+        <text name="NF_richtung_fahrzeug" text="Vehicle"/>
+        <text name="NF_richtung_blick" text="View direction"/>
+        <text name="NF_richtung_kamera" text="Camera"/>
+        <text name="NF_richtung_unbekannt" text="? (0)"/>
+        <text name="NF_msg_nurAdmin" text="Admins only – please log in as admin in the menu first"/>
+        <text name="NF_msg_jetztWegfahren" text="– now drive away"/>
+        <text name="NF_msg_zuNah" text="Not placed: waypoint %d is only %.0f m away (min. 10 m)"/>
+        <text name="NF_msg_anServer" text="%s sent to the server (%d / %d, %s)"/>
+        <text name="NF_msg_gesetzt" text="%s %d placed (%d / %d, %s)"/>
+        <text name="NF_msg_keineWegpunkte" text="No waypoints – place them in ESC > Settings > Waypoints"/>
+        <text name="NF_msg_wpAnzeige" text="WP %d/%d: x=%d  z=%d  (ESC > Settings: teleport/delete)"/>
+        <text name="NF_msg_teleportiert" text="Teleported to x=%d z=%d"/>
+        <text name="NF_msg_loeschAnServer" text="Waypoint deletion sent to the server"/>
+        <text name="NF_msg_wpEntfernt" text="Waypoint removed. Remaining: %d"/>
+        <text name="NF_msg_nichtGesetzt" text="Not placed"/>
+        <text name="NF_msg_wpGespeichert" text="%d waypoints saved"/>
+        <text name="NF_msg_wpVonCount" text="Waypoint %d of %d"/>
+        <text name="NF_msg_keineWpVorhanden" text="No waypoints available"/>
+        <text name="NF_msg_wpSetzenHinweis" text="Press Ctrl+Alt+O to place points"/>
+        <text name="NF_wpCat_normal" text="Normal"/>
+        <text name="NF_wpCat_kurz" text="Short"/>
+        <text name="NF_wpCat_lang" text="Long"/>
+        <text name="NF_wpCat_durchfahrt" text="Pass-through"/>
+        <text name="NF_gui_wpManager" text="Living Roads – waypoint manager"/>
+        <text name="NF_gui_teleport" text="Teleport"/>
+        <text name="NF_gui_loeschen" text="Delete"/>
+        <text name="NF_gui_schliessen" text="Close"/>
     </texts>
 </l10n>

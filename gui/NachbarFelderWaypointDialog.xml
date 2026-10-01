@@ -17,7 +17,7 @@
                      textColor="1 0.7 0 1"
                      textSize="19"
                      bold="true"
-                     text="Lebendige Straßen - Wegpunkt Manager"/>
+                     text="$l10n_NF_gui_wpManager"/>
 
         <TextElement name="counterText"
                      position="0 78"
@@ -55,19 +55,19 @@
         <ButtonElement name="teleportButton"
                        position="-205 -88"
                        size="190 46"
-                       text="Teleportieren"
+                       text="$l10n_NF_gui_teleport"
                        onClickCallback="onClickTeleport"/>
 
         <ButtonElement name="deleteButton"
                        position="20 -88"
                        size="150 46"
-                       text="Loeschen"
+                       text="$l10n_NF_gui_loeschen"
                        onClickCallback="onClickDelete"/>
 
         <ButtonElement name="closeButton"
                        position="215 -88"
                        size="150 46"
-                       text="Schliessen"
+                       text="$l10n_NF_gui_schliessen"
                        onClickCallback="onClickClose"/>
 
     </DialogElement>

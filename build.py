@@ -32,6 +32,7 @@ DATEIEN = [
     # Uebersetzungen
     "l10n/l10n_de.xml",
     "l10n/l10n_en.xml",
+    "l10n/l10n_fr.xml",
 ]
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))

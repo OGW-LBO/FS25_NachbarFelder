@@ -7,10 +7,10 @@
         <text name="NF_active_long" text="Schaltet den Verkehr der Nachbarn ein oder aus. Aus = keine neuen Fahrzeuge, unterwegs befindliche fahren fertig."/>
         <text name="NF_trafficLimit_short" text="Traffic-Fahrzeuge"/>
         <text name="NF_trafficLimit_long" text="Wie viele KI-Verkehrsfahrzeuge fahren gleichzeitig auf der Karte? (1-8). Wegpunkte und Spawnpunkte setzt du im Reiter 'Wegpunkte'."/>
-        <text name="NF_trafficTrailerSize_short" text="Anbaugeraete"/>
-        <text name="NF_trafficTrailerSize_long" text="Anbaugeraete fuer Traffic-Fahrzeuge. 0 = Keine Anbaugeraete | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Maehwerk, Zinkenrotor, Rechen, Saemaschine)"/>
+        <text name="NF_trafficTrailerSize_short" text="Anbaugeräte"/>
+        <text name="NF_trafficTrailerSize_long" text="Anbaugeräte für Traffic-Fahrzeuge. 0 = Keine Anbaugeräte | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Mähwerk, Zinkenrotor, Rechen, Sämaschine)"/>
         <text name="NF_engeMap_short" text="Enge Karte"/>
-        <text name="NF_engeMap_long" text="Fuer enge Karten und kleine Haendler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugeraet (Wender, Schwader, bis 3 t). Grosstraktoren, Radlader und Teleskoplader bleiben draussen. Aus = alles erlaubt."/>
+        <text name="NF_engeMap_long" text="Für enge Karten und kleine Händler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugerät (Wender, Schwader, bis 3 t). Großtraktoren, Radlader und Teleskoplader bleiben draußen. Aus = alles erlaubt."/>
         <text name="input_NF_DELETE_HELPER" text="Lebendige Straßen: Alle Nachbar-Fahrzeuge entfernen"/>
         <text name="input_NF_ADD_WAYPOINT" text="Lebendige Straßen: Wegpunkt setzen"/>
         <text name="input_NF_REMOVE_WAYPOINT" text="Lebendige Straßen: Letzten Wegpunkt entfernen"/>
@@ -76,5 +76,35 @@
         <text name="NF_help_page_verkehr_title" text="Spielverkehr und Probleme"/>
         <text name="NF_help_verkehr_text1" text="Die Autos des Spielverkehrs bremsen für die Nachbar-Fahrzeuge. Kracht es an engen Stellen trotzdem, kannst du den Verkehr im Spielmenü ausschalten oder in der Server-Konfiguration „spielverkehrAnmelden“ auf false setzen."/>
         <text name="NF_help_verkehr_text2" text="Bleibt ein Fahrzeug länger stecken, sucht es sich ein neues Ziel und wird notfalls entfernt. Ladeplätze, an denen Fahrzeuge nicht wegkommen, sperrt die Mod für diese Karte. Hilfreich bei Problemen sind die Zeilen mit „NachbarFelder:“ aus der log.txt."/>
+        <text name="NF_wpArt_wegpunkt" text="Wegpunkt"/>
+        <text name="NF_wpArt_spawn" text="Spawnpunkt"/>
+        <text name="NF_richtungAus" text="Richtung aus %s"/>
+        <text name="NF_richtung_fahrzeug" text="Fahrzeug"/>
+        <text name="NF_richtung_blick" text="Blickrichtung"/>
+        <text name="NF_richtung_kamera" text="Kamera"/>
+        <text name="NF_richtung_unbekannt" text="? (0)"/>
+        <text name="NF_msg_nurAdmin" text="Nur für Admins – bitte zuerst im Menü als Admin anmelden"/>
+        <text name="NF_msg_jetztWegfahren" text="– jetzt wegfahren"/>
+        <text name="NF_msg_zuNah" text="Nicht gesetzt: WP %d ist nur %.0f m entfernt (mind. 10 m)"/>
+        <text name="NF_msg_anServer" text="%s an Server gesendet (%d / %d, %s)"/>
+        <text name="NF_msg_gesetzt" text="%s %d gesetzt (%d / %d, %s)"/>
+        <text name="NF_msg_keineWegpunkte" text="Keine Wegpunkte – setzen unter ESC > Einstellungen > Wegpunkte"/>
+        <text name="NF_msg_wpAnzeige" text="WP %d/%d: x=%d  z=%d  (ESC > Einstellungen: Teleportieren/Löschen)"/>
+        <text name="NF_msg_teleportiert" text="Teleportiert zu x=%d z=%d"/>
+        <text name="NF_msg_loeschAnServer" text="Wegpunkt-Löschung an Server gesendet"/>
+        <text name="NF_msg_wpEntfernt" text="Wegpunkt entfernt. Verbleibend: %d"/>
+        <text name="NF_msg_nichtGesetzt" text="Nicht gesetzt"/>
+        <text name="NF_msg_wpGespeichert" text="%d Wegpunkte gespeichert"/>
+        <text name="NF_msg_wpVonCount" text="Wegpunkt %d von %d"/>
+        <text name="NF_msg_keineWpVorhanden" text="Keine Wegpunkte vorhanden"/>
+        <text name="NF_msg_wpSetzenHinweis" text="Strg+Alt+O drücken, um Punkte zu setzen"/>
+        <text name="NF_wpCat_normal" text="Normal"/>
+        <text name="NF_wpCat_kurz" text="Kurz"/>
+        <text name="NF_wpCat_lang" text="Lang"/>
+        <text name="NF_wpCat_durchfahrt" text="Durchfahrt"/>
+        <text name="NF_gui_wpManager" text="Lebendige Straßen – Wegpunkt-Manager"/>
+        <text name="NF_gui_teleport" text="Teleportieren"/>
+        <text name="NF_gui_loeschen" text="Löschen"/>
+        <text name="NF_gui_schliessen" text="Schließen"/>
     </texts>
 </l10n>

@@ -132,13 +132,11 @@ function NachbarFelderWorker:onAIJobFinished(...)
             local dist = 99999
             -- Shop-Spawnplatz des Spiels (Build 96: mit Filiallieferungen = Lieferort)
             local shopX, shopZ = g_NachbarFelderManager:getShopPosition()
-            pcall(function()
-                local veh = tt.vehiclesToLoad[1]
-                if veh ~= nil and veh.rootNode ~= nil then
-                    local x, _, z = getWorldTranslation(veh.rootNode)
-                    dist = MathUtil.vector2Length(x - shopX, z - shopZ)
-                end
-            end)
+            local veh = tt.vehiclesToLoad[1]
+            if veh ~= nil and veh.rootNode ~= nil then
+                local x, _, z = getWorldTranslation(veh.rootNode)
+                dist = MathUtil.vector2Length(x - shopX, z - shopZ)
+            end
             tt.gotoStartedAt = nil
 
             if dist < 60 then
@@ -281,69 +279,65 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         -- stand und WAS es zog. Nur so ist zu unterscheiden,
                         -- ob der Wegpunkt abseits befahrbaren Gelaendes liegt
                         -- oder ob das Anbaugeraet den GOTO blockiert.
-                        pcall(function()
-                            local v0 = tt.vehiclesToLoad and tt.vehiclesToLoad[1]
-                            local impl = tt.vehiclesToLoad and tt.vehiclesToLoad[2]
-                            local vx, vz = 0, 0
-                            if v0 ~= nil and v0.rootNode ~= nil then
-                                local x, _, z = getWorldTranslation(v0.rootNode)
-                                vx, vz = x, z
+                        local v0 = tt.vehiclesToLoad and tt.vehiclesToLoad[1]
+                        local impl = tt.vehiclesToLoad and tt.vehiclesToLoad[2]
+                        local vx, vz = 0, 0
+                        if v0 ~= nil and v0.rootNode ~= nil then
+                            local x, _, z = getWorldTranslation(v0.rootNode)
+                            vx, vz = x, z
+                        end
+                        -- naechstgelegener Wegpunkt zur Fahrzeugposition
+                        local nahIdx, nahDist = nil, nil
+                        for i, w in ipairs(tt.waypoints or {}) do
+                            local d = math.sqrt((vx - (w[1] or 0))^2 + (vz - (w[2] or 0))^2)
+                            if nahDist == nil or d < nahDist then
+                                nahIdx, nahDist = i, d
                             end
-                            -- naechstgelegener Wegpunkt zur Fahrzeugposition
-                            local nahIdx, nahDist = nil, nil
-                            for i, w in ipairs(tt.waypoints or {}) do
-                                local d = math.sqrt((vx - (w[1] or 0))^2 + (vz - (w[2] or 0))^2)
-                                if nahDist == nil or d < nahDist then
-                                    nahIdx, nahDist = i, d
-                                end
-                            end
-                            local implName = "ohne Anbaugeraet"
-                            if impl ~= nil then
-                                local f = impl.configFileName or ""
-                                implName = "mit " .. (string.match(f, "[^/\\]+$") or f)
-                            end
+                        end
+                        local implName = "ohne Anbaugeraet"
+                        if impl ~= nil then
+                            local f = impl.configFileName or ""
+                            implName = "mit " .. (string.match(f, "[^/\\]+$") or f)
+                        end
 
-                            -- Build 89: Zustandsdaten mitschreiben. Ein von Hand
-                            -- gesetzter Fahrauftrag laeuft auf dieser Karte
-                            -- ueberall - also unterscheidet sich der Zustand,
-                            -- den die Mod erzeugt, von dem eines normalen
-                            -- Fahrzeugs. Diese Werte zeigen worin.
-                            local zusatz = ""
-                            pcall(function()
-                                local nImpl = 0
-                                if v0 ~= nil and v0.getAttachedImplements ~= nil then
-                                    nImpl = #v0:getAttachedImplements()
-                                end
-                                local aw, al = 0, 0
-                                if v0 ~= nil and v0.getAIAgentSize ~= nil then
-                                    aw, al = v0:getAIAgentSize()
-                                end
-                                local hatAgent = "Agent-nein"
-                                if v0 ~= nil and v0.spec_aiDrivable ~= nil
-                                   and v0.spec_aiDrivable.agentId ~= nil then
-                                    hatAgent = "Agent-ja"
-                                end
-                                zusatz = (" | angehaengt %d | Agent %.1fx%.1fm %s")
-                                    :format(nImpl, aw or 0, al or 0, hatAgent)
-                            end)
-                            -- Build 119: Abweisung dem Anbaugeraet anrechnen (Sperre erst
-                            -- nach 3x an 2 verschiedenen Stellen, siehe Manager)
-                            -- Build 129: Abweisung am eigenen Ladeplatz -> Platz sperren
-                            if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.merkeSpawnFehlschlag ~= nil then
-                                g_NachbarFelderManager:merkeSpawnFehlschlag(tt, vx, vz, "Verkehr sofort abgewiesen")
-                            end
-                            if impl ~= nil and impl.configFileName ~= nil and g_NachbarFelderManager ~= nil
-                               and g_NachbarFelderManager.merkeVerkehrGeraetAbweisung ~= nil then
-                                g_NachbarFelderManager:merkeVerkehrGeraetAbweisung(impl.configFileName, vx, vz)
-                            end
-                            print(("NachbarFelder: [TRAFFIC][DIAG] GOTO-Abweisung bei x=%d z=%d" ..
-                                " | naechster WP%s (%sm) | Ziel WP%s | %s | %dms%s%s"):format(
-                                math.floor(vx), math.floor(vz),
-                                tostring(nahIdx or "?"),
-                                nahDist ~= nil and tostring(math.floor(nahDist)) or "?",
-                                tostring(tt.patrolDestIdx or "?"),
-                                implName, math.floor(gotoElapsed), msgInfo, zusatz))
-                        end)
+                        -- Build 89: Zustandsdaten mitschreiben. Ein von Hand
+                        -- gesetzter Fahrauftrag laeuft auf dieser Karte
+                        -- ueberall - also unterscheidet sich der Zustand,
+                        -- den die Mod erzeugt, von dem eines normalen
+                        -- Fahrzeugs. Diese Werte zeigen worin.
+                        local zusatz = ""
+                        local nImpl = 0
+                        if v0 ~= nil and v0.getAttachedImplements ~= nil then
+                            nImpl = #v0:getAttachedImplements()
+                        end
+                        local aw, al = 0, 0
+                        if v0 ~= nil and v0.getAIAgentSize ~= nil then
+                            aw, al = v0:getAIAgentSize()
+                        end
+                        local hatAgent = "Agent-nein"
+                        if v0 ~= nil and v0.spec_aiDrivable ~= nil
+                           and v0.spec_aiDrivable.agentId ~= nil then
+                            hatAgent = "Agent-ja"
+                        end
+                        zusatz = (" | angehaengt %d | Agent %.1fx%.1fm %s")
+                            :format(nImpl, aw or 0, al or 0, hatAgent)
+                        -- Build 119: Abweisung dem Anbaugeraet anrechnen (Sperre erst
+                        -- nach 3x an 2 verschiedenen Stellen, siehe Manager)
+                        -- Build 129: Abweisung am eigenen Ladeplatz -> Platz sperren
+                        if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.merkeSpawnFehlschlag ~= nil then
+                            g_NachbarFelderManager:merkeSpawnFehlschlag(tt, vx, vz, "Verkehr sofort abgewiesen")
+                        end
+                        if impl ~= nil and impl.configFileName ~= nil and g_NachbarFelderManager ~= nil
+                           and g_NachbarFelderManager.merkeVerkehrGeraetAbweisung ~= nil then
+                            g_NachbarFelderManager:merkeVerkehrGeraetAbweisung(impl.configFileName, vx, vz)
+                        end
+                        print(("NachbarFelder: [TRAFFIC][DIAG] GOTO-Abweisung bei x=%d z=%d" ..
+                            " | naechster WP%s (%sm) | Ziel WP%s | %s | %dms%s%s"):format(
+                            math.floor(vx), math.floor(vz),
+                            tostring(nahIdx or "?"),
+                            nahDist ~= nil and tostring(math.floor(nahDist)) or "?",
+                            tostring(tt.patrolDestIdx or "?"),
+                            implName, math.floor(gotoElapsed), msgInfo, zusatz))
 
                         -- Build 99: KEINE Ziel-Strafe mehr bei einer Sofort-Abweisung.
                         -- Beleg Log 12.09.: ein Fahrzeug stand auf x=124 z=-93 und
@@ -373,7 +367,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         if tt.gotoRejects == 2 and not tt.roadSnapped
                            and veh0 ~= nil and veh0.rootNode ~= nil
                            and mgr.getNearestRoadPoint ~= nil then
-                            pcall(nfRoadSnap, tt, mgr, veh0)
+                            nfRoadSnap(tt, mgr, veh0)
                         end
 
                         if tt.gotoRejects < 3 and tt.waypoints ~= nil and #tt.waypoints >= 2 then
@@ -403,7 +397,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         -- Den naechsten Wegpunkt (bis 30 m) als Startplatz vormerken -
                         -- nicht am Shop, der muss als Spawnplatz nutzbar bleiben.
                         local veh = tt.vehiclesToLoad and tt.vehiclesToLoad[1]
-                        pcall(nfMarkStartPlaceBad, tt, mgr, veh)
+                        nfMarkStartPlaceBad(tt, mgr, veh)
                         if veh ~= nil then
                             local fname = veh.configFileName or ""
                             local base  = string.match(fname, "[^/\\]+$") or fname
@@ -443,12 +437,12 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         if tt.pathFails == 2 and not tt.roadSnapped
                            and veh0 ~= nil and veh0.rootNode ~= nil
                            and mgr.getNearestRoadPoint ~= nil then
-                            pcall(nfRoadSnap, tt, mgr, veh0)
+                            nfRoadSnap(tt, mgr, veh0)
                         end
 
                         -- Dritter Fehlschlag: aufgeben, Startplatz vormerken, Pool
                         if tt.pathFails >= 3 then
-                            pcall(nfMarkStartPlaceBad, tt, mgr, veh0)
+                            nfMarkStartPlaceBad(tt, mgr, veh0)
                             print("NachbarFelder: [TRAFFIC] drei Ziele in Folge nicht erreichbar (" ..
                                 mgr:getWorkerName(tt) .. ") - Fahrzeug geht in den Pool" ..
                                 " statt weitere Ziele durchzuprobieren.")

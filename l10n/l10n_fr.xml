@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <texts>
+        <text name="NachbarFelder" text="Routes Vivantes"/>
+        <text name="NF_setting_title" text="Routes Vivantes"/>
+        <text name="NF_active_short" text="Circulation des voisins active"/>
+        <text name="NF_active_long" text="Active ou désactive la circulation des voisins. Désactivé = plus de nouveaux véhicules, ceux en route terminent leur trajet."/>
+        <text name="NF_trafficLimit_short" text="Véhicules de circulation"/>
+        <text name="NF_trafficLimit_long" text="Combien de véhicules IA circulent en même temps sur la carte ? (1-8). Les points de passage et d'apparition se règlent dans l'onglet « Points de passage »."/>
+        <text name="NF_trafficTrailerSize_short" text="Outils"/>
+        <text name="NF_trafficTrailerSize_long" text="Outils pour les véhicules de circulation. 0 = Aucun | 1 = Petit | 2 = Moyen | 3 = Tous (charrues, cultivateurs, faucheuses, faneuses, andaineurs, semoirs)"/>
+        <text name="NF_engeMap_short" text="Carte étroite"/>
+        <text name="NF_engeMap_long" text="Pour les cartes étroites et les zones de concession exiguës : les voisins n'utilisent que des tracteurs petits et moyens (jusqu'à 12 t) avec des outils légers (faneuses, andaineurs, jusqu'à 3 t). Les gros tracteurs, chargeuses et télescopiques restent au garage. Désactivé = tout est permis."/>
+        <text name="input_NF_DELETE_HELPER" text="Routes Vivantes : Retirer tous les véhicules voisins"/>
+        <text name="input_NF_ADD_WAYPOINT" text="Routes Vivantes : Placer un point de passage"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="Routes Vivantes : Retirer le dernier point"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="Routes Vivantes : Afficher les points un par un"/>
+        <text name="NF_wpPage_tabTitle" text="Points de passage"/>
+        <text name="NF_WPPAGE_TABTITLE" text="Points de passage"/>
+        <text name="NF_wpActions_title" text="Actions"/>
+        <text name="NF_wpMap_section_title" text="Carte"/>
+        <text name="NF_wpMapShow_short" text="Afficher les points sur la carte"/>
+        <text name="NF_wpMapShow_long" text="Affiche les points de passage comme marqueurs sur la carte (catégorie : DIVERS)"/>
+        <text name="NF_wp_section_title" text="Gestionnaire de points"/>
+        <text name="NF_wp_info_title" text="Informations du point"/>
+        <text name="NF_wpPrev_short" text="Point précédent"/>
+        <text name="NF_wpPrev_long" text="Afficher le point précédent"/>
+        <text name="NF_wpNext_short" text="Point suivant"/>
+        <text name="NF_wpNext_long" text="Afficher le point suivant"/>
+        <text name="NF_wpTeleport_short" text="Se téléporter au point"/>
+        <text name="NF_wpType_short" text="Changer le type"/>
+        <text name="NF_wpType_long" text="Fait défiler les catégories : Normal (20-60 s) | Court (5-20 s) | Long (2-5 min) | Point d'apparition. Mieux vaut créer de nouveaux points d'apparition avec « Placer un point d'apparition ici » - les anciens points n'ont pas d'orientation fiable."/>
+        <text name="NF_wpTeleport_long" text="Se téléporter au point affiché"/>
+        <text name="NF_wpDelete_short" text="Supprimer le point"/>
+        <text name="NF_wpDelete_long" text="Supprime le point affiché"/>
+        <text name="NF_wpBtn_prev" text="&lt; Retour"/>
+        <text name="NF_wpBtn_next" text="Suivant &gt;"/>
+        <text name="NF_wpBtn_teleport" text="Téléporter"/>
+        <text name="NF_wpBtn_delete" text="Supprimer"/>
+        <text name="NF_wpBtn_set" text="Placer"/>
+        <text name="NF_wpNew_section_title" text="Nouveau point à ta position"/>
+        <text name="NF_wpAddHere_short" text="Placer un point de passage ici"/>
+        <text name="NF_wpAddHere_long" text="Place un point de passage normal à ta position (dans un véhicule : à la position du véhicule). Garde au moins 10 m avec les autres points."/>
+        <text name="NF_wpAddSpawnHere_short" text="Placer un point d'apparition ici"/>
+        <text name="NF_wpAddSpawnHere_long" text="Les nouveaux véhicules voisins démarrent ici. Installe-toi dans un tracteur orienté vers la sortie (à pied, ta direction de regard compte). Environ 4 m de large doivent être libres, de 3 m devant à 14 m derrière le point. Éloigne-toi ensuite - tant que ton véhicule est là, le point est considéré comme occupé."/>
+        <text name="NF_wpNone" text="Aucun point - utilise « Placer un point de passage ici » ou « Placer un point d'apparition ici » ci-dessous"/>
+        <text name="NF_wpVehicles_section_title" text="Types de véhicules"/>
+        <text name="NF_wpCatTractorS_short" text="Petits tracteurs"/>
+        <text name="NF_wpCatTractorS_long" text="Fait apparaître de petits tracteurs (jusqu'à ~100 ch) dans la circulation"/>
+        <text name="NF_wpCatTractorM_short" text="Tracteurs moyens"/>
+        <text name="NF_wpCatTractorM_long" text="Fait apparaître des tracteurs moyens (~100-200 ch) dans la circulation"/>
+        <text name="NF_wpCatTractorL_short" text="Gros tracteurs"/>
+        <text name="NF_wpCatTractorL_long" text="Fait apparaître de gros tracteurs (200 ch et plus) dans la circulation"/>
+        <text name="NF_wpCatLoader_short" text="Chargeuses sur pneus"/>
+        <text name="NF_wpCatLoader_long" text="Fait apparaître des chargeuses sur pneus (seulement si elles gèrent le maillage de navigation)"/>
+        <text name="NF_wpCatTeleLoader_short" text="Télescopiques"/>
+        <text name="NF_wpCatTeleLoader_long" text="Fait apparaître des chariots télescopiques (seulement s'ils gèrent le maillage de navigation)"/>
+        <!-- Build 148 -->
+        <text name="NF_hinweisSpawnpunkt" text="Un emplacement de chargement automatique a échoué. Plus fiable : place un point d'apparition (ÉCHAP &gt; Paramètres &gt; Points de passage &gt; Placer un point d'apparition ici)."/>
+        <!-- Build 153: Ingame-Hilfe (help/helpLine.xml) -->
+        <text name="NF_help_title" text="Routes Vivantes"/>
+        <text name="NF_help_subTitle" text="Circulation des voisins"/>
+        <text name="NF_help_page_ueberblick_title" text="Aperçu"/>
+        <text name="NF_help_ueberblick_text1" text="Avec « Routes Vivantes », tes voisins circulent : des tracteurs IA, parfois avec un outil, roulent seuls sur les routes IA de la carte, s'arrêtent à tes points de passage, stationnent un moment puis repartent. Après quelques trajets, ils terminent leur journée et se garent ; ils sont réveillés plus tard."/>
+        <text name="NF_help_ueberblick_text2" text="Les véhicules n'arrivent que lorsqu'un joueur est en jeu, environ 3 minutes après la connexion. Tu règles le nombre de véhicules simultanés dans les paramètres ; il y en a moins la nuit et à midi (rythme journalier). Les destinations sont tes points de passage plus des points le long des routes IA que le mod trouve lui-même (configuration serveur « zielQuelle » = « wegpunkte » : uniquement tes points)."/>
+        <text name="NF_help_page_wegpunkte_title" text="Points de passage et d'apparition"/>
+        <text name="NF_help_wegpunkte_text1" text="Les points se gèrent dans ÉCHAP &gt; Paramètres &gt; onglet « Points de passage » (administrateurs uniquement) : « Placer un point de passage ici » et « Placer un point d'apparition ici » créent un point à ta position. Tu peux y parcourir les points, changer leur type, les supprimer et t'y téléporter."/>
+        <text name="NF_help_wegpunkte_text2" text="Types : Normal (arrêt de 20 à 60 s), Court (5 à 20 s), Long (2 à 5 min) et point d'apparition. Les nouveaux véhicules sont chargés aux points d'apparition. Place-les de préférence depuis un tracteur sur la voie de droite, l'avant dans le sens de la marche, avec de la place devant. Sans point d'apparition, le mod cherche lui-même une place libre sur une route IA."/>
+        <text name="NF_help_wegpunkte_text3" text="Sous « Types de véhicules », tu choisis les véhicules utilisés par les voisins (petits, moyens et gros tracteurs, chargeuses, télescopiques). « Afficher les points sur la carte » les montre comme marqueurs."/>
+        <text name="NF_help_page_einstellungen_title" text="Paramètres"/>
+        <text name="NF_help_einstellungen_text1" text="Les paramètres se trouvent dans ÉCHAP &gt; Paramètres, section « Routes Vivantes » (seuls les administrateurs peuvent les modifier) : mod activé ou non, nombre de véhicules (1 à 8), taille des outils et « Carte étroite » (petits tracteurs avec outils légers uniquement)."/>
+        <text name="NF_help_einstellungen_text2" text="Sur un serveur, il existe en plus le fichier modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, par exemple pour les intervalles d'apparition, les temps de stationnement, la taille du pool, la proportion d'outils et « spielverkehrAnmelden ». Les modifications prennent effet après un redémarrage."/>
+        <text name="NF_help_page_tasten_title" text="Touches et console"/>
+        <text name="NF_help_tasten_text1" text="Touches par défaut (modifiables dans Paramètres &gt; Commandes, entrées « Routes Vivantes : … ») : Ctrl + Alt + O place un point, Ctrl + Alt + U retire le dernier, Ctrl + Alt + C affiche les points un par un, Ctrl + Alt + L retire tous les véhicules voisins (administrateurs uniquement)."/>
+        <text name="NF_help_tasten_text2" text="Commandes de la console : nachbarFelderTrafficStop arrête la circulation et retire les véhicules, nachbarFelderTrafficStart la réactive, nachbarFelderEntfernen retire tous les véhicules, nachbarFelderTimer affiche le temps avant la prochaine apparition."/>
+        <text name="NF_help_page_verkehr_title" text="Circulation du jeu et problèmes"/>
+        <text name="NF_help_verkehr_text1" text="Les voitures de la circulation du jeu freinent pour les véhicules voisins. S'il y a quand même des collisions dans les passages étroits, désactive la circulation dans le menu du jeu ou mets « spielverkehrAnmelden » sur false dans la configuration du serveur."/>
+        <text name="NF_help_verkehr_text2" text="Un véhicule bloqué trop longtemps choisit une nouvelle destination et est retiré si nécessaire. Les emplacements de chargement d'où les véhicules ne repartent pas sont bloqués pour cette carte. Pour signaler un problème, les lignes commençant par « NachbarFelder: » du fichier log.txt sont les plus utiles."/>
+        <text name="NF_wpArt_wegpunkt" text="Point de passage"/>
+        <text name="NF_wpArt_spawn" text="Point d'apparition"/>
+        <text name="NF_richtungAus" text="Orientation d'après %s"/>
+        <text name="NF_richtung_fahrzeug" text="le véhicule"/>
+        <text name="NF_richtung_blick" text="la direction du regard"/>
+        <text name="NF_richtung_kamera" text="la caméra"/>
+        <text name="NF_richtung_unbekannt" text="? (0)"/>
+        <text name="NF_msg_nurAdmin" text="Administrateurs uniquement - connecte-toi d'abord comme administrateur dans le menu"/>
+        <text name="NF_msg_jetztWegfahren" text="- éloigne-toi maintenant"/>
+        <text name="NF_msg_zuNah" text="Non placé : le point %d n'est qu'à %.0f m (10 m minimum)"/>
+        <text name="NF_msg_anServer" text="%s envoyé au serveur (%d / %d, %s)"/>
+        <text name="NF_msg_gesetzt" text="%s %d placé (%d / %d, %s)"/>
+        <text name="NF_msg_keineWegpunkte" text="Aucun point - à placer dans ÉCHAP &gt; Paramètres &gt; Points de passage"/>
+        <text name="NF_msg_wpAnzeige" text="Point %d/%d : x=%d  z=%d  (ÉCHAP &gt; Paramètres : téléporter/supprimer)"/>
+        <text name="NF_msg_teleportiert" text="Téléporté vers x=%d z=%d"/>
+        <text name="NF_msg_loeschAnServer" text="Suppression du point envoyée au serveur"/>
+        <text name="NF_msg_wpEntfernt" text="Point retiré. Restants : %d"/>
+        <text name="NF_msg_nichtGesetzt" text="Non placé"/>
+        <text name="NF_msg_wpGespeichert" text="%d points enregistrés"/>
+        <text name="NF_msg_wpVonCount" text="Point %d sur %d"/>
+        <text name="NF_msg_keineWpVorhanden" text="Aucun point disponible"/>
+        <text name="NF_msg_wpSetzenHinweis" text="Appuie sur Ctrl+Alt+O pour placer des points"/>
+        <text name="NF_wpCat_normal" text="Normal"/>
+        <text name="NF_wpCat_kurz" text="Court"/>
+        <text name="NF_wpCat_lang" text="Long"/>
+        <text name="NF_wpCat_durchfahrt" text="Passage"/>
+        <text name="NF_gui_wpManager" text="Routes Vivantes - gestionnaire de points"/>
+        <text name="NF_gui_teleport" text="Téléporter"/>
+        <text name="NF_gui_loeschen" text="Supprimer"/>
+        <text name="NF_gui_schliessen" text="Fermer"/>
+    </texts>
+</l10n>

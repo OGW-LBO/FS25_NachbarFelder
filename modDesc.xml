@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
-<modDesc descVersion="111">
+<modDesc descVersion="113">
     <author>OGW</author>
-    <version>1.2.0.0</version>
+    <version>1.0.0.0</version>
     <title>
         <de>Lebendige Straßen</de>
         <en>Living Roads</en>
@@ -30,13 +30,6 @@ Bedienung:
 - Strg + Alt + L entfernt alle Nachbar-Fahrzeuge (Tasten änderbar unter Steuerung, Einträge „Lebendige Straßen: …“)
 
 PS: Kracht es an engen Stellen trotzdem mit dem Spielverkehr, den Verkehr im Spielmenü ausschalten.
-
-Changelog 1.2.0.0:
-- Neuer Name „Lebendige Straßen“ (vorher NachbarFelder)
-- Feldarbeit der Nachbarn und Lohnunternehmer entfernt – die Mod ist jetzt reiner Verkehr
-- Nachbar-Fahrzeuge werden beim Spielverkehr angemeldet, Autos bremsen für sie
-- Ingame-Hilfe unter ESC > Hilfe
-- Ladeplatz-Suche an der KI-Straße überarbeitet, Kipp-Erkennung, Hinweis auf Spawnpunkte
 ]]></de>
     <en><![CDATA[
 No more empty roads – it’s time to bring your world to life!
@@ -60,13 +53,6 @@ Usage:
 - Ctrl + Alt + L removes all neighbour vehicles (keys can be changed in the controls, entries "Living Roads: …")
 
 PS: If the game traffic still collides in narrow spots, switch off traffic in the game menu.
-
-Changelog 1.2.0.0:
-- New name "Living Roads" (formerly NachbarFelder)
-- Neighbour field work and contractor removed – the mod is now pure traffic
-- Neighbour vehicles are registered with the game traffic, cars brake for them
-- In-game help in ESC > Help
-- Reworked loading spot search on the AI road, tip-over detection, spawn point hint
 ]]></en>
     <fr><![CDATA[
 Fini les routes vides – donne vie à ton monde !
