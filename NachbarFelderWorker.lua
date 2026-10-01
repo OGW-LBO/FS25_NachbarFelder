@@ -693,9 +693,11 @@ function NachbarFelderWorker:onAIFieldWorkerEnd()
     if tt.isPatrol then return end
     if tt.status >= 3 then return end
 
+    -- Build 141: Abbruchgrund der KI (setAIOnField merkt ihn per job.stop-Wrapper)
     print("NachbarFelder: Feldarbeit beendet Feld " .. tostring(tt.fieldId) ..
         " (Laufzeit: " .. tostring(g_time and tt.fieldWorkStartedAt and
-        math.floor((g_time - tt.fieldWorkStartedAt) / 1000) or "?") .. "s)")
+        math.floor((g_time - tt.fieldWorkStartedAt) / 1000) or "?") .. "s, Grund: " ..
+        tostring(tt.lastFieldStopMsg or "unbekannt") .. ")")
 
     -- Zu früh beendet?
     if tt.status == 2 and tt.fieldWorkStartedAt ~= nil and g_time ~= nil then
