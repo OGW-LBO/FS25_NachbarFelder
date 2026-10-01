@@ -8,6 +8,8 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 157 (01.10.): Kein Helfer-Symbol auf der Karte** — Nachbar-Fahrzeuge (Besitzer = Helfer-Farm) werden in
+>   `IngameMap:drawHotspot` übersprungen (Minimap + große Karte); Helfer-Farm per Settings-Sync an die Clients. Abschnitt Build 157.
 > - **Build 156 (01.10.): Kippen beim Ankuppeln — im Spiel bestätigt** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
 >   zur Seite. Ursache: Kuppeln mit `noSmoothAttach = true` + Gerät nur gierrichtig gesetzt. Jetzt drehrichtig setzen
 >   (`jointOrigRotOffsetComponent`) und weich kuppeln wie ein Spieler. Abschnitt Build 156.
@@ -1436,3 +1438,26 @@ Strukturcheck, Vollparse, Referenzscan.
 **Bestätigt im Spiel (User, 01.10.):** „Traktor und Anbaugerät sauber gespawnt, erst der Traktor, dann wurde das
 Anbaugerät sanft angekuppelt.“ Damit bestätigt: Build 152 (Spielverkehr bremst), 155 (waagerechter Spawn) und 156
 (weiches Kuppeln).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 157: Kein Helfer-Symbol der Nachbarn auf der Karte
+
+**Wunsch User:** „das typische Helfergrafik weg, damit es mit echten Helfern keinen Konflikt gibt“ – nachgefragt: gemeint
+ist das **Helfer-Symbol auf der Karte** (Minimap und ESC-Karte). Der KI-Verkehr soll sich wie normaler Verkehr einfügen.
+
+**Umsetzung (LUADOC):**
+- Minimap und große Karte zeichnen jeden Hotspot über `IngameMap:drawHotspot(hotspot, …)` (`IngameMapElement` →
+  `ingameMap:drawHotspotsOnly()`). Hotspots kennen ihr Fahrzeug (`getVehicle()`, vgl. `IngameMapElement`; Fahrzeug-Hotspot
+  aus `Vehicle:createMapHotspot` → `VehicleHotspot:setVehicle`). Ob das Helfer-Symbol während eines KI-Auftrags ein eigener
+  Hotspot ist (`AIJobVehicle:getMapHotspot` ist überschrieben, Rumpf nicht dokumentiert), spielt so keine Rolle.
+- `installKartenHook()` (aus `loadMap`, nur mit `g_client`, einmal): `IngameMap.drawHotspot` überschrieben – gehört der
+  Hotspot zu einem Nachbar-Fahrzeug, wird nicht gezeichnet. `getIstNachbarHotspot`: Fahrzeug aus `getVehicle()` bzw.
+  `.vehicle`, Zugfahrzeug über `getRootVehicle`, Besitzer-Farm == Helfer-Farm. Alles in `pcall`.
+- Helfer-Farm für Clients: `getSettingsState().helferFarmId` (Server: `farmId`, sobald ermittelt; sonst 0), am Ende von
+  `NachbarFelderSettingsSyncEvent` als UInt8 geschrieben/gelesen; `applySettingsState` merkt `helferFarmIdSync`. Nach der
+  Farmwahl (`getEffectiveFarmId`) sofort `broadcastSettingsToClients()`. Server und Clients müssen dieselbe Mod-Version
+  haben (Stream-Format geändert) – im MP ohnehin Pflicht.
+
+**Tests:** Mock: vor dem Sync sichtbar, danach Nachbar-Traktor und sein Gerät ausgeblendet, eigenes Fahrzeug und
+Hotspot ohne Fahrzeug gezeichnet; Server liefert `helferFarmId` 14; Stream-Rundlauf des Sync-Events. Strukturcheck,
+Vollparse. **Unverifiziert im Spiel.**

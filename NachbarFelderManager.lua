@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 156
+NachbarFelderManager.BUILD = 157
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -205,12 +205,17 @@ function NachbarFelderManager:getSettingsState()
         trafficTrailerSize = self.trafficTrailerSize or 2,
         engeMap            = self.engeMap ~= false,
         missions           = missions,
+        -- Build 157: Helfer-Farm fuer die Clients (Karten-Symbole ausblenden); 0 = noch unbekannt
+        helferFarmId       = self:getHelferFarmIdAnzeige(),
     }
 end
 
 -- Einstellungs-Stand anwenden (Server nach Savegame-Load, Client nach Sync)
 function NachbarFelderManager:applySettingsState(state)
     if state == nil then return end
+    if state.helferFarmId ~= nil then   -- Build 157, nur fuer die Anzeige
+        self.helferFarmIdSync = state.helferFarmId
+    end
     if state.active ~= nil then
         self.active = state.active == true
     end
@@ -411,6 +416,7 @@ function NachbarFelderManager:getEffectiveFarmId()
     self.farmId = gewaehlt.farmId
     print(string.format("NachbarFelder: Helfer-Farm = %d '%s' (%s, Farmland %d, Gebaeude %d)",
         gewaehlt.farmId, gewaehlt.name, grund, gewaehlt.farmlands, gewaehlt.gebaeude))
+    self:broadcastSettingsToClients()   -- Build 157: Clients kennen damit die Helfer-Farm
     return self.farmId
 end
 
@@ -1014,6 +1020,9 @@ function NachbarFelderManager:loadMap()
     -- Build 153: eigene Kategorie im Hilfe-Menue (ESC > Hilfe)
     self:ladeHilfe()
 
+    -- Build 157: Nachbar-Fahrzeuge ohne Helfer-Symbol auf der Karte
+    self:installKartenHook()
+
     -- Client-lokale Anzeige-Einstellungen (Karten-Hotspots an/aus, Build 71)
     self:loadClientPrefs()
 
@@ -1038,6 +1047,60 @@ function NachbarFelderManager:loadMap()
             print("NachbarFelder: [SETTINGS] Einstellungen aus dem Savegame angewendet")
         end
     end
+end
+
+--- Helfer-Farm fuer die Anzeige (Build 157): Server = eigene Wahl, Client = per Settings-Sync.
+--- 0 = unbekannt bzw. Spectator - dann wird nichts ausgeblendet.
+function NachbarFelderManager:getHelferFarmIdAnzeige()
+    local fid = nil
+    if g_currentMission ~= nil and g_currentMission:getIsServer() then
+        fid = self.farmIdResolved and self.farmId or nil
+    else
+        fid = self.helferFarmIdSync
+    end
+    local spectator = (FarmManager ~= nil and FarmManager.SPECTATOR_FARM_ID) or 0
+    if fid == nil or fid <= 0 or fid == spectator then return 0 end
+    return fid
+end
+
+--- Gehoert der Karten-Hotspot zu einem Nachbar-Fahrzeug? (Build 157)
+--- Kennzeichen: Besitzer-Farm des Fahrzeugs (bzw. seines Zugfahrzeugs) = Helfer-Farm. Die
+--- Helfer-Farm hat nie Spieler (Build 138), andere Fahrzeuge trifft das also nicht.
+function NachbarFelderManager:getIstNachbarHotspot(hotspot)
+    local fid = self:getHelferFarmIdAnzeige()
+    if fid == 0 or hotspot == nil then return false end
+    local veh = nil
+    if hotspot.getVehicle ~= nil then veh = hotspot:getVehicle() end
+    if veh == nil then veh = hotspot.vehicle end
+    if type(veh) ~= "table" or veh.getOwnerFarmId == nil then return false end
+    if veh.getRootVehicle ~= nil then
+        local root = veh:getRootVehicle()
+        if root ~= nil and root.getOwnerFarmId ~= nil then veh = root end
+    end
+    return veh:getOwnerFarmId() == fid
+end
+
+--- Helfer-Symbol der Nachbar-Fahrzeuge auf Minimap und grosser Karte ausblenden (Build 157).
+--- Beide zeichnen jeden Hotspot ueber IngameMap:drawHotspot (IngameMapElement ->
+--- drawHotspotsOnly); Hotspots kennen ihr Fahrzeug (getVehicle, vgl. IngameMapElement).
+--- So verwechselt niemand die Nachbarn mit eigenen Helfern. Nur mit Client, einmal.
+function NachbarFelderManager:installKartenHook()
+    if NachbarFelderManager.kartenHookInstalliert or g_client == nil then return end
+    if IngameMap == nil or IngameMap.drawHotspot == nil then
+        print("NachbarFelder: Karten-Symbole bleiben sichtbar (IngameMap.drawHotspot fehlt)")
+        return
+    end
+    NachbarFelderManager.kartenHookInstalliert = true
+    IngameMap.drawHotspot = Utils.overwrittenFunction(IngameMap.drawHotspot,
+        function(map, superFunc, hotspot, ...)
+            local nf = g_NachbarFelderManager
+            if nf ~= nil then
+                local ok, unser = pcall(nf.getIstNachbarHotspot, nf, hotspot)
+                if ok and unser then return end
+            end
+            return superFunc(map, hotspot, ...)
+        end)
+    print("NachbarFelder: Helfer-Symbole der Nachbar-Fahrzeuge auf der Karte ausgeblendet")
 end
 
 --- Ingame-Hilfe laden (Build 153). Gleiches Format und gleicher Weg wie die

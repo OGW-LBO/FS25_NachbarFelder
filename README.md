@@ -15,8 +15,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.2.0.0` (Changelog in der Beschreibung der `modDesc.xml`)
-- Interner Stand: `NachbarFelderManager.BUILD = 156` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 156)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 157` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 157)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -101,6 +101,10 @@ Die Autos des Spielverkehrs bremsen nur für Objekte, die bei ihnen angemeldet s
 und Fahrzeuge mit Spieler am Steuer. Seit Build 152 meldet die Mod ihre Traktoren und Geräte beim Losfahren genauso an
 und beim Einschlafen im Pool, beim Löschen und beim Spielende wieder ab. Abschalten lässt sich das in der
 `NachbarFelderServerConfig.xml` mit `spielverkehrAnmelden` = `false`.
+
+Seit Build 157 zeigen Minimap und große Karte für die Nachbar-Fahrzeuge kein Helfer-Symbol mehr – sie sehen aus wie
+normaler Verkehr und lassen sich nicht mit eigenen Helfern verwechseln. Erkannt werden sie an der Helfer-Farm; der
+Server schickt sie den Clients mit dem Einstellungs-Abgleich.
 
 ## Einstellungen und Daten
 

@@ -159,6 +159,8 @@ function NachbarFelderSettingsSyncEvent:writeStream(streamId, connection)
         streamWriteString(streamId, mName)
         streamWriteUInt8( streamId, (mActive == true) and 1 or 0)
     end
+    -- Build 157: Helfer-Farm (Karten-Symbole der Nachbarn ausblenden), 0 = unbekannt
+    streamWriteUInt8(streamId, math.max(0, math.min(255, st.helferFarmId or 0)))
 end
 function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     local state = {}
@@ -174,6 +176,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
         local mActive = streamReadUInt8(streamId) == 1
         state.missions[mName] = mActive
     end
+    state.helferFarmId = streamReadUInt8(streamId)   -- Build 157
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
         pcall(function()
