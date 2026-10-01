@@ -1,12 +1,20 @@
-# Release bauen: Tag "build<N>" pushen (z. B. build139) -> build.py baut
-# FS25_NachbarFelder.zip, die ZIP haengt am GitHub-Release zum Tag.
-# Der Tag muss zu NachbarFelderManager.BUILD passen, sonst bricht der Lauf ab.
+# Release bauen: build.py baut FS25_NachbarFelder.zip, die ZIP haengt an einem
+# GitHub-Release mit Tag "build<N>" (N = NachbarFelderManager.BUILD).
+# Ausloeser:
+#   - Push auf main (z. B. Merge eines PR): neues Release, wenn es build<N> noch nicht gibt
+#   - Tag "build<N>" von Hand pushen: Tag muss zu NachbarFelderManager.BUILD passen
+#   - Actions -> Release -> "Run workflow" (manuell, gleiche Regel wie bei main)
+# Gibt es das Release zur Build-Nummer schon, passiert nichts - neue Releases
+# gibt es nur mit hochgezaehltem BUILD.
 name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "build*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,19 +25,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tag gegen NachbarFelderManager.BUILD pruefen
+      - name: Build-Nummer ermitteln
         run: |
           build=$(grep -oP '^NachbarFelderManager\.BUILD = \K[0-9]+' NachbarFelderManager.lua)
-          if [ "build${build}" != "${GITHUB_REF_NAME}" ]; then
+          if [ -z "${build}" ]; then
+            echo "NachbarFelderManager.BUILD nicht gefunden"
+            exit 1
+          fi
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "build${build}" != "${GITHUB_REF_NAME}" ]; then
             echo "Tag ${GITHUB_REF_NAME} passt nicht zu NachbarFelderManager.BUILD = ${build}"
             exit 1
           fi
           echo "BUILD=${build}" >> "$GITHUB_ENV"
+          echo "TAG=build${build}" >> "$GITHUB_ENV"
+
+      - name: Vorhandenes Release pruefen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+            echo "Release ${TAG} gibt es schon - nichts zu tun."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
 
       - name: ZIP bauen
+        if: env.SKIP != '1'
         run: python3 build.py
 
       - name: Release anlegen
+        if: env.SKIP != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -42,6 +66,7 @@ jobs:
 
           Aenderungen: siehe docs/PROJEKTSTAND.md, Abschnitt Build ${BUILD}.
           EOF
-          gh release create "${GITHUB_REF_NAME}" FS25_NachbarFelder.zip \
+          gh release create "${TAG}" FS25_NachbarFelder.zip \
+            --target "${GITHUB_SHA}" \
             --title "FS25_NachbarFelder Build ${BUILD}" \
             --notes-file notes.md

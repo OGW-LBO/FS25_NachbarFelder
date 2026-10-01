@@ -28,14 +28,15 @@ Der Ordner selbst darf nicht gezippt werden: `modDesc.xml` muss in der ZIP ganz 
 
 ### Release auf GitHub
 
-Ein Tag `build<N>` (passend zu `NachbarFelderManager.BUILD`) startet den Workflow
-`.github/workflows/release.yml`: Er baut die ZIP mit `build.py` und hängt sie an ein GitHub-Release
-zum Tag. Passt der Tag nicht zur Build-Nummer, bricht der Lauf ab.
+Der Workflow `.github/workflows/release.yml` baut die ZIP mit `build.py` und legt ein GitHub-Release
+mit Tag `build<N>` an (N = `NachbarFelderManager.BUILD`). Er läuft
 
-```bash
-git tag build139
-git push origin build139
-```
+- bei jedem Push auf `main`, also auch beim Merge eines Pull Requests,
+- wenn ein Tag `build<N>` gepusht wird (muss zur Build-Nummer passen),
+- von Hand unter **Actions → Release → Run workflow**.
+
+Gibt es das Release zur Build-Nummer schon, passiert nichts. Ein neues Release gibt es also nur mit
+hochgezählter Build-Nummer.
 
 Die ZIP heißt immer `FS25_NachbarFelder.zip` – das Spiel verwendet den Dateinamen als Mod-Namen.
 
