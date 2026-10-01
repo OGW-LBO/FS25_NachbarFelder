@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<GUI>
+    <GuiElement profile="fs25_menuContainer">
+        <BoxLayout profile="fs25_subCategorySelectorTabbedBox">
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="nfWpTab"
+                    text="$l10n_NF_wpPage_tabTitle" onClick="onClickNFWpTab">
+                <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
+            </Button>
+        </BoxLayout>
+        <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="nfWpPage">
+            <ScrollingLayout profile="fs25_settingsLayout" id="nfWpLayout">
+                <Text profile="fs25_settingsSectionHeader" id="nfWpInfoText"
+                      text="Keine Wegpunkte"/>
+                <!-- Prefabs: nach loadGui ausgeblendet, nur fuer clone() -->
+                <Text profile="fs25_settingsSectionHeader" id="nfWpSectionPrefab"/>
+                <!-- Aktions-Zeilen (Build 135): echter Button statt MultiTextOption mit einem
+                     Eintrag - dort loeste nur der kleine Pfeil ganz rechts aus -->
+                <Bitmap profile="fs25_multiTextOptionContainer" id="nfWpActionPrefab">
+                    <Button profile="nf_wpActionButton" id="nfWpActionOptPrefab" text="">
+                        <ThreePartBitmap profile="nf_wpActionButtonBg"/>
+                        <Text profile="fs25_multiTextOptionTooltip" name="ignore"/>
+                    </Button>
+                    <Text profile="fs25_settingsMultiTextOptionTitle"/>
+                </Bitmap>
+                <!-- Toggle-Zeilen: BinaryOption (Nein/Ja) -->
+                <Bitmap profile="fs25_multiTextOptionContainer" id="nfWpBoolPrefab">
+                    <BinaryOption profile="fs25_settingsBinaryOption" id="nfWpCheckPrefab">
+                        <Text profile="fs25_multiTextOptionTooltip" name="ignore"/>
+                    </BinaryOption>
+                    <Text profile="fs25_settingsMultiTextOptionTitle"/>
+                </Bitmap>
+            </ScrollingLayout>
+            <Bitmap profile="fs25_settingsTooltipSeparator"/>
+        </GuiElement>
+    </GuiElement>
+</GUI>

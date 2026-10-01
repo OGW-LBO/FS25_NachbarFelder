@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<GUI>
+    <DialogElement name="NachbarFelderWaypointDialog"
+                   id="NachbarFelderWaypointDialog"
+                   screenAlign="CENTER CENTER"
+                   size="660 300">
+
+        <BitmapElement name="dialogBg"
+                       position="0 0"
+                       size="660 300"
+                       color="0.08 0.08 0.08 0.95"/>
+
+        <TextElement name="titleText"
+                     position="0 120"
+                     size="620 32"
+                     textAlignment="CENTER"
+                     textColor="1 0.7 0 1"
+                     textSize="19"
+                     bold="true"
+                     text="NachbarFelder - Wegpunkt Manager"/>
+
+        <TextElement name="counterText"
+                     position="0 78"
+                     size="620 28"
+                     textAlignment="CENTER"
+                     textColor="0.65 0.65 0.65 1"
+                     textSize="14"
+                     text=""/>
+
+        <TextElement name="wpInfoText"
+                     position="0 22"
+                     size="460 52"
+                     textAlignment="CENTER"
+                     textColor="1 1 1 1"
+                     textSize="18"
+                     text=""/>
+
+        <ButtonElement name="prevButton"
+                       position="-275 22"
+                       size="80 52"
+                       text="&lt;"
+                       onClickCallback="onClickPrev"/>
+
+        <ButtonElement name="nextButton"
+                       position="275 22"
+                       size="80 52"
+                       text="&gt;"
+                       onClickCallback="onClickNext"/>
+
+        <BitmapElement name="divider"
+                       position="0 -30"
+                       size="620 2"
+                       color="0.3 0.3 0.3 1"/>
+
+        <ButtonElement name="teleportButton"
+                       position="-205 -88"
+                       size="190 46"
+                       text="Teleportieren"
+                       onClickCallback="onClickTeleport"/>
+
+        <ButtonElement name="deleteButton"
+                       position="20 -88"
+                       size="150 46"
+                       text="Loeschen"
+                       onClickCallback="onClickDelete"/>
+
+        <ButtonElement name="closeButton"
+                       position="215 -88"
+                       size="150 46"
+                       text="Schliessen"
+                       onClickCallback="onClickClose"/>
+
+    </DialogElement>
+</GUI>

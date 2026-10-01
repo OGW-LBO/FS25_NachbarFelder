@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <texts>
+        <text name="NachbarFelder" text="NachbarFelder"/>
+        <text name="NF_setting_title" text="Activity on Other Fields"/>
+        <text name="NF_active_short" text="Activity on Other Fields"/>
+        <text name="NF_active_long" text="Enables/Disables activity on other fields"/>
+        <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Number of Workers"/>
+        <text name="NF_MAX_ASSISTANT_WORKERS_long" text="How many workers can work in parallel at maximum?"/>
+        <text name="NF_trafficLimit_short" text="Traffic vehicles"/>
+        <text name="NF_trafficLimit_long" text="How many AI traffic vehicles drive simultaneously on the map? (1-8). Waypoints and spawn points are set in the 'Waypoints' tab."/>
+        <text name="NF_trafficTrailerSize_short" text="Implements"/>
+        <text name="NF_trafficTrailerSize_long" text="Implements for traffic vehicles. 0 = None | 1 = Small | 2 = Medium | 3 = All (plows, cultivators, mowers, tedders, rakes, seed drills)"/>
+        <text name="NF_engeMap_short" text="Narrow map"/>
+        <text name="NF_engeMap_long" text="For narrow maps and cramped dealer areas: neighbours only use small and medium tractors (up to 12 t) with light implements (tedders, rakes, up to 3 t), and field work always gets the smallest vehicle group - short rigs fit short spawn places. Large tractors, wheel loaders and telehandlers stay out. Off = as before, everything allowed."/>
+        <text name="NF_plowMission_short" text="Plowing"/>
+        <text name="NF_plowMission_long" text="Generate plowing mission"/>
+        <text name="NF_cultivateMission_short" text="Cultivating"/>
+        <text name="NF_cultivateMission_long" text="Generate cultivating mission"/>
+        <text name="NF_sowMission_short" text="Sowing"/>
+        <text name="NF_sowMission_long" text="Generate sowing mission"/>
+        <text name="NF_harvestMission_short" text="Harvesting"/>
+        <text name="NF_harvestMission_long" text="Generate harvesting mission"/>
+        <text name="NF_hoeMission_short" text="Hoeing"/>
+        <text name="NF_hoeMission_long" text="Generate hoeing mission"/>
+        <text name="NF_weedMission_short" text="Remove Weeds"/>
+        <text name="NF_weedMission_long" text="Generate weeding mission"/>
+        <text name="NF_herbicideMission_short" text="Spraying"/>
+        <text name="NF_herbicideMission_long" text="Generate herbicide spraying mission"/>
+        <text name="NF_fertilizeMission_short" text="Fertilizing"/>
+        <text name="NF_fertilizeMission_long" text="Generate fertilizing mission"/>
+        <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Remove all neighbour vehicles"/>
+        <text name="input_NF_START_NOW" text="NachbarFelder: Start helper now"/>
+        <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Set waypoint"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Remove last waypoint"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Show waypoints one by one"/>
+        <text name="NF_wpPage_tabTitle" text="Waypoints"/>
+        <text name="NF_WPPAGE_TABTITLE" text="Waypoints"/>
+        <text name="NF_wpActions_title" text="Actions"/>
+        <text name="NF_wpMap_section_title" text="Map"/>
+        <text name="NF_wpMapShow_short" text="Show WPs on map"/>
+        <text name="NF_wpMapShow_long" text="Show waypoints as markers on the ingame map (category: MISCELLANEOUS)"/>
+        <text name="NF_wp_section_title" text="Waypoint Manager"/>
+        <text name="NF_wp_info_title" text="Waypoint Information"/>
+        <text name="NF_wpPrev_short" text="Previous waypoint"/>
+        <text name="NF_wpPrev_long" text="Show previous waypoint"/>
+        <text name="NF_wpNext_short" text="Next waypoint"/>
+        <text name="NF_wpNext_long" text="Show next waypoint"/>
+        <text name="NF_wpTeleport_short" text="Teleport to waypoint"/>
+        <text name="NF_wpType_short" text="Change type"/>
+        <text name="NF_wpType_long" text="Cycle category: Normal (20-60s) | Short (5-20s) | Long (2-5 min) | Spawn point. Better create new spawn points with 'Set spawn point here' - older points have no reliable direction."/>
+        <text name="NF_wpTeleport_long" text="Teleport to the displayed waypoint"/>
+        <text name="NF_wpDelete_short" text="Delete waypoint"/>
+        <text name="NF_wpDelete_long" text="Delete the displayed waypoint"/>
+        <text name="NF_wpBtn_prev" text="&lt; Back"/>
+        <text name="NF_wpBtn_next" text="Next &gt;"/>
+        <text name="NF_wpBtn_teleport" text="Teleport"/>
+        <text name="NF_wpBtn_delete" text="Delete"/>
+        <text name="NF_wpBtn_set" text="Set"/>
+        <text name="NF_wpNew_section_title" text="New point at your position"/>
+        <text name="NF_wpAddHere_short" text="Set waypoint here"/>
+        <text name="NF_wpAddHere_long" text="Places a normal waypoint at your position (in a vehicle: at the vehicle's position). Keep at least 10 m from other points."/>
+        <text name="NF_wpAddSpawnHere_short" text="Set spawn point here"/>
+        <text name="NF_wpAddSpawnHere_long" text="New neighbour vehicles start here. Sit in a tractor facing the exit direction (on foot your view direction counts). About 4 m width must be clear from 3 m in front to 14 m behind the point. Drive away afterwards - while your vehicle stands there, the point counts as occupied."/>
+        <text name="NF_wpNone" text="No waypoints - use 'Set waypoint here' or 'Set spawn point here' below"/>
+        <text name="NF_wpVehicles_section_title" text="Vehicle types"/>
+        <text name="NF_wpCatTractorS_short" text="Small tractors"/>
+        <text name="NF_wpCatTractorS_long" text="Spawn small tractors (up to ~100 HP) as traffic vehicles"/>
+        <text name="NF_wpCatTractorM_short" text="Medium tractors"/>
+        <text name="NF_wpCatTractorM_long" text="Spawn medium tractors (~100-200 HP) as traffic vehicles"/>
+        <text name="NF_wpCatTractorL_short" text="Large tractors"/>
+        <text name="NF_wpCatTractorL_long" text="Spawn large tractors (200+ HP) as traffic vehicles"/>
+        <text name="NF_wpCatLoader_short" text="Wheel loaders"/>
+        <text name="NF_wpCatLoader_long" text="Spawn wheel loaders as traffic vehicles (only if navmesh-capable)"/>
+        <text name="NF_wpCatTeleLoader_short" text="Telescopic handlers"/>
+        <text name="NF_wpCatTeleLoader_long" text="Spawn telescopic handlers as traffic vehicles (only if navmesh-capable)"/>
+    </texts>
+</l10n>

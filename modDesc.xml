@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="111">
+    <author>OGW</author>
+    <version>1.1.42.0</version>
+    <title>
+        <en>NachbarFelder</en>
+        <fr>Champs Voisins</fr>
+    </title>
+    <description>
+        <de><![CDATA[
+Schluss mit leeren Strassen – jetzt kommt Leben in deine Welt!
+
+Warum solltest nur du arbeiten? Mit diesem Mod sind auch deine Nachbarn unterwegs! KI-Farmer spawnen am Shop, fahren selbststaendig zu ihren Feldern und erledigen dort ihre Arbeiten – vom Saeen bis zur Ernte. Danach geht’s wieder zurueck, genau wie im echten Farmer-Alltag.
+
+Ploetzlich ist richtig was los: Traktoren auf den Strassen, Arbeit auf den Feldern und eine Welt, die sich endlich lebendig anfuehlt. Du bist nicht mehr allein – deine Konkurrenz schlaeft nicht!
+
+Features:
+
+- Aktive KI-Farmer mit eigenen Fahrzeugen
+- Fahrten vom Shop zu Feldern und zurueck
+- Sichtbare Feldarbeit
+- Mehr Verkehr & deutlich mehr Leben auf der Map
+- Spuerbar realistischeres Gameplay
+- Zwischen 5 und 30 echten(!) minuten spawnt ein Helfer
+- Sollte ein Helfer längere Zeit sich nicht bewegen, wird er entfernt
+- Um Fahrzeuge zu Spawnen, sollte der Shop noch ausreichend frei Plätze haben.
+
+Wegpunkte und Spawnpunkte setzt du unter ESC > Einstellungen > Wegpunkte.
+Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten änderbar in der Steuerung, Einträge „NachbarFelder: …“).
+
+PS: Es ist ratsam, den Verkehr auszuschalten, aber kein Muss!
+]]></de>
+    <en><![CDATA[
+No more empty roads – it’s time to bring your world to life! 
+
+Why should you be the only one working? With this mod, your neighbors are busy too! AI farmers spawn at the shop, drive independently to their fields, and carry out their work – from sowing to harvesting. Afterwards, they head back, just like in real farming life.
+
+Suddenly, there’s action everywhere: tractors on the roads, work on the fields, and a world that finally feels alive. You’re no longer alone – the competition never sleeps!
+
+Features:
+
+- Active AI farmers with their own vehicles
+- Trips from the shop to fields and back
+- Visible field work
+- More traffic & a livelier map
+- Noticeably more realistic gameplay
+- A helper spawns every 5 to 30 real(!) minutes.
+- If a helper remains motionless for an extended period, they will be removed.
+- To spawn vehicles, the shop must still have sufficient free slots.
+
+Waypoints and spawn points are set in ESC > Settings > Waypoints.
+All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "NachbarFelder: …").
+
+PS: It is recommended to disable traffic, but it’s not required!
+]]></en>
+    <fr><![CDATA[
+Fini les routes vides – donne vie à ton monde !
+
+Pourquoi serais-tu le seul à travailler ? Avec ce mod, tes voisins sont eux aussi actifs ! Des agriculteurs IA apparaissent au magasin, se rendent automatiquement à leurs champs et effectuent leurs travaux – du semis à la récolte. Ensuite, ils rentrent, comme dans la vraie vie agricole.
+
+Soudain, il y a de l’activité partout : des tracteurs sur les routes, du travail dans les champs et un monde qui paraît enfin vivant. Tu n’es plus seul – la concurrence ne dort jamais !
+
+Fonctionnalités :
+
+- Agriculteurs IA actifs avec leurs propres véhicules
+- Déplacements du magasin aux champs et retour
+- Travaux agricoles visibles
+- Plus de trafic & une carte plus vivante
+- Une expérience de jeu plus réaliste
+- Un assistant apparaît toutes les 5 à 30 minutes (temps réel).
+- Si un assistant reste immobile pendant une période prolongée, il sera supprimé.
+- Pour que des véhicules puissent apparaître, le magasin doit encore disposer de suffisamment d'espace libre.
+
+Les points de passage et les points d’apparition se placent dans ÉCHAP > Paramètres > Waypoints.
+Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « NachbarFelder: … »).
+
+PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obligatoire !
+]]></fr>
+    </description>
+    <iconFilename>icon_NachbarFelder.dds</iconFilename>
+    <multiplayer supported="true"/>
+    <extraSourceFiles>
+        <sourceFile filename="NachbarFelder.lua" />
+    </extraSourceFiles>
+    <l10n filenamePrefix="l10n/l10n"/>
+	<!-- Build 134: Standardtasten auf Strg+Alt. Shift+Alt kollidierte - Shift+Alt+P loeste
+	     Shift+P (Baumenue) bzw. Alt+P (Kleiderschrank) aus, Alt+X setzt den Ballenzaehler
+	     zurueck, W ist Laufen. Bei L/O/U/C/E sind Strg+Taste und Alt+Taste frei.
+	     Eigene Belegungen der Spieler (inputBinding.xml im Profil) bleiben erhalten. -->
+	<inputBinding>
+        <actionBinding action="NF_DELETE_HELPER">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_l" />
+        </actionBinding>
+        <actionBinding action="NF_START_NOW">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_e" />
+        </actionBinding>
+        <actionBinding action="NF_ADD_WAYPOINT">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_o" />
+        </actionBinding>
+        <actionBinding action="NF_REMOVE_WAYPOINT">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_u" />
+        </actionBinding>
+        <actionBinding action="NF_MANAGE_WAYPOINTS">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_c" />
+        </actionBinding>
+    </inputBinding>
+    <actions>
+        <action name="NF_DELETE_HELPER" />
+        <action name="NF_START_NOW" />
+        <action name="NF_ADD_WAYPOINT" />
+        <action name="NF_REMOVE_WAYPOINT" />
+        <action name="NF_MANAGE_WAYPOINTS" />
+    </actions>
+</modDesc>

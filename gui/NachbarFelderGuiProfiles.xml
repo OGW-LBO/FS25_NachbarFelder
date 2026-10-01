@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<GUIProfiles>
+    <!-- Build 135: Aktions-Button fuer den Reiter Wegpunkte.
+         Groesse, Lage und Rahmen wie fs25_settingsMultiTextOption (SDK xmlDoku/guiProfiles.xml),
+         aber als echter Button: ein Klick auf die ganze Flaeche loest aus (ButtonElement:mouseEvent),
+         nicht nur der kleine Pfeil rechts. Geladen per g_gui:loadProfiles vor dem loadGui. -->
+    <Profile name="nf_wpActionButton" extends="emptyPanel" with="anchorMiddleRight">
+        <size value="280px 36px"/>
+        <position value="-10px 0px"/>
+        <focusOnHighlight value="true"/>
+
+        <textSize value="16px"/>
+        <textBold value="true"/>
+        <textUpperCase value="true"/>
+        <textAlignment value="center"/>
+        <textColor value="$preset_fs25_colorMainLight"/>
+        <textHighlightedColor value="$preset_fs25_colorMainHighlight"/>
+        <textFocusedColor value="$preset_fs25_colorMainHighlight"/>
+        <textPressedColor value="$preset_fs25_colorMainHighlight"/>
+        <textDisabledColor value="$preset_colorDisabled"/>
+    </Profile>
+
+    <!-- Rahmen wie bei den Auswahlfeldern: grau, im Fokus in Markierungsfarbe -->
+    <Profile name="nf_wpActionButtonBg" extends="fs25_multiTextOptionBg"/>
+</GUIProfiles>
