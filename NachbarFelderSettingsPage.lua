@@ -72,10 +72,8 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
 	if not isServer and g_client ~= nil and NachbarFelderSettingsEditEvent ~= nil then
 		local num = b
 		if type(num) == "boolean" then num = num and 1 or 0 end
-		pcall(function()
 			g_client:getServerConnection():sendEvent(
 				NachbarFelderSettingsEditEvent.new(a.name, num))
-		end)
 	end
 
 	if self.NachbarFelderManager[a.name] ~= nil then

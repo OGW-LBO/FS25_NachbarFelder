@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 157
+NachbarFelderManager.BUILD = 162
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -43,21 +43,36 @@ lpXmlSchema:register(XMLValueType.STRING, lpXmlKey .. ".platz(?)#grund", "Grund 
 --- FS25_Beuren.MultifruitModMap_Beuren); ersatzweise der letzte Ordnername von
 --- g_currentMission.baseDirectory (verifiziert: FarmlandManager.lua:62).
 --- @return string|nil
+-- Build 158: Spieler-Texte kommen aus l10n (der ModHub verlangt Deutsch UND
+-- Englisch fuer alles, was im Spiel sichtbar ist). hasText prueft den Schluessel,
+-- damit bei einem fehlenden Eintrag nicht der rohe Schluessel in der Meldung steht.
+local function nfText(key, ...)
+    local s = key
+    if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
+        s = g_i18n:getText(key)
+    end
+    if select("#", ...) > 0 then
+        s = string.format(s, ...)
+    end
+    return s
+end
+
+-- Meldung mit vorangestelltem Mod-Namen, so wie der Spieler sie sieht.
+local function nfMeldung(key, ...)
+    return nfText("NachbarFelder") .. ": " .. nfText(key, ...)
+end
+
 local function nfGetKartenKennung()
     local kennung = nil
-    pcall(function()
-        local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
-        if mi ~= nil and type(mi.mapId) == "string" and mi.mapId ~= "" then
-            kennung = mi.mapId
-        end
-    end)
+    local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
+    if mi ~= nil and type(mi.mapId) == "string" and mi.mapId ~= "" then
+        kennung = mi.mapId
+    end
     if kennung == nil then
-        pcall(function()
-            local bd = g_currentMission ~= nil and g_currentMission.baseDirectory or nil
-            if type(bd) == "string" and bd ~= "" then
-                kennung = string.match(bd, "([^/\\]+)[/\\]*$")
-            end
-        end)
+        local bd = g_currentMission ~= nil and g_currentMission.baseDirectory or nil
+        if type(bd) == "string" and bd ~= "" then
+            kennung = string.match(bd, "([^/\\]+)[/\\]*$")
+        end
     end
     if kennung == nil or kennung == "" then return nil end
     kennung = string.gsub(kennung, "[^%w]", "_")
@@ -253,7 +268,7 @@ function NachbarFelderManager:applySettingsState(state)
     end
     -- Settings-Seite aktualisieren, falls geladen (Client + SP)
     if self.settingsPage ~= nil and self.settingsPage.refreshFromManager ~= nil then
-        pcall(function() self.settingsPage:refreshFromManager() end)
+        if self.settingsPage ~= nil and self.settingsPage.refreshFromManager ~= nil then self.settingsPage:refreshFromManager() end
     end
 end
 
@@ -308,9 +323,7 @@ end
 -- Kompletten Stand an alle Clients schicken (nur Server)
 function NachbarFelderManager:broadcastSettingsToClients()
     if g_server ~= nil and NachbarFelderSettingsSyncEvent ~= nil then
-        pcall(function()
-            g_server:broadcastEvent(NachbarFelderSettingsSyncEvent.new(self:getSettingsState()))
-        end)
+        g_server:broadcastEvent(NachbarFelderSettingsSyncEvent.new(self:getSettingsState()))
     end
 end
 
@@ -430,14 +443,12 @@ end
 -- Fallback prueft den User direkt an der Connection.
 -- ============================================================
 function NachbarFelderManager:onMasterUserAdded(user)
-    pcall(function()
-        if user ~= nil and user.getConnection ~= nil then
-            self.adminConnections = self.adminConnections or {}
-            self.adminConnections[user:getConnection()] = true
-            local name = (user.getNickname ~= nil) and user:getNickname() or "?"
-            print("NachbarFelder: [ADMIN] Master-User registriert: " .. tostring(name))
-        end
-    end)
+    if user ~= nil and user.getConnection ~= nil then
+        self.adminConnections = self.adminConnections or {}
+        self.adminConnections[user:getConnection()] = true
+        local name = (user.getNickname ~= nil) and user:getNickname() or "?"
+        print("NachbarFelder: [ADMIN] Master-User registriert: " .. tostring(name))
+    end
 end
 
 -- Server: Ist die Verbindung ein Admin? (nil = lokaler Aufruf -> ja)
@@ -448,15 +459,13 @@ function NachbarFelderManager:getIsConnectionAdmin(connection)
     end
     -- Fallback: direkt am User-Objekt nachsehen
     local isAdmin = false
-    pcall(function()
-        if g_currentMission ~= nil and g_currentMission.userManager ~= nil
-           and g_currentMission.userManager.getUserByConnection ~= nil then
-            local user = g_currentMission.userManager:getUserByConnection(connection)
-            if user ~= nil and user.getIsMasterUser ~= nil then
-                isAdmin = user:getIsMasterUser() == true
-            end
+    if g_currentMission ~= nil and g_currentMission.userManager ~= nil
+       and g_currentMission.userManager.getUserByConnection ~= nil then
+        local user = g_currentMission.userManager:getUserByConnection(connection)
+        if user ~= nil and user.getIsMasterUser ~= nil then
+            isAdmin = user:getIsMasterUser() == true
         end
-    end)
+    end
     return isAdmin
 end
 
@@ -470,11 +479,9 @@ end
 
 function NachbarFelderManager:notifyAdminRequired()
     if g_currentMission ~= nil then
-        pcall(function()
-            g_currentMission:addIngameNotification(
-                FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
-                "Lebendige Straßen: Nur fuer Admins - bitte zuerst im Menue als Admin anmelden")
-        end)
+        g_currentMission:addIngameNotification(
+            FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
+            nfMeldung("NF_msg_nurAdmin"))
     end
 end
 
@@ -715,7 +722,7 @@ end
 function NachbarFelderManager:loadServerConfig()
     if self.serverConfigLoaded then return end
     self.serverConfigLoaded = true
-    local ok, err = pcall(function()
+    local function schritt()
         local dir  = modSettingDirectory
         createFolder(dir)
         local path = dir .. "NachbarFelderServerConfig.xml"
@@ -882,10 +889,8 @@ function NachbarFelderManager:loadServerConfig()
             " Kategorien: S=" .. tostring(c.TRACTORSS) .. " M=" .. tostring(c.TRACTORSM) ..
             " L=" .. tostring(c.TRACTORSL) .. " Radlader=" .. tostring(c.WHEELLOADERVEHICLES) ..
             " Telelader=" .. tostring(c.TELELOADERVEHICLES))
-    end)
-    if not ok then
-        print("NachbarFelder: Server-Konfig konnte nicht geladen werden: " .. tostring(err))
     end
+    schritt()
 end
 
 -- ============================================================
@@ -987,8 +992,10 @@ function NachbarFelderManager:installHooks()
     -- Referenz FWA (newFile.lua): stoppt beim Delete nur die Agents.
     FSBaseMission.delete = Utils.overwrittenFunction(FSBaseMission.delete,
         function(mission, superFunc, ...)
-            g_NachbarFelderManager.isShuttingDown = true
-            g_NachbarFelderManager:prepareForShutdown()
+            if g_NachbarFelderManager ~= nil then
+                g_NachbarFelderManager.isShuttingDown = true
+                g_NachbarFelderManager:prepareForShutdown()
+            end
             return superFunc(mission, ...)
         end)
 
@@ -1095,8 +1102,9 @@ function NachbarFelderManager:installKartenHook()
         function(map, superFunc, hotspot, ...)
             local nf = g_NachbarFelderManager
             if nf ~= nil then
-                local ok, unser = pcall(nf.getIstNachbarHotspot, nf, hotspot)
-                if ok and unser then return end
+                if nf.getIstNachbarHotspot ~= nil and nf:getIstNachbarHotspot(hotspot) then
+                    return
+                end
             end
             return superFunc(map, hotspot, ...)
         end)
@@ -1115,13 +1123,11 @@ function NachbarFelderManager:ladeHilfe()
         print("NachbarFelder: Ingame-Hilfe nicht geladen (HelpLineManager nicht verfuegbar)")
         return
     end
-    local ok, err = pcall(function()
+    if g_helpLineManager ~= nil and g_helpLineManager.loadFromXML ~= nil then
         g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
-    end)
-    if ok then
         print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
     else
-        print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden: " .. tostring(err))
+        print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
     end
 end
 
@@ -1160,12 +1166,10 @@ function NachbarFelderManager:serverSideInit()
     g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.deleteAllVehicles, self)
 
     -- Admin-Logins merken (Build 75): Grundlage fuer den Event-Admin-Check
-    pcall(function()
-        if MessageType ~= nil and MessageType.MASTERUSER_ADDED ~= nil then
-            g_messageCenter:unsubscribe(MessageType.MASTERUSER_ADDED, self)
-            g_messageCenter:subscribe(MessageType.MASTERUSER_ADDED, self.onMasterUserAdded, self)
-        end
-    end)
+    if MessageType ~= nil and MessageType.MASTERUSER_ADDED ~= nil then
+        g_messageCenter:unsubscribe(MessageType.MASTERUSER_ADDED, self)
+        g_messageCenter:subscribe(MessageType.MASTERUSER_ADDED, self.onMasterUserAdded, self)
+    end
 
     -- MISSION_GENERATED wird bewusst NICHT mehr abonniert: Die periodische
     -- Vertragsgenerierung des Spiels feuerte onMissionStarted und löschte
@@ -1188,15 +1192,13 @@ function NachbarFelderManager:serverSideInit()
                 if g_NachbarFelderManager ~= nil and g_currentMission:getIsServer() then
                     -- Anzahl verbleibender Spieler bestimmen (ohne den weggehenden)
                     local remaining = 0
-                    pcall(function()
-                        if ps.players ~= nil then
-                            for _, p in pairs(ps.players) do
-                                if p ~= nil and p ~= player and (p.farmId or 0) > 0 then
-                                    remaining = remaining + 1
-                                end
+                    if ps.players ~= nil then
+                        for _, p in pairs(ps.players) do
+                            if p ~= nil and p ~= player and (p.farmId or 0) > 0 then
+                                remaining = remaining + 1
                             end
                         end
-                    end)
+                    end
                     if remaining <= 0 then
                         -- Letzter Spieler: Helfer ZUERST stoppen (Agents noch gültig)
                         print("NachbarFelder: Letzter Spieler weg - stoppe alle Helfer")
@@ -1208,15 +1210,13 @@ function NachbarFelderManager:serverSideInit()
                 -- Spielerzähler aktualisieren
                 if g_NachbarFelderManager ~= nil then
                     local finalCount = 0
-                    pcall(function()
-                        if g_currentMission.players ~= nil then
-                            for _, p in pairs(g_currentMission.players) do
-                                if p ~= nil and (p.farmId or 0) > 0 then
-                                    finalCount = finalCount + 1
-                                end
+                    if g_currentMission.players ~= nil then
+                        for _, p in pairs(g_currentMission.players) do
+                            if p ~= nil and (p.farmId or 0) > 0 then
+                                finalCount = finalCount + 1
                             end
                         end
-                    end)
+                    end
                     g_NachbarFelderManager.playersOnline = finalCount
                 end
             end)
@@ -1287,7 +1287,7 @@ end
 function NachbarFelderManager:addWaypointAtPlayer(cat)
     local istSpawn = cat == NachbarFelderManager.WP_CAT_SPAWN
     if not istSpawn then cat = 0 end
-    local art = istSpawn and "Spawnpunkt" or "Wegpunkt"
+    local art = nfText(istSpawn and "NF_wpArt_spawn" or "NF_wpArt_wegpunkt")
     -- Nur Admins duerfen Wegpunkte setzen (Build 75)
     if not self:getIsLocalAdmin() then
         self:notifyAdminRequired()
@@ -1308,41 +1308,35 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     if player ~= nil then
         -- Versuch 1: Fahrzeug, in dem der Spieler sitzt -> Fahrtrichtung
         local vehicle = nil
-        pcall(function()
-            if player.getCurrentVehicle ~= nil then
-                vehicle = player:getCurrentVehicle()
-            end
-        end)
+        if player.getCurrentVehicle ~= nil then
+            vehicle = player:getCurrentVehicle()
+        end
         if vehicle == nil then
             vehicle = player.currentVehicle or player.controlledVehicle
         end
         if vehicle ~= nil and vehicle.rootNode ~= nil and vehicle.rootNode ~= 0 then
-            pcall(function()
-                local vx, vy, vz = getWorldTranslation(vehicle.rootNode)
-                if math.abs(vx) > 1 or math.abs(vz) > 1 then
-                    x, y, z = vx, vy, vz
-                    -- Vorwaertsvektor statt Euler-Y: am Hang kann getWorldRotation
-                    -- das Y um 180 Grad kippen (x/z-Rotation gleicht es aus).
-                    local dx, _, dz = localDirectionToWorld(vehicle.rootNode, 0, 0, 1)
-                    if math.abs(dx) > 0.001 or math.abs(dz) > 0.001 then
-                        ry = math.atan2(dx, dz)
-                        richtungQuelle = "Fahrzeug"
-                    end
+            local vx, vy, vz = getWorldTranslation(vehicle.rootNode)
+            if math.abs(vx) > 1 or math.abs(vz) > 1 then
+                x, y, z = vx, vy, vz
+                -- Vorwaertsvektor statt Euler-Y: am Hang kann getWorldRotation
+                -- das Y um 180 Grad kippen (x/z-Rotation gleicht es aus).
+                local dx, _, dz = localDirectionToWorld(vehicle.rootNode, 0, 0, 1)
+                if math.abs(dx) > 0.001 or math.abs(dz) > 0.001 then
+                    ry = math.atan2(dx, dz)
+                    richtungQuelle = "NF_richtung_fahrzeug"
                 end
-            end)
+            end
         end
         -- Versuch 2: zu Fuss -> Spielerposition, Richtung = Blickrichtung
         if x == nil and player.getMapPositionAndLookYaw ~= nil then
-            pcall(function()
-                local px, pz, yaw = player:getMapPositionAndLookYaw()
-                if px ~= nil and pz ~= nil and (math.abs(px) > 1 or math.abs(pz) > 1) then
-                    x, z = px, pz
-                    if yaw ~= nil then
-                        ry = yaw
-                        richtungQuelle = "Blickrichtung"
-                    end
+            local px, pz, yaw = player:getMapPositionAndLookYaw()
+            if px ~= nil and pz ~= nil and (math.abs(px) > 1 or math.abs(pz) > 1) then
+                x, z = px, pz
+                if yaw ~= nil then
+                    ry = yaw
+                    richtungQuelle = "NF_richtung_blick"
                 end
-            end)
+            end
         end
         -- Versuch 2b: Spieler-rootNode (nur Position, dessen Drehung ist immer 0)
         if x == nil and player.rootNode ~= nil and player.rootNode ~= 0 then
@@ -1368,21 +1362,19 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     end
     -- Richtung noch offen (Versuch 2b/3): Blickrichtung der Kamera (schaut entlang -Z)
     if ry == nil and getCamera ~= nil then
-        pcall(function()
-            local cam = getCamera()
-            if cam ~= nil and cam ~= 0 then
-                local dx, _, dz = localDirectionToWorld(cam, 0, 0, -1)
-                if math.abs(dx) > 0.001 or math.abs(dz) > 0.001 then
-                    ry = math.atan2(dx, dz)
-                    richtungQuelle = "Kamera"
-                end
+        local cam = getCamera()
+        if cam ~= nil and cam ~= 0 then
+            local dx, _, dz = localDirectionToWorld(cam, 0, 0, -1)
+            if math.abs(dx) > 0.001 or math.abs(dz) > 0.001 then
+                ry = math.atan2(dx, dz)
+                richtungQuelle = "NF_richtung_kamera"
             end
-        end)
+        end
     end
     x  = math.floor(x + 0.5)
     z  = math.floor(z + 0.5)
     ry = ry or 0
-    local richtungText = "Richtung aus " .. (richtungQuelle or "? (0)")
+    local richtungText = nfText("NF_richtungAus", nfText(richtungQuelle or "NF_richtung_unbekannt"))
     print(string.format("NachbarFelder: [WP] Position x=%d z=%d, %s (%.0f Grad)",
         x, z, richtungText, math.deg(ry) % 360))
     -- Nähecheck: kein Duplikat innerhalb von 10 Metern
@@ -1391,17 +1383,18 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     for i, wp in ipairs(self.userTrafficWaypoints) do
         local dist = math.sqrt((x - wp.x)^2 + (z - wp.z)^2)
         if dist < MIN_DIST then
-            local grund = ("Nicht gesetzt: WP %d ist nur %.0f m entfernt (mind. 10 m)"):format(i, dist)
+            local grund = nfText("NF_msg_zuNah", i, dist)
             print("NachbarFelder: [TRAFFIC] " .. art .. " - " .. grund)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
-                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL, "Lebendige Straßen: " .. art .. " " .. grund)
+                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
+                    nfText("NachbarFelder") .. ": " .. art .. " " .. grund)
             end
             return false, grund
         end
     end
     -- Spawnpunkt: das eigene Fahrzeug steht noch auf der Flaeche und zaehlt als Hindernis
-    local zusatz = istSpawn and " - jetzt wegfahren" or ""
+    local zusatz = istSpawn and (" " .. nfText("NF_msg_jetztWegfahren")) or ""
     -- Dedi-MP-Client: Änderung an den Server schicken (der speichert + synct zurück)
     if not g_currentMission:getIsServer() then
         if g_client == nil then
@@ -1412,8 +1405,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(op, x, z, ry))
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "Lebendige Straßen: " .. art .. " an Server gesendet (" ..
-            tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz)
+            nfMeldung("NF_msg_anServer", art, x, z, richtungText) .. zusatz)
         return true
     end
     table.insert(self.userTrafficWaypoints, { x=x, z=z, ry=ry, cat=cat, label="" })
@@ -1424,8 +1416,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "Lebendige Straßen: " .. art .. " " .. tostring(#self.userTrafficWaypoints) ..
-            " gesetzt (" .. tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz
+            nfMeldung("NF_msg_gesetzt", art, #self.userTrafficWaypoints, x, z, richtungText) .. zusatz
         )
     end
     return true
@@ -1442,7 +1433,7 @@ function NachbarFelderManager:onInputManageWaypoints(actionName, inputValue, cal
         if g_currentMission ~= nil then
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "Lebendige Straßen: Keine Wegpunkte - setzen unter ESC > Einstellungen > Wegpunkte")
+                nfMeldung("NF_msg_keineWegpunkte"))
         end
         return
     end
@@ -1451,35 +1442,30 @@ function NachbarFelderManager:onInputManageWaypoints(actionName, inputValue, cal
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            string.format("NF WP %d/%d: x=%d  z=%d  (ESC > Einstellungen: Teleportieren/Loeschen)",
-                self._mgr_viewIdx, count, math.floor(wp.x), math.floor(wp.z)))
+            nfMeldung("NF_msg_wpAnzeige", self._mgr_viewIdx, count,
+                math.floor(wp.x), math.floor(wp.z)))
     end
 end
 
 function NachbarFelderManager:_teleportToWp(wp)
     local x, z = wp.x, wp.z
     local y = 0
-    pcall(function()
-        if g_currentMission ~= nil and g_currentMission.terrainRootNode ~= nil then
-            y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, x, 0, z) + 1
-        end
-    end)
+    if g_currentMission ~= nil and g_currentMission.terrainRootNode ~= nil then
+        y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, x, 0, z) + 1
+    end
     local lp = self.localPlayer
     if lp ~= nil then
-        local ok, err = pcall(function()
-            local vehicle = lp.currentVehicle or lp.controlledVehicle
-            if vehicle ~= nil and vehicle.rootNode ~= nil and vehicle.rootNode ~= 0 then
-                setTranslation(vehicle.rootNode, x, y, z)
-            elseif lp.rootNode ~= nil and lp.rootNode ~= 0 then
-                setTranslation(lp.rootNode, x, y, z)
-            end
-        end)
-        if not ok then print("NachbarFelder: [MGR] Teleport Fehler: " .. tostring(err)) end
+        local vehicle = lp.currentVehicle or lp.controlledVehicle
+        if vehicle ~= nil and vehicle.rootNode ~= nil and vehicle.rootNode ~= 0 then
+            setTranslation(vehicle.rootNode, x, y, z)
+        elseif lp.rootNode ~= nil and lp.rootNode ~= 0 then
+            setTranslation(lp.rootNode, x, y, z)
+        end
     end
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            string.format("Lebendige Straßen: Teleportiert zu x=%d z=%d", math.floor(x), math.floor(z)))
+            nfMeldung("NF_msg_teleportiert", math.floor(x), math.floor(z)))
     end
     print("NachbarFelder: [MGR] Teleport x=" .. math.floor(x) .. " z=" .. math.floor(z))
 end
@@ -1504,7 +1490,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
                 NachbarFelderWaypointEditEvent.OP_REMOVELAST))
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "Lebendige Straßen: Wegpunkt-Löschung an Server gesendet")
+                nfMeldung("NF_msg_loeschAnServer"))
         end
         return
     end
@@ -1516,7 +1502,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_INFO,
-            "Lebendige Straßen: Wegpunkt entfernt. Verbleibend: " .. tostring(#self.userTrafficWaypoints)
+            nfMeldung("NF_msg_wpEntfernt", #self.userTrafficWaypoints)
         )
     end
 end
@@ -1667,7 +1653,7 @@ function NachbarFelderManager:buildRoadSamples()
     local cell = 32
     local grid, n = {}, 0
     for _, spline in ipairs(splines) do
-        pcall(function()
+        local function schritt()
             local len = getSplineLength(spline)
             if len == nil or len < 1 then return end
             local steps = math.max(1, math.ceil(len / 4))
@@ -1689,7 +1675,8 @@ function NachbarFelderManager:buildRoadSamples()
                 end
                 px, py, pz = x, y, z
             end
-        end)
+        end
+        schritt()
     end
     self.roadSamples    = grid
     self.roadSampleCell = cell
@@ -1950,9 +1937,7 @@ function NachbarFelderManager:applyRueckwaertsPlanen(vehicle)
     local original = vehicle.getAIAllowsBackwards
     vehicle.getAIAllowsBackwards = function(v, ...)
         local impl = nil
-        pcall(function()
-            if v.getAttachedImplements ~= nil then impl = v:getAttachedImplements() end
-        end)
+        if v.getAttachedImplements ~= nil then impl = v:getAttachedImplements() end
         if impl == nil or #impl == 0 then
             return true
         end
@@ -1990,7 +1975,7 @@ end
 -- AIJobVehicle:getJob(), AIJobVehicle:getIsAIActive()
 -- ============================================================
 function NachbarFelderManager:stopAIJobSafely(vehicle)
-    pcall(function()
+    local function schritt()
         if vehicle == nil then return end
         local hasJob = false
         if vehicle.getJob ~= nil and vehicle:getJob() ~= nil then
@@ -2005,7 +1990,8 @@ function NachbarFelderManager:stopAIJobSafely(vehicle)
             end
             vehicle:stopCurrentAIJob(msg)
         end
-    end)
+    end
+    schritt()
 end
 
 -- WP-Kategorien: 0=Normal(20-60s)  1=Kurz(5-20s)  2=Lang(2-5min)
@@ -2027,7 +2013,7 @@ function NachbarFelderManager:log(lvl, msg)
 end
 
 -- Verbundene Spieler zaehlen (Build 131) - gleiche Regel wie onMinuteChanged
--- (farmId > 0 = wirklich im Spiel). Benannte Funktion: pcall(fn) ohne
+-- (farmId > 0 = wirklich im Spiel). Benannte Funktion ohne
 -- Closure, damit der Sekundentakt im update() keinen GC-Muell erzeugt.
 local function nfCountConnectedPlayers()
     local n = 0
@@ -2043,7 +2029,7 @@ local function nfCountConnectedPlayers()
 end
 
 -- Mähdrescher-Tank leeren. Als benannte Funktion ausgelagert (Build 79):
--- pcall(nfEmptyCombineTank, veh) erzeugt KEINE Closure pro Aufruf -
+-- nfEmptyCombineTank(veh) erzeugt KEINE Closure pro Aufruf -
 -- die frühere anonyme Funktion war Pro-Frame-GC-Müll.
 local function nfEmptyCombineTank(veh)
     for idx, fu in ipairs(veh:getFillUnits()) do
@@ -2121,8 +2107,8 @@ function NachbarFelderManager:update(dt)
         -- 18+2 bzw. 14+5 Frames direkt nach dem Verlassen).
         if self._perfPlayersAt == nil or (g_time or 0) >= self._perfPlayersAt then
             self._perfPlayersAt = (g_time or 0) + 1000
-            local ok, n = pcall(nfCountConnectedPlayers)
-            self._perfPlayers = ok and n or (self.playersOnline or 0)
+            local n = nfCountConnectedPlayers()
+            self._perfPlayers = n or (self.playersOnline or 0)
         end
         perfActive = (self._perfPlayers or 0) > 0
     end
@@ -2149,13 +2135,11 @@ function NachbarFelderManager:update(dt)
             self._spkNextAt = (g_time or 0) + 10000
             if (self._spkCount or 0) > 0 and (self._spkReports or 0) < 200 then
                 self._spkReports = (self._spkReports or 0) + 1
-                local memMb = -1
-                pcall(function() memMb = math.floor(collectgarbage("count") / 1024 + 0.5) end)
                 print(string.format(
-                    "NachbarFelder: [PERF] %d langsame Frames (>%dms) in 10s, max %dms (%s, LuaMem %d MB)",
+                    "NachbarFelder: [PERF] %d langsame Frames (>%dms) in 10s, max %dms (%s)",
                     self._spkCount, math.floor(self._spkLimitMin or slowLimit),
                     math.floor(self._spkMax or 0),
-                    g_currentMission:getIsServer() and "Server" or "Client", memMb))
+                    g_currentMission:getIsServer() and "Server" or "Client"))
             end
             self._spkCount    = 0
             self._spkMax      = 0
@@ -2170,20 +2154,9 @@ function NachbarFelderManager:update(dt)
         self._spkNextAt   = nil
     end
 
-    -- Speicher-Telemetrie (Build 76): einmal pro Minute Lua-Heap loggen wenn er
-    -- sich um >= 4 MB verändert hat. Wächst die Zahl stetig → echtes Leck;
-    -- pendelt sie → GC-Druck. Läuft auf Server (nur mit Spielern) und Client.
-    if perfActive and (self._memNextAt == nil or (g_time or 0) > self._memNextAt) then
-        self._memNextAt = (g_time or 0) + 60000
-        pcall(function()
-            local mb = math.floor(collectgarbage("count") / 1024 + 0.5)
-            if self._memLastMb == nil or math.abs(mb - self._memLastMb) >= 4 then
-                self._memLastMb = mb
-                print(string.format("NachbarFelder: [PERF] LuaMem %d MB (%s)",
-                    mb, g_currentMission:getIsServer() and "Server" or "Client"))
-            end
-        end)
-    end
+    -- Speicher-Telemetrie (Build 76) entfaellt seit Build 158: die ModHub-Pruefung
+    -- beanstandet das manuelle Aufraeumen des Speichers. Die Meldung ueber
+    -- langsame Frames bleibt.
 
     -- Im Dedicated-MP: nur Server führt Status-Maschine aus
     if not g_currentMission:getIsServer() then return end
@@ -2346,7 +2319,7 @@ function NachbarFelderManager:update(dt)
             local e = self.klappPruefung[i]
             if g_time >= e.at then
                 table.remove(self.klappPruefung, i)
-                pcall(function()
+                local function schritt()
                     local impl = e.impl
                     if impl == nil or impl.isDeleted or impl.spec_foldable == nil then return end
                     local zu = self:getIstEingeklappt(impl)
@@ -2360,7 +2333,8 @@ function NachbarFelderManager:update(dt)
                     elseif zu == true then
                         print("NachbarFelder: [KLAPP] eingeklappt: " .. self:getKlappText(impl))
                     end
-                end)
+                end
+                schritt()
             end
         end
     end
@@ -2583,9 +2557,7 @@ function NachbarFelderManager:update(dt)
                     if pendingInfo ~= nil then
                         self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
                     elseif attached ~= nil then
-                        pcall(function()
-                            if not attached.isAddedToPhysics then attached:addToPhysics() end
-                        end)
+                        if not attached.isAddedToPhysics then attached:addToPhysics() end
                     end
                     if #k.NachbarFelderWorker.vehiclesToLoad >= 3 and vehIndex == 2 then
                         k.NachbarFelderWorker.status = 0.5
@@ -2596,16 +2568,14 @@ function NachbarFelderManager:update(dt)
                         if k.NachbarFelderWorker.isPatrol then
                             local implVeh = k.NachbarFelderWorker.vehiclesToLoad[2]
                             if implVeh ~= nil then
-                                pcall(function()
-                                    if implVeh.prepareForAIDriving ~= nil then
-                                        implVeh:prepareForAIDriving()
-                                    end
-                                    if implVeh.spec_foldable ~= nil
-                                       and implVeh.setFoldDirection ~= nil then
-                                        local wd = implVeh.spec_foldable.turnOnFoldDirection or 1
-                                        implVeh:setFoldDirection(-wd)
-                                    end
-                                end)
+                                if implVeh.prepareForAIDriving ~= nil then
+                                    implVeh:prepareForAIDriving()
+                                end
+                                if implVeh.spec_foldable ~= nil
+                                   and implVeh.setFoldDirection ~= nil then
+                                    local wd = implVeh.spec_foldable.turnOnFoldDirection or 1
+                                    implVeh:setFoldDirection(-wd)
+                                end
                                 k.NachbarFelderWorker.foldWaitUntil = g_time + 9000
                             end
                         end
@@ -2658,7 +2628,7 @@ function NachbarFelderManager:update(dt)
                             elseif nfW.overrideSpawnWpIdx ~= nil and wps[nfW.overrideSpawnWpIdx] ~= nil then
                                 nearestIdx = nfW.overrideSpawnWpIdx
                             else
-                                pcall(function()
+                                local function schritt()
                                     local refX, refZ = self:getShopBuildingPosition()
                                     if refX == nil and vehicle.rootNode ~= nil then
                                         refX, _, refZ = getWorldTranslation(vehicle.rootNode)
@@ -2669,7 +2639,8 @@ function NachbarFelderManager:update(dt)
                                         local d2 = (wp[1]-refX)^2 + (wp[2]-refZ)^2
                                         if d2 < minD2 then minD2 = d2; nearestIdx = i end
                                     end
-                                end)
+                                end
+                                schritt()
                             end
                             -- Belegte Plaetze meiden (Build 73): kein Teleport auf
                             -- einen WP, an dem schon ein Fahrzeug steht (Explosion).
@@ -2738,46 +2709,44 @@ function NachbarFelderManager:update(dt)
                     -- Fahrauftrag mehr weg (Log 12.09.: zwei Fahrzeuge standen bei
                     -- x=124 z=-93 bzw. x=218 z=-50 dauerhaft fest).
                     local targetRy = 0
-                    pcall(function()
-                        local wps = nfW.waypoints
-                        local wp  = (wps ~= nil and nfW.patrolDestIdx ~= nil)
-                                    and wps[nfW.patrolDestIdx] or nil
-                        if wp ~= nil then
-                            targetRy = wp[3] or 0
-                            local vx, vz = nil, nil
-                            if vehicle.rootNode ~= nil then
-                                local px, _, pz = getWorldTranslation(vehicle.rootNode)
-                                vx, vz = px, pz
+                    local wps = nfW.waypoints
+                    local wp  = (wps ~= nil and nfW.patrolDestIdx ~= nil)
+                                and wps[nfW.patrolDestIdx] or nil
+                    if wp ~= nil then
+                        targetRy = wp[3] or 0
+                        local vx, vz = nil, nil
+                        if vehicle.rootNode ~= nil then
+                            local px, _, pz = getWorldTranslation(vehicle.rootNode)
+                            vx, vz = px, pz
+                        end
+                        -- Build 136: Fahrspur passend zur Anfahrtsrichtung waehlen
+                        -- (Zwillings-Spline) statt die Richtung um 180 Grad zu drehen -
+                        -- gedreht zeigte das Ziel auf Einbahnen gegen die Fahrtrichtung.
+                        local wdx, wdz = nil, nil
+                        if vx ~= nil then wdx, wdz = wp[1] - vx, wp[2] - vz end
+                        local rx, rz, roadRy = self:getRoadPointInRichtung(wp[1], wp[2], 20, 0, wdx, wdz)
+                        if roadRy ~= nil then
+                            targetRy = roadRy
+                            -- Build 105: Parkpunkte (eigene Wegpunkte) NICHT auf
+                            -- die Strasse ziehen - dort soll das Fahrzeug ja
+                            -- gerade neben der Fahrbahn stehen. Nur Strassenziele
+                            -- wandern auf die Fahrbahn.
+                            if not self:getIsParkpunkt(nfW, nfW.patrolDestIdx) then
+                                nfW.patrolTargetX, nfW.patrolTargetZ = rx, rz
                             end
-                            -- Build 136: Fahrspur passend zur Anfahrtsrichtung waehlen
-                            -- (Zwillings-Spline) statt die Richtung um 180 Grad zu drehen -
-                            -- gedreht zeigte das Ziel auf Einbahnen gegen die Fahrtrichtung.
-                            local wdx, wdz = nil, nil
-                            if vx ~= nil then wdx, wdz = wp[1] - vx, wp[2] - vz end
-                            local rx, rz, roadRy = self:getRoadPointInRichtung(wp[1], wp[2], 20, 0, wdx, wdz)
-                            if roadRy ~= nil then
-                                targetRy = roadRy
-                                -- Build 105: Parkpunkte (eigene Wegpunkte) NICHT auf
-                                -- die Strasse ziehen - dort soll das Fahrzeug ja
-                                -- gerade neben der Fahrbahn stehen. Nur Strassenziele
-                                -- wandern auf die Fahrbahn.
-                                if not self:getIsParkpunkt(nfW, nfW.patrolDestIdx) then
-                                    nfW.patrolTargetX, nfW.patrolTargetZ = rx, rz
-                                end
-                            elseif vx ~= nil then
-                                -- ohne KI-Strasse im Umkreis (Parkpunkt abseits): wie bisher
-                                -- nach Anfahrtsrichtung drehen - dort gibt es keine Spur
-                                local dx = (nfW.patrolTargetX or vx) - vx
-                                local dz = (nfW.patrolTargetZ or vz) - vz
-                                if math.sqrt(dx * dx + dz * dz) > 1 then
-                                    local fx, fz = math.sin(targetRy), math.cos(targetRy)
-                                    if fx * dx + fz * dz < 0 then
-                                        targetRy = targetRy + math.pi
-                                    end
+                        elseif vx ~= nil then
+                            -- ohne KI-Strasse im Umkreis (Parkpunkt abseits): wie bisher
+                            -- nach Anfahrtsrichtung drehen - dort gibt es keine Spur
+                            local dx = (nfW.patrolTargetX or vx) - vx
+                            local dz = (nfW.patrolTargetZ or vz) - vz
+                            if math.sqrt(dx * dx + dz * dz) > 1 then
+                                local fx, fz = math.sin(targetRy), math.cos(targetRy)
+                                if fx * dx + fz * dz < 0 then
+                                    targetRy = targetRy + math.pi
                                 end
                             end
                         end
-                    end)
+                    end
                     self:driveToField(vehicle, nfW.fieldId,
                         nfW.patrolTargetX, 0, nfW.patrolTargetZ, targetRy)
 
@@ -2851,19 +2820,17 @@ function NachbarFelderManager:onMinuteChanged(minute)
     -- Spieler-Zähler ZUERST aktualisieren (addPlayer-Hook feuert auf Ded. Server nicht zuverlässig)
     -- Nur Spieler zählen die wirklich im Spiel sind (farmId > 0 = Stufe-2, nicht nur Ladebildschirm)
     local realCount = 0
-    pcall(function()
-        if g_currentMission.players ~= nil then
-            for _, player in pairs(g_currentMission.players) do
-                if player ~= nil then
-                    -- Stufe-2 Spieler haben farmId > 0; Stufe-1 (lädt noch) haben farmId=0 oder nil
-                    local pFarmId = player.farmId or 0
-                    if pFarmId > 0 then
-                        realCount = realCount + 1
-                    end
+    if g_currentMission.players ~= nil then
+        for _, player in pairs(g_currentMission.players) do
+            if player ~= nil then
+                -- Stufe-2 Spieler haben farmId > 0; Stufe-1 (lädt noch) haben farmId=0 oder nil
+                local pFarmId = player.farmId or 0
+                if pFarmId > 0 then
+                    realCount = realCount + 1
                 end
             end
         end
-    end)
+    end
     if realCount ~= self.playersOnline then
         print("NachbarFelder: Spieler: " .. tostring(self.playersOnline) .. " -> " .. tostring(realCount))
         -- Wenn jemand neu dazukommt während niemand da war → Grace-Period starten
@@ -2966,12 +2933,7 @@ function NachbarFelderManager:onMinuteChanged(minute)
                         or math.random(nWpsTotal)
                 end
                 lastOverride = overrideWp
-                local created
-                local _gtOk, _gtErr = pcall(function() created = self:generateTraffic(nil, overrideWp) end)
-                if not _gtOk then
-                    print("NachbarFelder: [TRAFFIC] Fehler in generateTraffic: " .. tostring(_gtErr))
-                    break
-                end
+                local created = self:generateTraffic(nil, overrideWp)
                 if created then
                     spawnedThisTick = spawnedThisTick + 1
                 else
@@ -3027,18 +2989,16 @@ function NachbarFelderManager:getSpawnLookAt()
 
     -- Stufe 1: naechstgelegene Werkstatt
     local bestX, bestZ, bestDist = nil, nil, nil
-    pcall(function()
-        local ps = g_currentMission and g_currentMission.placeableSystem
-        for _, p in ipairs((ps and ps.placeables) or {}) do
-            if p ~= nil and p.spec_workshop ~= nil and p.rootNode ~= nil then
-                local x, _, z = getWorldTranslation(p.rootNode)
-                local d = MathUtil.vector2Length(x - spX, z - spZ)
-                if bestDist == nil or d < bestDist then
-                    bestDist, bestX, bestZ = d, x, z
-                end
+    local ps = g_currentMission and g_currentMission.placeableSystem
+    for _, p in ipairs((ps and ps.placeables) or {}) do
+        if p ~= nil and p.spec_workshop ~= nil and p.rootNode ~= nil then
+            local x, _, z = getWorldTranslation(p.rootNode)
+            local d = MathUtil.vector2Length(x - spX, z - spZ)
+            if bestDist == nil or d < bestDist then
+                bestDist, bestX, bestZ = d, x, z
             end
         end
-    end)
+    end
 
     if bestX ~= nil then
         self.spawnLookAt = { x = bestX, z = bestZ, quelle = "Werkstatt" }
@@ -3048,16 +3008,14 @@ function NachbarFelderManager:getSpawnLookAt()
     end
 
     -- Stufe 2: Senkrechte des Spawnplatzes (Vorgabe des Karten-Bauers)
-    pcall(function()
-        local place = self:getNfSpawnPlace()
-        if place ~= nil and place.dirPerpX ~= nil and place.dirPerpZ ~= nil then
-            local dx, dz = place.dirPerpX, place.dirPerpZ
-            if math.abs(dx) > 0.0001 or math.abs(dz) > 0.0001 then
-                -- 50 m in Blickrichtung reichen als Zielpunkt voellig aus.
-                self.spawnLookAt = { x = spX + dx * 50, z = spZ + dz * 50, quelle = "Spawnplatz" }
-            end
+    local place = self:getNfSpawnPlace()
+    if place ~= nil and place.dirPerpX ~= nil and place.dirPerpZ ~= nil then
+        local dx, dz = place.dirPerpX, place.dirPerpZ
+        if math.abs(dx) > 0.0001 or math.abs(dz) > 0.0001 then
+            -- 50 m in Blickrichtung reichen als Zielpunkt voellig aus.
+            self.spawnLookAt = { x = spX + dx * 50, z = spZ + dz * 50, quelle = "Spawnplatz" }
         end
-    end)
+    end
 
     if self.spawnLookAt ~= nil then
         print("NachbarFelder: Spawn-Blickrichtung = Ausrichtung des Shop-Spawnplatzes")
@@ -3103,9 +3061,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                     -- Traktor und flog weg (Server 14.09.: Gespanne landeten im
                     -- eingezaeunten Nachbargrundstueck). setAttachment setzt es spaeter
                     -- genau an die Kupplung und nimmt es wieder in die Physik.
-                    pcall(function()
-                        if vehicle.isAddedToPhysics then vehicle:removeFromPhysics() end
-                    end)
+                    if vehicle.isAddedToPhysics then vehicle:removeFromPhysics() end
                 end
             else
                 -- Ausrichtung korrigieren: Manche Spawn-Plätze schauen gegen
@@ -3130,7 +3086,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                 -- Build 126: schon an der Strasse geladen -> nicht mehr versetzen
                 local aufStrasse = nfWS ~= nil and nfWS.spawnAufStrasse == true
                 if not aufStrasse and self.getNearestRoadPoint ~= nil then
-                    pcall(function()
+                    local function schritt()
                         local zielX, zielZ = nil, nil
                         if istVerkehrS then
                             zielX, zielZ = nfWS.patrolTargetX, nfWS.patrolTargetZ
@@ -3151,15 +3107,14 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         aufStrasse = true
                         print(string.format("NachbarFelder: [TRAFFIC] %.0f m vom Shop-Platz auf die KI-Strasse" ..
                             " gesetzt (weg von der Wand)", rdist or 0))
-                    end)
+                    end
+                    schritt()
                 end
                 local lookAt = self:getSpawnLookAt()
                 if lookAt ~= nil and not aufStrasse then
-                    pcall(function()
-                        local spawnRotY = MathUtil.getYRotationFromDirection(
-                            lookAt.x - x0, lookAt.z - z0)
-                        g_currentMission:teleportVehicle(vehicle, x0, z0, spawnRotY)
-                    end)
+                    local spawnRotY = MathUtil.getYRotationFromDirection(
+                        lookAt.x - x0, lookAt.z - z0)
+                    g_currentMission:teleportVehicle(vehicle, x0, z0, spawnRotY)
                 end
                 local x, y, z = localToWorld(vehicle.rootNode, 0, 0, 0)
                 local dirX, _, dirZ = localDirectionToWorld(vehicle.rootNode, 0, 0, 1)
@@ -3254,27 +3209,35 @@ end
 --- Traktor zur Seite (Test 01.10.: Lintrac 130 / Vario 500 kippten beim Ankuppeln).
 --- Mindestens 5 cm ueber dem Boden.
 function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex, implement, inputJointIndex)
-    pcall(function()
-        local aj = attacher:getAttacherJoints()[attacherJointIndex]
-        local ij = implement:getInputAttacherJoints()[inputJointIndex]
-        if aj ~= nil and aj.jointTransform ~= nil and ij ~= nil then
-            local offset = ij.jointOrigOffsetComponent or { 0, 0, 0 }
-            local x, y, z = localToWorld(aj.jointTransform, unpack(offset))
-            local rx, ry, rz = nil, nil, nil
-            if ij.jointOrigRotOffsetComponent ~= nil then
-                rx, ry, rz = localRotationToWorld(aj.jointTransform, unpack(ij.jointOrigRotOffsetComponent))
-            end
-            if rx == nil or ry == nil or rz == nil then
-                local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
-                rx, ry, rz = 0, MathUtil.getYRotationFromDirection(dirX, dirZ), 0
-            end
-            local terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+    -- Build 160: jede Spielfunktion vorher auf Existenz pruefen
+    if attacher == nil or implement == nil or attacher.getAttacherJoints == nil
+       or implement.getInputAttacherJoints == nil then
+        return
+    end
+    local ajs = attacher:getAttacherJoints()
+    local ijs = implement:getInputAttacherJoints()
+    local aj = ajs ~= nil and attacherJointIndex ~= nil and ajs[attacherJointIndex] or nil
+    local ij = ijs ~= nil and inputJointIndex ~= nil and ijs[inputJointIndex] or nil
+    if aj ~= nil and aj.jointTransform ~= nil and ij ~= nil then
+        local offset = ij.jointOrigOffsetComponent or { 0, 0, 0 }
+        local x, y, z = localToWorld(aj.jointTransform, unpack(offset))
+        local rx, ry, rz = nil, nil, nil
+        if ij.jointOrigRotOffsetComponent ~= nil then
+            rx, ry, rz = localRotationToWorld(aj.jointTransform, unpack(ij.jointOrigRotOffsetComponent))
+        end
+        if rx == nil or ry == nil or rz == nil then
+            local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
+            rx, ry, rz = 0, MathUtil.getYRotationFromDirection(dirX, dirZ), 0
+        end
+        local terrainY = y
+        if g_terrainNode ~= nil then
+            terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+        end
+        if implement.setAbsolutePosition ~= nil then
             implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, rx, ry, rz)
         end
-    end)
-    pcall(function()
-        if not implement.isAddedToPhysics then implement:addToPhysics() end
-    end)
+    end
+    if not implement.isAddedToPhysics and implement.addToPhysics ~= nil then implement:addToPhysics() end
 end
 
 --- Geraet ankuppeln (Build 156): an die Kupplung setzen, dann WEICH kuppeln wie ein Spieler
@@ -3372,10 +3335,8 @@ function NachbarFelderManager:hinweisSpawnpunkt(grund)
     print("NachbarFelder: Hinweis - automatischer Ladeplatz gescheitert (" .. tostring(grund) ..
         "). Zuverlaessiger: Spawnpunkt setzen (ESC > Einstellungen > Wegpunkte > Spawnpunkt hier setzen)")
     if g_client ~= nil and g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
-        pcall(function()
-            g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "Lebendige Straßen: " .. g_i18n:getText("NF_hinweisSpawnpunkt"))
-        end)
+        g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
+            nfMeldung("NF_hinweisSpawnpunkt"))
     end
 end
 
@@ -3395,7 +3356,7 @@ function NachbarFelderManager:ladeLadeplatzSperre()
     local pfad = self:getLadeplatzDatei()
     if pfad == nil then return end
     local verworfen = 0
-    pcall(function()
+    local function schritt()
         local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", pfad, lpXmlSchema)
         if xmlFile == nil then return end
         xmlFile:iterate(lpXmlKey .. ".platz", function(_, key)
@@ -3411,7 +3372,8 @@ function NachbarFelderManager:ladeLadeplatzSperre()
             end
         end)
         xmlFile:delete()
-    end)
+    end
+    schritt()
     if #self.spawnPlatzSperre > 0 then
         print(string.format("NachbarFelder: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
     end
@@ -3425,7 +3387,7 @@ function NachbarFelderManager:speichereLadeplatzSperre()
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
     local pfad = self:getLadeplatzDatei()
     if pfad == nil then return end
-    pcall(function()
+    local function schritt()
         local xmlFile = XMLFile.create("NachbarFelderLadeplaetze", pfad, lpXmlKey, lpXmlSchema)
         if xmlFile == nil then return end
         for i, p in ipairs(self.spawnPlatzSperre or {}) do
@@ -3436,7 +3398,8 @@ function NachbarFelderManager:speichereLadeplatzSperre()
         end
         xmlFile:save(false, false)
         xmlFile:delete()
-    end)
+    end
+    schritt()
 end
 
 function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
@@ -3484,18 +3447,28 @@ end
 --- Ohne Spline-Hoehe (Admin-Spawnpunkt, evtl. auf einer Bruecke) wie bisher.
 --- @return number Hoehe, boolean ueberkopf
 function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
-    local gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+    local gelaende = splineH or 0
+    if g_terrainNode ~= nil then
+        gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+    end
     local h = nil
-    pcall(function()
-        local oben = math.max(gelaende, splineH or gelaende) + 3
-        -- Build 154: TERRAIN_DELTA dazu (wie VehicleSystem.lua beim Paletten-Spawn). Ohne sie traf der
-        -- Strahl auf Strassen aus Gelaende-Deltas das tiefere Grundgelaende - das Fahrzeug wurde IN
-        -- der Fahrbahn geladen, von der Physik herausgedrueckt und huepfte.
-        local maske = CollisionFlag.TERRAIN + CollisionFlag.ROAD + CollisionFlag.STATIC_OBJECT + CollisionFlag.BUILDING
-        if CollisionFlag.TERRAIN_DELTA ~= nil then maske = maske + CollisionFlag.TERRAIN_DELTA end
-        local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
-        if hit and hitY ~= nil then h = hitY end
-    end)
+    local oben = math.max(gelaende, splineH or gelaende) + 3
+    -- Build 154: TERRAIN_DELTA dazu (wie VehicleSystem.lua beim Paletten-Spawn). Ohne sie traf der
+    -- Strahl auf Strassen aus Gelaende-Deltas das tiefere Grundgelaende - das Fahrzeug wurde IN
+    -- der Fahrbahn geladen, von der Physik herausgedrueckt und huepfte.
+    -- Build 162: jede Flagge und den Strahl vorher pruefen (ohne Absicherung waere ein
+    -- fehlender Wert ein Spielfehler); ohne Strahl gilt die Gelaendehoehe
+    if CollisionFlag ~= nil and RaycastUtil ~= nil and RaycastUtil.raycastClosest ~= nil then
+        local maske = 0
+        for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "ROAD", "STATIC_OBJECT", "BUILDING" }) do
+            local f = CollisionFlag[name]
+            if type(f) == "number" then maske = maske + f end
+        end
+        if maske > 0 then
+            local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
+            if hit and hitY ~= nil then h = hitY end
+        end
+    end
     if h ~= nil and splineH ~= nil then
         local bezug = math.max(gelaende, splineH)
         if h > bezug + NachbarFelderManager.HOEHE_UEBERKOPF then
@@ -3512,7 +3485,7 @@ end
 --- AISystem.lua:1235/1242. Synchron ausgewertet wie PlaceablePlacement.lua:398-408.
 function NachbarFelderManager:getIstSpawnFlaecheFrei(x, h, z, ry, laenge, breite)
     local frei = false
-    pcall(function()
+    local function schritt()
         local fx, fz = math.sin(ry), math.cos(ry)
         local mx = x - fx * (laenge * 0.5 - 3)
         local mz = z - fz * (laenge * 0.5 - 3)
@@ -3520,16 +3493,24 @@ function NachbarFelderManager:getIstSpawnFlaecheFrei(x, h, z, ry, laenge, breite
         ziel.nfUeberlappung = function(target, nodeId)
             if nodeId == nil or nodeId == 0 then return true end
             if getCollisionFilterMask(nodeId) == 1 then return true end
-            if CollisionFlag.getHasGroupFlagSet(nodeId, CollisionFlag.ROAD) then return true end
+            if CollisionFlag.getHasGroupFlagSet ~= nil and CollisionFlag.ROAD ~= nil
+               and CollisionFlag.getHasGroupFlagSet(nodeId, CollisionFlag.ROAD) then return true end
             target.treffer = nodeId
             return false
         end
-        local maske = CollisionMask.ALL - CollisionFlag.TERRAIN - CollisionFlag.TERRAIN_DELTA
-                      - CollisionFlag.TERRAIN_DISPLACEMENT - CollisionFlag.TRIGGER - CollisionFlag.FILLABLE
+        -- Build 162: Masken-Werte vorher pruefen; fehlt einer, gilt die Flaeche als belegt
+        if CollisionMask == nil or type(CollisionMask.ALL) ~= "number" or CollisionFlag == nil then return end
+        local maske = CollisionMask.ALL
+        for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "TERRAIN_DISPLACEMENT", "TRIGGER", "FILLABLE" }) do
+            local f = CollisionFlag[name]
+            if type(f) ~= "number" then return end
+            maske = maske - f
+        end
         overlapBox(mx, h + 1.3, mz, 0, ry, 0, breite * 0.5, 1.0, laenge * 0.5,
             "nfUeberlappung", ziel, maske, true, true, true, true)
         frei = ziel.treffer == nil
-    end)
+    end
+    schritt()
     return frei
 end
 
@@ -3586,24 +3567,22 @@ function NachbarFelderManager:waehleSpawnpunkt(nurPruefen)
             -- Build 136: die Spur mit passender Richtung nehmen (Zwillings-Spline), nie
             -- eine Spur um 180 Grad drehen. Laeuft die Strasse dort nur in Gegenrichtung
             -- (Einbahn), wird mit der Spur ausgerichtet - sonst lehnt die KI jeden Start ab.
-            pcall(function()
-                local _, _, rry, _, _, passt = self:getRoadPointInRichtung(wp.x, wp.z, 8, 0,
-                    math.sin(ry), math.cos(ry))
-                if rry ~= nil then
-                    local dot = math.sin(ry) * math.sin(rry) + math.cos(ry) * math.cos(rry)
-                    if passt and dot >= 0.707 then
-                        ry = rry
-                    elseif dot <= -0.707 then
-                        ry = rry
-                        self.spawnpunktEinbahnGemeldet = self.spawnpunktEinbahnGemeldet or {}
-                        if not self.spawnpunktEinbahnGemeldet[i] then
-                            self.spawnpunktEinbahnGemeldet[i] = true
-                            print(string.format("NachbarFelder: Spawnpunkt WP%d: die KI-Strasse ist dort nur in" ..
-                                " Gegenrichtung befahrbar - Fahrzeuge starten in Fahrtrichtung der Strasse", i))
-                        end
+            local _, _, rry, _, _, passt = self:getRoadPointInRichtung(wp.x, wp.z, 8, 0,
+                math.sin(ry), math.cos(ry))
+            if rry ~= nil then
+                local dot = math.sin(ry) * math.sin(rry) + math.cos(ry) * math.cos(rry)
+                if passt and dot >= 0.707 then
+                    ry = rry
+                elseif dot <= -0.707 then
+                    ry = rry
+                    self.spawnpunktEinbahnGemeldet = self.spawnpunktEinbahnGemeldet or {}
+                    if not self.spawnpunktEinbahnGemeldet[i] then
+                        self.spawnpunktEinbahnGemeldet[i] = true
+                        print(string.format("NachbarFelder: Spawnpunkt WP%d: die KI-Strasse ist dort nur in" ..
+                            " Gegenrichtung befahrbar - Fahrzeuge starten in Fahrtrichtung der Strasse", i))
                     end
                 end
-            end)
+            end
             local h = self:getFahrbahnHoehe(wp.x, wp.z, nil)
             if self:getIstSpawnFlaecheFrei(wp.x, h, wp.z, ry, 17, 4.0) then
                 if not nurPruefen then
@@ -3632,7 +3611,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     if w == nil or self.getNearestRoadPoint == nil then return false end
     if w.spawnStrasse == nil then
         w.spawnStrasse = false
-        pcall(function()
+        local function schritt()
             -- Build 132: Admin-Spawnpunkt hat Vorrang vor der Suche am Shop
             local spp = self:waehleSpawnpunkt(false)
             if spp ~= nil then
@@ -3683,7 +3662,8 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
             end
             print("NachbarFelder: Kein freier Strassenplatz fuer den Spawn gefunden (" .. tostring(geprueft) ..
                 " Stellen geprueft) - Laden am Shop-Platz")
-        end)
+        end
+        schritt()
     end
     local sp = w.spawnStrasse
     if sp == false or sp == nil then return false end
@@ -3693,7 +3673,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     if index >= 2 then hinten = 9 + (index - 2) * 7 end
     local x = sp.x - math.sin(sp.ry) * hinten
     local z = sp.z - math.cos(sp.ry) * hinten
-    local ok = pcall(function()
+    local function schritt()
         local modellDrehung = (data.rotation ~= nil and data.rotation[2]) or 0
         -- Build 127: Fahrbahnhoehe statt Gelaendehoehe - Strassen liegen als Objekte
         -- ueber dem Gelaende; darin geladen rutschte das Fahrzeug seitlich heraus.
@@ -3725,8 +3705,9 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
         if index >= 2 and data.setAddToPhysics ~= nil then
             data:setAddToPhysics(false)
         end
-    end)
-    if ok and index == 1 then
+    end
+    schritt()
+    if index == 1 then
         w.spawnAufStrasse = true
         local wer = "[TRAFFIC] Fahrzeug"
         if sp.spawnpunktIdx ~= nil then
@@ -3737,7 +3718,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
                 sp.geprueft or 0))
         end
     end
-    return ok
+    return true
 end
 
 -- Build 154/155: Ladehoehe ueber der hoechsten Fahrbahnstelle unter dem Fahrzeug
@@ -3882,9 +3863,7 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
             if pendingInfo ~= nil then
                 self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
             elseif implement ~= nil then
-                pcall(function()
-                    if not implement.isAddedToPhysics then implement:addToPhysics() end
-                end)
+                if not implement.isAddedToPhysics then implement:addToPhysics() end
                 if not isPatrolRig then
                     print("NachbarFelder: Feldhelfer - Geraet [" .. tostring(implement.configFileName) ..
                         "] liess sich nicht kuppeln")
@@ -3902,16 +3881,14 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
         for v = #NachbarFelderWorker.vehicleType, 2, -1 do
             local impl = NachbarFelderWorker.vehicleType[v]
             local attached = false
-            pcall(function()
-                attached = impl ~= nil and impl.getAttacherVehicle ~= nil
-                    and impl:getAttacherVehicle() ~= nil
-            end)
+            attached = impl ~= nil and impl.getAttacherVehicle ~= nil
+                and impl:getAttacherVehicle() ~= nil
             if impl ~= nil and not attached then
                 local fname = impl.configFileName or ""
                 local base  = string.match(fname, "[^/\\]+$") or fname
                 print("NachbarFelder: [TRAFFIC] Anbaugeraet nicht kuppelbar (" .. base ..
                     ") - entfernt, Fahrzeug faehrt solo.")
-                pcall(function() impl:delete() end)
+                if impl ~= nil and impl.delete ~= nil then impl:delete() end
                 table.remove(NachbarFelderWorker.vehicleType, v)
                 if worker.vehiclesToLoad ~= nil then
                     for i = #worker.vehiclesToLoad, 1, -1 do
@@ -3932,7 +3909,7 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
     -- dreht sich das Gespann irgendwo auf der Map in Felder/Hindernisse!
     if #NachbarFelderWorker.vehicleType >= 2 then
         local worker = NachbarFelderWorker.NachbarFelderWorker
-        pcall(function()
+        local function schritt()
             if vehicle ~= nil and vehicle.rootNode ~= nil then
                 local vx, _, vz = getWorldTranslation(vehicle.rootNode)
 
@@ -3976,7 +3953,8 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
                     g_currentMission:teleportVehicle(vehicle, vx, vz, ry)
                 end
             end
-        end)
+        end
+        schritt()
     end
 end
 
@@ -4002,8 +3980,7 @@ local function nfAIMessageName(msg)
     for _, n in ipairs(NF_AI_MSG_CLASSES) do
         local cls = _G[n]
         if cls ~= nil then
-            local ok, res = pcall(function() return msg.isa ~= nil and msg:isa(cls) end)
-            if ok and res then return n end
+            if msg.isa ~= nil and msg:isa(cls) then return n end
         end
     end
     return "AIMessageUnbekannt"
@@ -4035,28 +4012,24 @@ function NachbarFelderManager:meldeBeimSpielverkehrAn(vehicle)
     if id == nil then return end
     local node = vehicle.components ~= nil and vehicle.components[1] ~= nil and vehicle.components[1].node or nil
     if node == nil then return end
-    local ok, err = pcall(addTrafficSystemPlayer, id, node)
-    if ok then
-        vehicle.nf_spielverkehrNode = node
-        if not self.spielverkehrGemeldet then
-            self.spielverkehrGemeldet = true
-            print("NachbarFelder: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
-        end
-    elseif not self.spielverkehrFehler then
-        self.spielverkehrFehler = true
-        print("NachbarFelder: [TRAFFIC] Anmeldung beim Spielverkehr fehlgeschlagen: " .. tostring(err))
+    addTrafficSystemPlayer(id, node)
+    vehicle.nf_spielverkehrNode = node
+    if not self.spielverkehrGemeldet then
+        self.spielverkehrGemeldet = true
+        print("NachbarFelder: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
     end
 end
 
 function NachbarFelderManager:meldeGespannBeimSpielverkehrAn(vehicle)
     if self.spielverkehrAnmelden == false or vehicle == nil then return end
     self:meldeBeimSpielverkehrAn(vehicle)
-    pcall(function()
+    local function schritt()
         if vehicle.getChildVehicles == nil then return end
         for _, v in ipairs(vehicle:getChildVehicles()) do
             if v ~= vehicle then self:meldeBeimSpielverkehrAn(v) end
         end
-    end)
+    end
+    schritt()
 end
 
 function NachbarFelderManager:meldeBeimSpielverkehrAb(vehicle)
@@ -4066,7 +4039,7 @@ function NachbarFelderManager:meldeBeimSpielverkehrAb(vehicle)
     if removeTrafficSystemPlayer == nil then return end
     local id = self:getSpielverkehrId()
     if id == nil then return end
-    pcall(removeTrafficSystemPlayer, id, node)
+    if removeTrafficSystemPlayer ~= nil then removeTrafficSystemPlayer(id, node) end
 end
 
 -- ============================================================
@@ -4087,34 +4060,32 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     end
 
     -- Anbaugeräte für Straßenfahrt falten (auch für Patrol sinnvoll).
-    pcall(function()
-        if vehicle.getAttachedImplements ~= nil then
-            for _, att in ipairs(vehicle:getAttachedImplements()) do
-                local impl = att.object
-                if impl ~= nil then
-                    if impl.prepareForAIDriving ~= nil then
-                        impl:prepareForAIDriving()
+    if vehicle.getAttachedImplements ~= nil then
+        for _, att in ipairs(vehicle:getAttachedImplements()) do
+            local impl = att.object
+            if impl ~= nil then
+                if impl.prepareForAIDriving ~= nil then
+                    impl:prepareForAIDriving()
+                end
+                -- Build 112: Einklapp-Richtung haengt vom Geraet ab. Ausgeklappt
+                -- ist ein Geraet in Richtung turnOnFoldDirection (Foldable.lua:941-949),
+                -- eingeklappt wird mit -turnOnFoldDirection (so macht es das Spiel,
+                -- FillUnit.lua:1746, und die Mod beim Ankuppeln). Das feste -1 klappte
+                -- Geraete mit turnOnFoldDirection = -1 vor JEDER Fahrt wieder aus -
+                -- Verkehr fuhr mit ausgeklapptem Wender/Grubber und blieb ueberall haengen.
+                if impl.setFoldDirection ~= nil then
+                    local wd = 1
+                    if impl.spec_foldable ~= nil and impl.spec_foldable.turnOnFoldDirection ~= nil then
+                        wd = impl.spec_foldable.turnOnFoldDirection
                     end
-                    -- Build 112: Einklapp-Richtung haengt vom Geraet ab. Ausgeklappt
-                    -- ist ein Geraet in Richtung turnOnFoldDirection (Foldable.lua:941-949),
-                    -- eingeklappt wird mit -turnOnFoldDirection (so macht es das Spiel,
-                    -- FillUnit.lua:1746, und die Mod beim Ankuppeln). Das feste -1 klappte
-                    -- Geraete mit turnOnFoldDirection = -1 vor JEDER Fahrt wieder aus -
-                    -- Verkehr fuhr mit ausgeklapptem Wender/Grubber und blieb ueberall haengen.
-                    if impl.setFoldDirection ~= nil then
-                        local wd = 1
-                        if impl.spec_foldable ~= nil and impl.spec_foldable.turnOnFoldDirection ~= nil then
-                            wd = impl.spec_foldable.turnOnFoldDirection
-                        end
-                        impl:setFoldDirection(-wd)
-                    end
+                    impl:setFoldDirection(-wd)
                 end
             end
         end
-    end)
+    end
 
     -- Build 122: nicht eingeklappte Geraete loggen und in 10 s nachpruefen
-    pcall(function()
+    local function schritt()
         if vehicle.getAttachedImplements == nil then return end
         for _, att in ipairs(vehicle:getAttachedImplements()) do
             local impl = att.object
@@ -4124,14 +4095,14 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
                 table.insert(self.klappPruefung, { impl = impl, at = g_time + 10000 })
             end
         end
-    end)
+    end
+    schritt()
 
     -- Motor sicherstellen (nach fehlgeschlagener Feldarbeit kann Motor aus sein)
-    pcall(function()
-        if vehicle.startMotor ~= nil and not vehicle:getIsMotorStarted() then
-            vehicle:startMotor(true)
-        end
-    end)
+    if vehicle.startMotor ~= nil and vehicle.getIsMotorStarted ~= nil
+       and not vehicle:getIsMotorStarted() then
+        vehicle:startMotor(true)
+    end
 
     local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
     -- Kostenneutral (Build 91): NF-Jobs laufen auf der NPC-Farm 2 und sollen
@@ -4197,7 +4168,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     -- Berechtigungen VOR startJob setzen (Job prüft Erlaubnis beim Start).
     -- setOwnerFarmId ist zwingend: aiSystem:startJob prüft vehicle.ownerFarmId == farmId;
     -- MISSION-Vehicles können ownerFarmId=0 haben obwohl beim Laden farmId=2 gesetzt wurde.
-    pcall(function() vehicle:setOwnerFarmId(self.farmId) end)
+    if vehicle ~= nil and vehicle.setOwnerFarmId ~= nil then vehicle:setOwnerFarmId(self.farmId) end
     self:markVehiclesAsHelper(vehicle)
 
     -- Stop-Grund für den Worker merken: nur job:stop sieht die AIMessage.
@@ -4331,11 +4302,9 @@ function NachbarFelderManager:getTrafficWaypoint()
 
     -- Map-Ausdehnung ermitteln
     local halfSize = 1400
-    pcall(function()
-        if g_currentMission.terrainSize ~= nil then
-            halfSize = g_currentMission.terrainSize * 0.34
-        end
-    end)
+    if g_currentMission.terrainSize ~= nil then
+        halfSize = g_currentMission.terrainSize * 0.34
+    end
 
     -- Zufällige Map-Positionen testen bis eine außerhalb aller Felder liegt
     for _ = 1, 60 do
@@ -4373,7 +4342,9 @@ end
 local function nfLoadSpecs(item)
     if item ~= nil and item.specs == nil and StoreItemUtil ~= nil
        and StoreItemUtil.loadSpecsFromXML ~= nil then
-        pcall(StoreItemUtil.loadSpecsFromXML, item)
+        if StoreItemUtil ~= nil and StoreItemUtil.loadSpecsFromXML ~= nil then
+            StoreItemUtil.loadSpecsFromXML(item)
+        end
     end
 end
 
@@ -4388,12 +4359,10 @@ end
 local function nfGetItemWeight(item)
     nfLoadSpecs(item)
     local t = nil
-    pcall(function()
-        if item.specs ~= nil and item.specs.weight ~= nil
-           and Vehicle ~= nil and Vehicle.getSpecValueWeight ~= nil then
-            t = Vehicle.getSpecValueWeight(item, nil, nil, nil, true, false)
-        end
-    end)
+    if item.specs ~= nil and item.specs.weight ~= nil
+       and Vehicle ~= nil and Vehicle.getSpecValueWeight ~= nil then
+        t = Vehicle.getSpecValueWeight(item, nil, nil, nil, true, false)
+    end
     t = tonumber(t)
     return (t ~= nil and t > 0) and (t * 1000) or nil
 end
@@ -4402,9 +4371,7 @@ end
 local function nfGetItemPower(item)
     nfLoadSpecs(item)
     local p = nil
-    pcall(function()
-        if item.specs ~= nil then p = tonumber(item.specs.power) end
-    end)
+    if item.specs ~= nil then p = tonumber(item.specs.power) end
     return (type(p) == "number" and p > 0) and p or nil
 end
 
@@ -4413,21 +4380,49 @@ end
 local function nfGetItemNeededPower(item)
     nfLoadSpecs(item)
     local p = nil
-    pcall(function()
-        local np = item.specs ~= nil and item.specs.neededPower or nil
-        if type(np) == "table" then p = tonumber(np.base) else p = tonumber(np) end
-    end)
+    local np = item.specs ~= nil and item.specs.neededPower or nil
+    if type(np) == "table" then p = tonumber(np.base) else p = tonumber(np) end
     return (type(p) == "number" and p > 0) and p or nil
+end
+
+-- Build 159: Arbeitsbreite laut Shop in Metern, nil wenn unbekannt.
+-- specs.workingWidth = { width, minWidth } (Vehicle.loadSpecValueWorkingWidth),
+-- bei Geraeten mit Breiten-Konfiguration specs.workingWidthConfig =
+-- { [configName] = { [index] = { width, isSelectable } } } - dann zaehlt die
+-- groesste Breite, weil das Geraet mit Standard-Konfiguration geladen wird und
+-- wir die nicht sicher kennen (lieber zu vorsichtig).
+local function nfGetItemWorkingWidth(item)
+    nfLoadSpecs(item)
+    local specs = item ~= nil and item.specs or nil
+    if type(specs) ~= "table" then
+        return nil
+    end
+    local w = nil
+    local ww = specs.workingWidth
+    if type(ww) == "table" then
+        w = tonumber(ww.width)
+    elseif ww ~= nil then
+        w = tonumber(ww)
+    end
+    if w == nil and type(specs.workingWidthConfig) == "table" then
+        for _, liste in pairs(specs.workingWidthConfig) do
+            if type(liste) == "table" then
+                for _, e in pairs(liste) do
+                    local b = type(e) == "table" and tonumber(e.width) or nil
+                    if b ~= nil and (w == nil or b > w) then w = b end
+                end
+            end
+        end
+    end
+    return (type(w) == "number" and w > 0) and w or nil
 end
 
 -- Nutzlast aus StoreItem-Specs (in Litern, nil wenn nicht verfügbar).
 local function nfGetItemCapacity(item)
     local cap = nil
-    pcall(function()
-        if item.specs ~= nil then
-            cap = tonumber(item.specs.maxCapacity) or tonumber(item.specs.capacity)
-        end
-    end)
+    if item.specs ~= nil then
+        cap = tonumber(item.specs.maxCapacity) or tonumber(item.specs.capacity)
+    end
     return (type(cap) == "number" and cap > 0) and cap or nil
 end
 
@@ -4455,6 +4450,15 @@ local NF_KLEIN_MAX_VEH_WEIGHT_KG = 7000
 -- steht nicht in den StoreItem-Specs (nur item.specs.weight ist dort belegt),
 -- deshalb dient das Leergewicht als Ersatzmass.
 local NF_ENG_MAX_IMPL_WEIGHT_KG = 3000
+-- Build 159: Groessenverhaeltnis Traktor/Geraet. Ein Rigitrac SKH 60 zog einen
+-- 7,7-m-Zettwender (Claas Volto 80) - Gewicht und Leistung passten, die Optik
+-- nicht. Erlaubte Arbeitsbreite je Tonne Traktorgewicht, mit Unter-/Obergrenze.
+-- Bei unbekanntem Traktorgewicht gilt die Untergrenze.
+local NF_IMPL_BREITE_JE_TONNE = 1.2   -- m Arbeitsbreite je t Traktor
+local NF_IMPL_BREITE_MIN      = 3.0   -- m, so breit darf es immer sein
+local NF_IMPL_BREITE_MAX      = 6.0   -- m, breiter nie (Kleintraktoren bis 7 t)
+-- Geraete ohne lesbare Arbeitsbreite nur, wenn sie hoechstens so viel wiegen.
+local NF_IMPL_OHNE_BREITE_MAX_KG = 1000
 
 -- Kategorien, die bei engeMap gefahren werden duerfen. Radlader und
 -- Teleskoplader bleiben draussen: kurz, aber breit, und sie rangieren staendig.
@@ -4479,7 +4483,7 @@ function NachbarFelderManager:buildTrafficVehicleList()
     if g_storeManager == nil then return end
 
     local allItems = {}
-    pcall(function() allItems = g_storeManager:getItems() end)
+    if g_storeManager ~= nil and g_storeManager.getItems ~= nil then allItems = g_storeManager:getItems() end
 
     local eng = (self.engeMap ~= false)
 
@@ -4599,7 +4603,20 @@ function NachbarFelderManager:getPasstGeraetZuTraktor(traktor, geraet)
        and geraet.gewichtKg > traktor.gewichtKg * 0.5 then
         return false
     end
+    -- Build 159: Arbeitsbreite passend zur Traktorgroesse
+    if geraet.breiteM ~= nil and geraet.breiteM > self:getMaxGeraeteBreite(traktor) then
+        return false
+    end
     return true
+end
+
+--- Groesste erlaubte Arbeitsbreite eines Geraets fuer diesen Traktor in m (Build 159).
+function NachbarFelderManager:getMaxGeraeteBreite(traktor)
+    local t = (traktor ~= nil and traktor.gewichtKg ~= nil) and (traktor.gewichtKg / 1000) or 0
+    local maxB = t * NF_IMPL_BREITE_JE_TONNE
+    if maxB < NF_IMPL_BREITE_MIN then maxB = NF_IMPL_BREITE_MIN end
+    if maxB > NF_IMPL_BREITE_MAX then maxB = NF_IMPL_BREITE_MAX end
+    return maxB
 end
 
 function NachbarFelderManager:buildTrafficTrailerList()
@@ -4623,7 +4640,7 @@ function NachbarFelderManager:buildTrafficTrailerList()
     heavyCats = {}
 
     local allItems = {}
-    pcall(function() allItems = g_storeManager:getItems() end)
+    if g_storeManager ~= nil and g_storeManager.getItems ~= nil then allItems = g_storeManager:getItems() end
 
     local eng = (self.engeMap ~= false)
 
@@ -4635,11 +4652,16 @@ function NachbarFelderManager:buildTrafficTrailerList()
             local w   = nfGetItemWeight(item)
             local cap = nfGetItemCapacity(item)
             if (cap == nil or cap == 0) and w ~= nil and w <= NF_ENG_MAX_IMPL_WEIGHT_KG then
-                table.insert(self.trafficImplListLight, {
-                    filename  = item.xmlFilename,
-                    gewichtKg = w,
-                    bedarf    = nfGetItemNeededPower(item),
-                })
+                -- Build 159: Breite merken; unbekannte Breite nur bei leichten Geraeten
+                local breite = nfGetItemWorkingWidth(item)
+                if breite ~= nil or w <= NF_IMPL_OHNE_BREITE_MAX_KG then
+                    table.insert(self.trafficImplListLight, {
+                        filename  = item.xmlFilename,
+                        gewichtKg = w,
+                        bedarf    = nfGetItemNeededPower(item),
+                        breiteM   = breite,
+                    })
+                end
             end
         end
     end
@@ -4683,62 +4705,57 @@ function NachbarFelderManager:getVehicleAiDiag(veh)
     local t = {}
     local function add(txt) t[#t + 1] = txt end
 
-    pcall(function()
-        if veh.getLastSpeed ~= nil then
-            add(string.format("%.1f km/h", veh:getLastSpeed()))
+    if veh.getLastSpeed ~= nil then
+        add(string.format("%.1f km/h", veh:getLastSpeed()))
+    end
+    if veh.getIsMotorStarted ~= nil then
+        add("Motor " .. (veh:getIsMotorStarted() and "an" or "AUS"))
+    end
+    if veh.getIsAIReadyToDrive ~= nil then
+        add("fahrbereit " .. tostring(veh:getIsAIReadyToDrive()))
+    end
+    if veh.getIsAIPreparingToDrive ~= nil then
+        add("bereitet vor " .. tostring(veh:getIsAIPreparingToDrive()))
+    end
+    local spec = veh.spec_aiDrivable
+    if spec ~= nil then
+        add("Agent " .. (spec.agentId ~= nil and "ja" or "NEIN"))
+        if spec.agentInfo ~= nil then
+            add("AgentInfo " .. tostring(spec.agentInfo.isValid))
         end
-    end)
-    pcall(function()
-        if veh.getIsMotorStarted ~= nil then
-            add("Motor " .. (veh:getIsMotorStarted() and "an" or "AUS"))
-        end
-    end)
-    pcall(function()
-        if veh.getIsAIReadyToDrive ~= nil then
-            add("fahrbereit " .. tostring(veh:getIsAIReadyToDrive()))
-        end
-        if veh.getIsAIPreparingToDrive ~= nil then
-            add("bereitet vor " .. tostring(veh:getIsAIPreparingToDrive()))
-        end
-    end)
-    pcall(function()
-        local spec = veh.spec_aiDrivable
-        if spec ~= nil then
-            add("Agent " .. (spec.agentId ~= nil and "ja" or "NEIN"))
-            if spec.agentInfo ~= nil then
-                add("AgentInfo " .. tostring(spec.agentInfo.isValid))
-            end
-        end
-    end)
-    pcall(function()
-        if veh.getCanStartAIVehicle ~= nil then
-            add("startbar " .. tostring(veh:getCanStartAIVehicle()))
-        end
-    end)
-    pcall(function()
-        if veh.getFillUnits ~= nil then
-            for _, fu in ipairs(veh:getFillUnits()) do
-                local ft = fu.fillType
-                if ft ~= nil and FillType ~= nil
-                   and (ft == FillType.DIESEL or ft == FillType.ELECTRICCHARGE
-                        or ft == FillType.METHANE) then
-                    local cap = fu.capacity or 0
-                    if cap > 0 then
-                        add(string.format("Sprit %.0f%%", (fu.fillLevel or 0) / cap * 100))
-                    end
+    end
+    if veh.getCanStartAIVehicle ~= nil then
+        add("startbar " .. tostring(veh:getCanStartAIVehicle()))
+    end
+    if veh.getFillUnits ~= nil then
+        for _, fu in ipairs(veh:getFillUnits()) do
+            local ft = fu.fillType
+            if ft ~= nil and FillType ~= nil
+               and (ft == FillType.DIESEL or ft == FillType.ELECTRICCHARGE
+                    or ft == FillType.METHANE) then
+                local cap = fu.capacity or 0
+                if cap > 0 then
+                    add(string.format("Sprit %.0f%%", (fu.fillLevel or 0) / cap * 100))
                 end
             end
         end
-    end)
-    pcall(function()
-        if veh.getDamageAmount ~= nil then
-            add(string.format("Schaden %.0f%%", (veh:getDamageAmount() or 0) * 100))
+    end
+    if veh.getDamageAmount ~= nil then
+        add(string.format("Schaden %.0f%%", (veh:getDamageAmount() or 0) * 100))
+    end
+    -- Build 162: ClassUtil.getClassNameByObject gibt es zur Laufzeit nicht (Log 01.10.
+    -- 19:15: "attempt to call a nil value" - bis Build 157 war das still abgefangen)
+    local job = veh.getJob ~= nil and veh:getJob() or nil
+    local jobName = "keiner"
+    if job ~= nil then
+        jobName = "aktiv"
+        if ClassUtil ~= nil and ClassUtil.getClassNameByObject ~= nil then
+            jobName = tostring(ClassUtil.getClassNameByObject(job))
+        elseif job.name ~= nil then
+            jobName = tostring(job.name)
         end
-    end)
-    pcall(function()
-        local job = veh.getJob ~= nil and veh:getJob() or nil
-        add("Job " .. (job ~= nil and tostring(ClassUtil.getClassNameByObject(job)) or "keiner"))
-    end)
+    end
+    add("Job " .. jobName)
 
     return table.concat(t, " | ")
 end
@@ -4747,12 +4764,10 @@ function NachbarFelderManager:getEffectiveTrafficLimit()
     local limit = self.trafficLimit or 4
     if self.dayRhythm == false then return limit end
     local hour = 12
-    pcall(function()
-        if g_currentMission ~= nil and g_currentMission.environment ~= nil
-           and g_currentMission.environment.currentHour ~= nil then
-            hour = g_currentMission.environment.currentHour
-        end
-    end)
+    if g_currentMission ~= nil and g_currentMission.environment ~= nil
+       and g_currentMission.environment.currentHour ~= nil then
+        hour = g_currentMission.environment.currentHour
+    end
     local f
     if hour >= 22 or hour < 5 then
         f = 0        -- Nacht: alle schlafen
@@ -4811,10 +4826,9 @@ function NachbarFelderManager:rettungAufStrasse(veh, x, z)
         end
     end
     if rx == nil then return false end
-    local ok = pcall(function()
-        g_currentMission:teleportVehicle(veh, rx, rz, rry or 0)
-    end)
+    local ok = g_currentMission ~= nil and g_currentMission.teleportVehicle ~= nil
     if ok then
+        g_currentMission:teleportVehicle(veh, rx, rz, rry or 0)
         print(string.format("NachbarFelder: [TRAFFIC] steckte fest - %.0f m weiter auf die KI-Strasse gesetzt",
             rdist or 0))
     end
@@ -4825,7 +4839,7 @@ end
 --- @return number|nil Abstand in m, string|nil Dateiname des Fahrzeugs
 function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
     local bestD, bestName = nil, nil
-    pcall(function()
+    local function schritt()
         local list = (g_currentMission.vehicleSystem ~= nil and g_currentMission.vehicleSystem.vehicles)
                      or g_currentMission.vehicles
         for _, v in pairs(list or {}) do
@@ -4833,8 +4847,10 @@ function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
                and v.rootNode ~= nil and v.rootNode ~= 0 then
                 local root = v
                 if v.getRootVehicle ~= nil then
-                    local ok, r = pcall(function() return v:getRootVehicle() end)
-                    if ok and r ~= nil then root = r end
+                    if v.getRootVehicle ~= nil then
+                        local r = v:getRootVehicle()
+                        if r ~= nil then root = r end
+                    end
                 end
                 if root ~= eigenes then
                     local vx, _, vz = getWorldTranslation(v.rootNode)
@@ -4847,14 +4863,15 @@ function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
                 end
             end
         end
-    end)
+    end
+    schritt()
     return bestD, bestName
 end
 
 function NachbarFelderManager:isSpotBlockedByAnyVehicle(x, z, radius, excludeVeh)
     if x == nil or z == nil then return false end
     local blocked = false
-    pcall(function()
+    local function schritt()
         local list = nil
         if g_currentMission ~= nil then
             if g_currentMission.vehicleSystem ~= nil
@@ -4873,8 +4890,9 @@ function NachbarFelderManager:isSpotBlockedByAnyVehicle(x, z, radius, excludeVeh
                     if veh == excludeVeh then
                         isOwn = true
                     elseif veh.getRootVehicle ~= nil then
-                        local ok2, root = pcall(function() return veh:getRootVehicle() end)
-                        if ok2 and root == excludeVeh then isOwn = true end
+                        if veh.getRootVehicle ~= nil and veh:getRootVehicle() == excludeVeh then
+                            isOwn = true
+                        end
                     end
                 end
                 if not isOwn then
@@ -4886,7 +4904,8 @@ function NachbarFelderManager:isSpotBlockedByAnyVehicle(x, z, radius, excludeVeh
                 end
             end
         end
-    end)
+    end
+    schritt()
     return blocked
 end
 
@@ -4958,7 +4977,7 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     -- dort, schlief an Ort und Stelle ein (Build 93) und wurde beim Aufwecken
     -- sofort wieder abgewiesen. Ist der Platz belegt, kommt das Fahrzeug
     -- vorher auf einen freien Strassenpunkt 25-150 m weiter.
-    pcall(function()
+    local function schritt()
         if tractor.rootNode == nil or self.getNearestRoadPoint == nil then return end
         local vx, _, vz = getWorldTranslation(tractor.rootNode)
         if not self:isSpotBlockedByAnyVehicle(vx, vz, 25, tractor) then return end
@@ -4971,7 +4990,8 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
         g_currentMission:teleportVehicle(tractor, rx, rz, rry or 0)
         print(string.format("NachbarFelder: [TRAFFIC] Schlafplatz war belegt - Fahrzeug %.0f m" ..
             " weiter auf die KI-Strasse gestellt", MathUtil.vector2Length(rx - vx, rz - vz)))
-    end)
+    end
+    schritt()
 
     -- Build 93: Fahrzeuge schlafen IMMER an Ort und Stelle.
     --
@@ -4988,19 +5008,15 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     -- die Ausrichtung stimmt, und das Fahrzeug bleibt im Pool statt neu
     -- geladen zu werden.
     local restX, restZ
-    pcall(function()
-        local x, _, z = getWorldTranslation(tractor.rootNode)
-        restX, restZ = x, z
-    end)
+    local x, _, z = getWorldTranslation(tractor.rootNode)
+    restX, restZ = x, z
     if restX == nil then return false end
 
     -- Motor aus: schlafende Fahrzeuge stehen still am Strassenrand
-    pcall(function()
-        if tractor.stopMotor ~= nil and tractor.getIsMotorStarted ~= nil
-           and tractor:getIsMotorStarted() then
-            tractor:stopMotor()
-        end
-    end)
+    if tractor.stopMotor ~= nil and tractor.getIsMotorStarted ~= nil
+       and tractor:getIsMotorStarted() then
+        tractor:stopMotor()
+    end
 
     table.insert(self.trafficPool, {
         vehicles  = vehs,
@@ -5081,10 +5097,8 @@ function NachbarFelderManager:wakePooledVehicle()
                                        self.patrolHopsMax or 20)
     -- Standort-WP bestimmen (fuer Fehler-Bookkeeping + Ziel!=Standort)
     local sx, sz = poolEntry.restX, poolEntry.restZ
-    pcall(function()
-        local x, _, z = getWorldTranslation(tractor.rootNode)
-        sx, sz = x, z
-    end)
+    local x, _, z = getWorldTranslation(tractor.rootNode)
+    sx, sz = x, z
     local nearestIdx = nil
     if sx ~= nil then
         local minD2 = math.huge
@@ -5373,7 +5387,10 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     self.countWorkers = self.countWorkers + 1
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
     print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
-        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")) or "") ..
+        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")
+            .. string.format(" (%s m, Traktor %.1f t, max %.1f m)",          -- Build 159
+                vehList[2].breiteM ~= nil and string.format("%.1f", vehList[2].breiteM) or "?",
+                (vehInfo.gewichtKg or 0) / 1000, self:getMaxGeraeteBreite(vehInfo))) or "") ..
         " | Ziel: WP" .. tostring(destIdx) ..
         " | " .. tostring(worker.hopsLeft) .. " Hops" ..
         " | Aktiv: " .. tostring(activePatrol + 1) .. "/" .. tostring(effLimit) ..
@@ -5391,10 +5408,8 @@ function NachbarFelderManager:getWorkerPos(w)
     local veh = w ~= nil and w.vehiclesToLoad ~= nil and w.vehiclesToLoad[1] or nil
     if veh == nil or veh.rootNode == nil then return nil, nil end
     local x, z = nil, nil
-    pcall(function()
-        local vx, _, vz = getWorldTranslation(veh.rootNode)
-        x, z = vx, vz
-    end)
+    local vx, _, vz = getWorldTranslation(veh.rootNode)
+    x, z = vx, vz
     return x, z
 end
 
@@ -5477,7 +5492,7 @@ end
 function NachbarFelderManager:getShopBuildingPosition()
     local bx, bz = nil, nil
     -- Versuch 1: PlaceableVehicleShop im PlaceableSystem (Kauf-Shops)
-    pcall(function()
+    local function schritt()
         local ps = g_currentMission and g_currentMission.placeableSystem
         if ps == nil then return end
         for _, p in pairs(ps.placeables or {}) do
@@ -5487,10 +5502,11 @@ function NachbarFelderManager:getShopBuildingPosition()
                 return
             end
         end
-    end)
+    end
+    schritt()
     -- Versuch 2: g_currentMission.vehicleShops (einige Maps/FS25-Versionen)
     if bx == nil then
-        pcall(function()
+        local function schritt()
             for _, s in pairs(g_currentMission.vehicleShops or {}) do
                 local nd = s.rootNode
                 if nd ~= nil then
@@ -5499,7 +5515,8 @@ function NachbarFelderManager:getShopBuildingPosition()
                     return
                 end
             end
-        end)
+        end
+        schritt()
     end
     if bx ~= nil then
         print("NachbarFelder: [TRAFFIC] Shop-Gebaeude x=" .. math.floor(bx) .. " z=" .. math.floor(bz))
@@ -5569,32 +5586,34 @@ end
 -- Speichern / Laden
 -- ============================================================
 function NachbarFelderManager:saveToXMLFile()
-    local path = g_currentMission.missionInfo.savegameDirectory
-    if path == nil then return end
+    -- Build 160: laeuft vor ItemSystem.save mit - ein Fehler hier wuerde ohne
+    -- Absicherung das Speichern des Spielstands abbrechen. Darum alles vorher pruefen.
+    local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
+    local path = mi ~= nil and mi.savegameDirectory or nil
+    if path == nil or g_NachbarFelderManager == nil or g_NachbarFelderManager.getSettingsState == nil then return end
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.create("NachbarFelder", modSaveDir, baseXmlKey, xmlSchema)
+    if xmlFile == nil then return end
     -- Build 150: keine Feldauftraege mehr - nur noch die Einstellungen speichern
     if g_NachbarFelderManager.vehicleType ~= nil then
         -- Settings-Block (Build 67): kompletter Einstellungs-Stand ins
         -- Savegame - server-autoritativ, ueberlebt Neustarts.
-        pcall(function()
-            local st = g_NachbarFelderManager:getSettingsState()
-            xmlFile:setBool(baseXmlKey .. ".settings#active",             st.active)
-            xmlFile:setInt( baseXmlKey .. ".settings#maxWorkers",         st.maxWorkers)
-            xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       st.trafficLimit)
-            xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", st.trafficTrailerSize)
-            xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap)
-            local j = 0
-            for mName, mActive in pairs(st.missions) do
-                local mKey = ("%s.settings.mission(%d)"):format(baseXmlKey, j)
-                xmlFile:setString(mKey .. "#type",   mName)
-                xmlFile:setBool(  mKey .. "#active", mActive)
-                j = j + 1
-            end
-        end)
+        local st = g_NachbarFelderManager:getSettingsState() or {}
+        xmlFile:setBool(baseXmlKey .. ".settings#active",             st.active ~= false)
+        xmlFile:setInt( baseXmlKey .. ".settings#maxWorkers",         math.floor(tonumber(st.maxWorkers) or 0))
+        xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       math.floor(tonumber(st.trafficLimit) or 0))
+        xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", math.floor(tonumber(st.trafficTrailerSize) or 0))
+        xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap ~= false)
+        local j = 0
+        for mName, mActive in pairs(st.missions or {}) do
+            local mKey = ("%s.settings.mission(%d)"):format(baseXmlKey, j)
+            xmlFile:setString(mKey .. "#type",   tostring(mName))
+            xmlFile:setBool(  mKey .. "#active", mActive == true)
+            j = j + 1
+        end
         xmlFile:save(false, false)
-        xmlFile:delete()
     end
+    xmlFile:delete()
 end
 
 function NachbarFelderManager:loadFromXML()
@@ -5607,27 +5626,25 @@ function NachbarFelderManager:loadFromXML()
     -- Settings-Block lesen (Build 67). NICHT sofort anwenden - erst
     -- nach loadServerConfig() (in loadMap), damit die Savegame-Werte
     -- die Konfig-Datei-Werte ueberschreiben und nicht umgekehrt.
-    pcall(function()
-        local sgActive = xmlFile:getValue(baseXmlKey .. ".settings#active")
-        if sgActive ~= nil then
-            local st = {
-                active             = sgActive,
-                maxWorkers         = xmlFile:getValue(baseXmlKey .. ".settings#maxWorkers"),
-                trafficLimit       = xmlFile:getValue(baseXmlKey .. ".settings#trafficLimit"),
-                trafficTrailerSize = xmlFile:getValue(baseXmlKey .. ".settings#trafficTrailerSize"),
-                engeMap            = xmlFile:getValue(baseXmlKey .. ".settings#engeMap"),
-                missions           = {},
-            }
-            xmlFile:iterate(baseXmlKey .. ".settings.mission", function(_, mKey)
-                local mName   = xmlFile:getValue(mKey .. "#type")
-                local mActive = xmlFile:getValue(mKey .. "#active")
-                if mName ~= nil and mActive ~= nil then
-                    st.missions[mName] = mActive
-                end
-            end)
-            self.savegameSettings = st
-        end
-    end)
+    local sgActive = xmlFile:getValue(baseXmlKey .. ".settings#active")
+    if sgActive ~= nil then
+        local st = {
+            active             = sgActive,
+            maxWorkers         = xmlFile:getValue(baseXmlKey .. ".settings#maxWorkers"),
+            trafficLimit       = xmlFile:getValue(baseXmlKey .. ".settings#trafficLimit"),
+            trafficTrailerSize = xmlFile:getValue(baseXmlKey .. ".settings#trafficTrailerSize"),
+            engeMap            = xmlFile:getValue(baseXmlKey .. ".settings#engeMap"),
+            missions           = {},
+        }
+        xmlFile:iterate(baseXmlKey .. ".settings.mission", function(_, mKey)
+            local mName   = xmlFile:getValue(mKey .. "#type")
+            local mActive = xmlFile:getValue(mKey .. "#active")
+            if mName ~= nil and mActive ~= nil then
+                st.missions[mName] = mActive
+            end
+        end)
+        self.savegameSettings = st
+    end
     xmlFile:delete()
 end
 
@@ -5649,7 +5666,7 @@ local NFWaypointHotspot_cls = nil
 local function ensureWpHotspotClass()
     if NFWaypointHotspot_cls ~= nil then return true end
     if MapHotspot == nil then return false end
-    local ok, err = pcall(function()
+    local function schritt()
         local cls    = {}
         local cls_mt = Class(cls, MapHotspot)
 
@@ -5670,10 +5687,8 @@ local function ensureWpHotspotClass()
         end
 
         NFWaypointHotspot_cls = cls
-    end)
-    if not ok then
-        print("NachbarFelder: [MAP] NFWaypointHotspot Definition fehlgeschlagen: " .. tostring(err))
     end
+    schritt()
     return NFWaypointHotspot_cls ~= nil
 end
 
@@ -5689,13 +5704,16 @@ function NachbarFelderManager:setupMapDrawHook()
     if InGameMenuMapFrame ~= nil then
         local mgr = self
         -- Allokationsfrei (Build 76): Zeichenfunktion EINMAL definieren und per
-        -- pcall(fn) aufrufen - kein Closure-/String-Müll pro Frame (GC-Ruckler).
+        -- benannte Funktion aufrufen - kein Closure-/String-Müll pro Frame (GC-Ruckler).
         -- Nummern-Strings werden in updateWpHotspots vorberechnet (hs._nfLabel).
         local function nfDrawWpNumbers()
             local hss = mgr._wpMapHotspots
             for i = 1, #hss do
                 local hs = hss[i]
-                local sx, sy = hs:getLastScreenPosition()
+                local sx, sy = nil, nil
+                if hs ~= nil and hs.getLastScreenPosition ~= nil then
+                    sx, sy = hs:getLastScreenPosition()
+                end
                 if sx ~= nil and sy ~= nil then
                     local w = hs.width  or 0.008
                     local h = hs.height or 0.008
@@ -5708,15 +5726,16 @@ function NachbarFelderManager:setupMapDrawHook()
             end
             setTextColor(1, 1, 1, 1)
         end
-        pcall(function()
+        local function schritt()
             InGameMenuMapFrame.draw = Utils.appendedFunction(InGameMenuMapFrame.draw,
             function(frame)
                 if mgr._wpHotspotsEnabled == false then return end
                 local hss = mgr._wpMapHotspots
                 if hss == nil or #hss == 0 then return end
-                pcall(nfDrawWpNumbers)
+                nfDrawWpNumbers()
             end)
-        end)
+        end
+        schritt()
     end
     print("NachbarFelder: [MAP] MapHotspot-System + Nummern-Hook initialisiert")
 end
@@ -5728,7 +5747,7 @@ end
 -- NICHT im Savegame und nicht auf dem Server.
 -- ============================================================
 function NachbarFelderManager:loadClientPrefs()
-    pcall(function()
+    local function schritt()
         local path = modSettingDirectory .. "NachbarFelderClient.xml"
         if not fileExists(path) then
             -- Datei mit Defaults anlegen (Build 73): so ist sofort sichtbar,
@@ -5746,11 +5765,12 @@ function NachbarFelderManager:loadClientPrefs()
                 tostring(show))
         end
         delete(xf)
-    end)
+    end
+    schritt()
 end
 
 function NachbarFelderManager:saveClientPrefs()
-    pcall(function()
+    local function schritt()
         createFolder(modSettingDirectory)
         local path = modSettingDirectory .. "NachbarFelderClient.xml"
         local xf = createXMLFile("nfClient", path, "nachbarFelderClient")
@@ -5758,7 +5778,8 @@ function NachbarFelderManager:saveClientPrefs()
         setXMLBool(xf, "nachbarFelderClient.showWpOnMap", self._wpHotspotsEnabled ~= false)
         saveXMLFile(xf)
         delete(xf)
-    end)
+    end
+    schritt()
 end
 
 -- Wegpunkte auf Karte ein-/ausblenden (für Einstellungsseite)
@@ -5775,7 +5796,7 @@ function NachbarFelderManager:updateWpHotspots()
     if self._wpMapHotspots ~= nil then
         for _, hs in ipairs(self._wpMapHotspots) do
             if g_currentMission ~= nil then
-                pcall(function() g_currentMission:removeMapHotspot(hs) end)
+                if g_currentMission ~= nil and g_currentMission.removeMapHotspot ~= nil then g_currentMission:removeMapHotspot(hs) end
             end
         end
         self._wpMapHotspots = nil
@@ -5791,11 +5812,12 @@ function NachbarFelderManager:updateWpHotspots()
     self._wpMapHotspots = {}
     local wps = self.userTrafficWaypoints or {}
     for i, wp in ipairs(wps) do
-        local ok, hs = pcall(function() return NFWaypointHotspot_cls.new(wp.x, wp.z) end)
-        if ok and hs ~= nil then
+        local hs = nil
+        if NFWaypointHotspot_cls.new ~= nil then hs = NFWaypointHotspot_cls.new(wp.x, wp.z) end
+        if hs ~= nil then
             -- vorberechnet für den Draw-Hook (kein Müll pro Frame); Spawnpunkte mit "S"
             hs._nfLabel = self:getIstSpawnpunkt(wp) and (tostring(i) .. " S") or tostring(i)
-            pcall(function() g_currentMission:addMapHotspot(hs) end)
+            if g_currentMission ~= nil and g_currentMission.addMapHotspot ~= nil then g_currentMission:addMapHotspot(hs) end
             table.insert(self._wpMapHotspots, hs)
         end
     end
@@ -5842,9 +5864,7 @@ function NachbarFelderManager:saveWaypoints()
         " Wegpunkte gespeichert -> " .. pfad)
     -- Im Dedicated-MP: Änderung sofort an alle Clients broadcasten
     if g_currentMission:getIsServer() and g_server ~= nil then
-        pcall(function()
-            g_server:broadcastEvent(NachbarFelderWaypointSyncEvent.new(self.userTrafficWaypoints))
-        end)
+        g_server:broadcastEvent(NachbarFelderWaypointSyncEvent.new(self.userTrafficWaypoints))
     end
 end
 
@@ -5905,10 +5925,8 @@ function NachbarFelderManager:loadWaypoints()
     if ausAlterDatei then
         -- alte Datei markieren (bleibt als Sicherung liegen), danach die neue
         -- Kartendatei schreiben
-        pcall(function()
-            xmlFile:setString(wpXmlKey .. "#uebernommenFuer", nfGetKartenKennung() or "?")
-            xmlFile:save(false, false)
-        end)
+        xmlFile:setString(wpXmlKey .. "#uebernommenFuer", nfGetKartenKennung() or "?")
+        xmlFile:save(false, false)
     end
     xmlFile:delete()
     if ausAlterDatei then

@@ -10,7 +10,7 @@
         <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="nfWpPage">
             <ScrollingLayout profile="fs25_settingsLayout" id="nfWpLayout">
                 <Text profile="fs25_settingsSectionHeader" id="nfWpInfoText"
-                      text="Keine Wegpunkte"/>
+                      text="$l10n_NF_wpNone"/>
                 <!-- Prefabs: nach loadGui ausgeblendet, nur fuer clone() -->
                 <Text profile="fs25_settingsSectionHeader" id="nfWpSectionPrefab"/>
                 <!-- Aktions-Zeilen (Build 135): echter Button statt MultiTextOption mit einem

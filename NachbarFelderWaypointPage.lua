@@ -4,6 +4,44 @@
 -- für den Wegpunkt-Manager.
 -- Muster: FS25_additionalGameSettings (Rockstar)
 -- ============================================================
+-- Build 158: sichtbare Texte aus l10n (ModHub verlangt DE und EN).
+local function nfPageText(key, ...)
+    local s = key
+    if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
+        s = g_i18n:getText(key)
+    end
+    if select("#", ...) > 0 then
+        s = string.format(s, ...)
+    end
+    return s
+end
+
+
+-- Build 161: Kategorie eines Wegpunkts als l10n-Schluessel (0 Normal, 1 Kurz,
+-- 2 Lang, 3 Durchfahrt, 4 Spawnpunkt). Unbekanntes gilt als Normal.
+local NF_CAT_KEYS = { [0]="NF_wpCat_normal", [1]="NF_wpCat_kurz", [2]="NF_wpCat_lang",
+                      [3]="NF_wpCat_durchfahrt", [4]="NF_wpArt_spawn" }
+local function nfCatKey(cat)
+    return NF_CAT_KEYS[cat or 0] or "NF_wpCat_normal"
+end
+
+-- Build 160: Element sperren/freigeben, nur wenn das Element es kann (ersetzt die
+-- frueheren Fehlerfaenger; ein Fehler im Menue-Update reisst sonst den ganzen
+-- Spiel-Frame mit).
+local function nfSetDisabled(elem, disabled)
+    if elem ~= nil and elem.setDisabled ~= nil then
+        elem:setDisabled(disabled)
+    end
+end
+
+-- Build 160: Zustand einer BinaryOption setzen, nur wenn es eine ist.
+local function nfSetOptionState(elem, state)
+    if elem ~= nil and elem.setState ~= nil then
+        elem.texts = { nfPageText("NF_ui_nein"), nfPageText("NF_ui_ja") }
+        elem:setState(state)
+    end
+end
+
 NachbarFelderWaypointPage = {}
 local NachbarFelderWaypointPage_mt = Class(NachbarFelderWaypointPage, FrameElement)
 local modDirectory = g_currentModDirectory
@@ -52,28 +90,25 @@ function NachbarFelderWaypointPage:registerAndInject()
     -- Schon vorhandene Profilnamen ueberschreibt das Spiel nicht (Gui:loadProfileSet).
     if not NachbarFelderWaypointPage._profileGeladen then
         NachbarFelderWaypointPage._profileGeladen = true
-        local okP, errP = pcall(function()
+        if g_gui ~= nil and g_gui.loadProfiles ~= nil then
             g_gui:loadProfiles(Utils.getFilename("gui/NachbarFelderGuiProfiles.xml", modDirectory))
-        end)
-        if not okP then
-            print("NachbarFelder: [WP-PAGE] loadProfiles Fehler: " .. tostring(errP))
+        else
+            print("NachbarFelder: [WP-PAGE] loadProfiles nicht verfuegbar")
         end
     end
 
-    local ok, err = pcall(function()
-        -- XML laden — setzt self.nfWpPage, self.nfWpTab, self.nfWp* als Felder
-        g_gui:loadGui(
-            Utils.getFilename("gui/NachbarFelderWaypointPage.xml", modDirectory),
-            "NachbarFelderWaypointPage",
-            self
-        )
-    end)
-    if not ok then
-        print("NachbarFelder: [WP-PAGE] loadGui Fehler: " .. tostring(err))
+    if g_gui == nil or g_gui.loadGui == nil then
+        print("NachbarFelder: [WP-PAGE] loadGui nicht verfuegbar")
         return
     end
+    -- XML laden — setzt self.nfWpPage, self.nfWpTab, self.nfWp* als Felder
+    g_gui:loadGui(
+        Utils.getFilename("gui/NachbarFelderWaypointPage.xml", modDirectory),
+        "NachbarFelderWaypointPage",
+        self
+    )
 
-    ok, err = pcall(function()
+    local function schritt()
         local settingsFrame = g_inGameMenu and g_inGameMenu.pageSettings
         if settingsFrame == nil then
             print("NachbarFelder: [WP-PAGE] pageSettings nicht verfügbar")
@@ -89,11 +124,9 @@ function NachbarFelderWaypointPage:registerAndInject()
 
         -- Tab-Titel direkt setzen: $l10n_ wird vom C++-Parser vor dem Lua-Wrapper aufgeloest,
         -- daher setText nach loadGui als zuverlaessiger Fallback.
-        pcall(function()
-            local lang  = g_languageShort or "en"
-            local title = (lang == "de") and "Wegpunkte" or "Waypoints"
-            if wpTab.setText ~= nil then wpTab:setText(title) end
-        end)
+        local lang  = g_languageShort or "en"
+        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+        if wpTab.setText ~= nil then wpTab:setText(title) end
 
         -- Prefabs nach loadGui ausblenden (bleiben als Klonvorlagen, sollen nicht sichtbar sein)
         if self.nfWpBoolPrefab    ~= nil then self.nfWpBoolPrefab:setVisible(false)    end
@@ -106,18 +139,21 @@ function NachbarFelderWaypointPage:registerAndInject()
             local colors = InGameMenuSettingsFrame.COLOR_ALTERNATING
             if colors == nil then return end
             local isAlt = true
+            if layout == nil or layout.elements == nil then return end
             for _, container in ipairs(layout.elements) do
-                pcall(function()
-                    if container.name == "sectionHeader" then
-                        isAlt = true   -- nach jeder Sektion zurücksetzen
-                    elseif container.getIsVisibleNonRec == nil
-                        or container:getIsVisibleNonRec() then
+                if container.name == "sectionHeader" then
+                    isAlt = true   -- nach jeder Sektion zurücksetzen
+                elseif container.getIsVisibleNonRec == nil
+                    or container:getIsVisibleNonRec() then
+                    -- Build 160: nicht jedes Layout-Kind ist eine Bitmap (beim Joinen
+                    -- kam setImageColor = nil und der Spieler fiel durch die Map)
+                    if container.setImageColor ~= nil and colors[isAlt] ~= nil then
                         container:setImageColor(nil, unpack(colors[isAlt]))
-                        isAlt = not isAlt
                     end
-                end)
+                    isAlt = not isAlt
+                end
             end
-            pcall(function() layout:invalidateLayout() end)
+            if layout ~= nil and layout.invalidateLayout ~= nil then layout:invalidateLayout() end
         end
         -- Referenz für spätere Aufrufe in onTabOpen speichern
         self._updateAlternating = updateAlternating
@@ -149,7 +185,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                     local tt = tooltipKey and g_i18n:getText(tooltipKey) or ""
                     for _, kind in ipairs(opt.elements or {}) do
                         if kind.setText ~= nil then
-                            pcall(function() kind:setText(tt) end)
+                            if kind ~= nil and kind.setText ~= nil then kind:setText(tt) end
                             break
                         end
                     end
@@ -157,7 +193,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                     if isAction then
                         local key = NachbarFelderWaypointPage.BUTTON_TEXT[id]
                         if key ~= nil then
-                            pcall(function() opt:setText(g_i18n:getText(key)) end)
+                            if opt ~= nil and opt.setText ~= nil then opt:setText(g_i18n:getText(key)) end
                         end
                     end
                 end
@@ -203,24 +239,22 @@ function NachbarFelderWaypointPage:registerAndInject()
             self.name = settingsFrame.name
 
             -- Prefabs löschen (analog BC SettingsManager Zeilen 71-74)
-            pcall(function()
-                if self.nfWpBoolPrefab ~= nil then
-                    self.nfWpBoolPrefab:delete()
-                    self.nfWpBoolPrefab = nil
-                end
-                if self.nfWpActionPrefab ~= nil then
-                    self.nfWpActionPrefab:delete()
-                    self.nfWpActionPrefab = nil
-                end
-                if self.nfWpSectionPrefab ~= nil then
-                    self.nfWpSectionPrefab:delete()
-                    self.nfWpSectionPrefab = nil
-                end
-            end)
+            if self.nfWpBoolPrefab ~= nil then
+                self.nfWpBoolPrefab:delete()
+                self.nfWpBoolPrefab = nil
+            end
+            if self.nfWpActionPrefab ~= nil then
+                self.nfWpActionPrefab:delete()
+                self.nfWpActionPrefab = nil
+            end
+            if self.nfWpSectionPrefab ~= nil then
+                self.nfWpSectionPrefab:delete()
+                self.nfWpSectionPrefab = nil
+            end
 
             -- Alternating-Hintergründe initial setzen
             updateAlternating(self.nfWpLayout)
-            pcall(function() self.nfWpLayout:invalidateLayout() end)
+            if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then self.nfWpLayout:invalidateLayout() end
         else
             print("NachbarFelder: [WP-PAGE] nfWpBoolPrefab nicht gefunden – Rows fehlen")
         end
@@ -292,11 +326,9 @@ function NachbarFelderWaypointPage:registerAndInject()
         settingsFrame.onFrameOpen = Utils.appendedFunction(
             settingsFrame.onFrameOpen,
             function(sf)
-                pcall(function()
-                    if self_ref.nfWpLayout ~= nil then
-                        self_ref.nfWpLayout:invalidateLayout()
-                    end
-                end)
+                if self_ref.nfWpLayout ~= nil and self_ref.nfWpLayout.invalidateLayout ~= nil then
+                    self_ref.nfWpLayout:invalidateLayout()
+                end
             end
         )
 
@@ -307,15 +339,13 @@ function NachbarFelderWaypointPage:registerAndInject()
         settingsFrame.update = Utils.appendedFunction(
             settingsFrame.update,
             function(sf, dt)
-                pcall(function()
-                    local paging = sf.subCategoryPaging
-                    if paging ~= nil and paging.state == nfTabIdx then
-                        if sf.categoryHeaderText ~= nil and sf.categoryHeaderText.setText ~= nil then
-                            local title = (g_languageShort == "de") and "Wegpunkte" or "Waypoints"
-                            sf.categoryHeaderText:setText(title)
-                        end
+                local paging = sf.subCategoryPaging
+                if paging ~= nil and paging.state == nfTabIdx then
+                    if sf.categoryHeaderText ~= nil and sf.categoryHeaderText.setText ~= nil then
+                        local title = (g_languageShort == "de") and "Wegpunkte" or "Waypoints"
+                        sf.categoryHeaderText:setText(title)
                     end
-                end)
+                end
             end
         )
 
@@ -328,18 +358,16 @@ function NachbarFelderWaypointPage:registerAndInject()
                 if val ~= nil and tonumber(val) == InGameMenuSettingsFrame.SUB_CATEGORY.NF_WAYPOINTS then
                     -- Header-Text direkt überschreiben (superFunc hat MISSING gesetzt)
                     local sf = g_inGameMenu and g_inGameMenu.pageSettings
-                    pcall(function()
-                        if sf ~= nil then
-                            local lang = g_languageShort or "en"
-                            local title = (lang == "de") and "Wegpunkte" or "Waypoints"
-                            local hdrKeys = {"subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText","categoryHeaderText"}
-                            for _, name in ipairs(hdrKeys) do
-                                if sf[name] ~= nil and sf[name].setText ~= nil then
-                                    sf[name]:setText(title)
-                                end
+                    if sf ~= nil then
+                        local lang = g_languageShort or "en"
+                        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+                        local hdrKeys = {"subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText","categoryHeaderText"}
+                        for _, name in ipairs(hdrKeys) do
+                            if sf[name] ~= nil and sf[name].setText ~= nil then
+                                sf[name]:setText(title)
                             end
                         end
-                    end)
+                    end
                     self_ref:onTabOpen(settingsFrame)
                 end
                 return ret
@@ -360,7 +388,7 @@ function NachbarFelderWaypointPage:registerAndInject()
         if bcIdx ~= nil then
             settingsFrame.onFrameOpen = Utils.appendedFunction(settingsFrame.onFrameOpen,
                 function(sf)
-                    pcall(function()
+                    local function schritt()
                         local bc = BetterContracts
                         if bc == nil then
                             local env = _G["FS25_BetterContracts"]
@@ -376,58 +404,53 @@ function NachbarFelderWaypointPage:registerAndInject()
                                 break
                             end
                         end
-                    end)
+                    end
+                    schritt()
                 end)
             print("NachbarFelder: [WP-PAGE] BetterContracts-Kompatibilität aktiv (modState-Korrektur)")
         end
-    end)
-    if not ok then
-        print("NachbarFelder: [WP-PAGE] inject Fehler: " .. tostring(err))
     end
+    schritt()
 end
 
 function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
-    pcall(function()
-        if settingsFrame ~= nil then
-            settingsFrame:updateAbsolutePosition()
-            -- Header-Text direkt überschreiben (HEADER_TITLES-Lookup uppercased intern)
-            local lang = g_languageShort or "en"
-            local title = (lang == "de") and "Wegpunkte" or "Waypoints"
-            local sfHdrKeys = {"categoryHeaderText","subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText"}
-            for _, name in ipairs(sfHdrKeys) do
-                if settingsFrame[name] ~= nil and settingsFrame[name].setText ~= nil then
-                    settingsFrame[name]:setText(title)
-                end
-            end
-            if self.nfWpLayout ~= nil then
-                self.nfWpLayout:invalidateLayout()
+    if settingsFrame ~= nil then
+        if settingsFrame.updateAbsolutePosition ~= nil then settingsFrame:updateAbsolutePosition() end
+        -- Header-Text direkt überschreiben (HEADER_TITLES-Lookup uppercased intern)
+        local lang = g_languageShort or "en"
+        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+        local sfHdrKeys = {"categoryHeaderText","subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText"}
+        for _, name in ipairs(sfHdrKeys) do
+            if settingsFrame[name] ~= nil and settingsFrame[name].setText ~= nil then
+                settingsFrame[name]:setText(title)
             end
         end
-    end)
+        if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then
+            self.nfWpLayout:invalidateLayout()
+        end
+    end
     self:refreshWpInfo()
     -- Alternating-Hintergründe auffrischen (analog AGS onFrameOpen)
-    pcall(function()
-        if self.nfWpLayout ~= nil and self._updateAlternating ~= nil then
-            self._updateAlternating(self.nfWpLayout)
-        end
-    end)
+    if self.nfWpLayout ~= nil and self._updateAlternating ~= nil then
+        self._updateAlternating(self.nfWpLayout)
+    end
     -- Scrollbar auf unseren Layout zeigen
-    pcall(function()
-        if settingsFrame ~= nil and settingsFrame.settingsSlider ~= nil and self.nfWpLayout ~= nil then
-            settingsFrame.settingsSlider:setDataElement(self.nfWpLayout)
+    if settingsFrame ~= nil and settingsFrame.settingsSlider ~= nil and self.nfWpLayout ~= nil
+       and settingsFrame.settingsSlider.setDataElement ~= nil then
+        settingsFrame.settingsSlider:setDataElement(self.nfWpLayout)
+    end
+    if settingsFrame ~= nil and self.nfWpLayout ~= nil and settingsFrame.subCategoryPaging ~= nil
+       and self.nfWpLayout.findFirstFocusable ~= nil and self.nfWpLayout.elements ~= nil then
+        local layout = self.nfWpLayout
+        local first  = layout:findFirstFocusable(true)
+        local last   = layout.elements[#layout.elements]
+        if first ~= nil then
+            FocusManager:linkElements(settingsFrame.subCategoryPaging, FocusManager.BOTTOM, first)
         end
-        if settingsFrame ~= nil and self.nfWpLayout ~= nil then
-            local layout = self.nfWpLayout
-            local first  = layout:findFirstFocusable(true)
-            local last   = layout.elements[#layout.elements]
-            if first ~= nil then
-                FocusManager:linkElements(settingsFrame.subCategoryPaging, FocusManager.BOTTOM, first)
-            end
-            if last ~= nil then
-                FocusManager:linkElements(settingsFrame.subCategoryPaging, FocusManager.TOP, last)
-            end
+        if last ~= nil then
+            FocusManager:linkElements(settingsFrame.subCategoryPaging, FocusManager.TOP, last)
         end
-    end)
+    end
 end
 
 -- ============================================================
@@ -473,42 +496,40 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         else
             local idx = self.currentIdx or 1
             local wp  = wps[idx]
-            if wp ~= nil then
-                local catNames = { [0]="Normal", [1]="Kurz", [2]="Lang", [4]="Spawnpunkt" }
-                local catName  = catNames[wp.cat or 0] or "Normal"
+            -- Build 161: ohne gueltige Koordinaten nicht formatieren - ein solcher
+            -- Punkt kaeme vom Server-Sync und wuerde den Beitritt abbrechen
+            if wp ~= nil and tonumber(wp.x) ~= nil and tonumber(wp.z) ~= nil then
                 text = string.format("WP %d / %d     x = %d     z = %d     [%s]",
-                    idx, count, math.floor(wp.x), math.floor(wp.z), catName)
+                    idx, count, math.floor(wp.x), math.floor(wp.z), nfPageText(nfCatKey(wp.cat)))
             else
-                text = count .. " Wegpunkte gespeichert"
+                text = nfPageText("NF_msg_wpGespeichert", count)
             end
         end
-        self.nfWpInfoText:setText(text)
+        if self.nfWpInfoText.setText ~= nil then
+            self.nfWpInfoText:setText(text)
+        end
     end
 
     -- Aktions-Buttons (Build 135: echte Buttons) - Beschriftung auffrischen
     for id, key in pairs(NachbarFelderWaypointPage.BUTTON_TEXT) do
         local elem = self[id]
         if elem ~= nil and elem.setText ~= nil then
-            pcall(function() elem:setText(g_i18n:getText(key)) end)
+            elem:setText(nfPageText(key))
         end
     end
 
     -- Typ-Button: zeigt die aktuelle Kategorie, Klick schaltet weiter
     if self.nfWpType ~= nil and self.nfWpType.setText ~= nil then
-        local catNames = { [0]="Normal", [1]="Kurz", [2]="Lang", [4]="Spawnpunkt" }
-        local wp       = (count > 0 and self.currentIdx ~= nil) and wps[self.currentIdx] or nil
-        local catName  = wp ~= nil and (catNames[wp.cat or 0] or "Normal") or "-"
-        pcall(function() self.nfWpType:setText(catName) end)
+        local wp      = (count > 0 and self.currentIdx ~= nil) and wps[self.currentIdx] or nil
+        local catName = (wp ~= nil) and nfPageText(nfCatKey(wp.cat)) or "-"
+        self.nfWpType:setText(catName)
     end
 
     -- Map-Toggle: BinaryOption, Nein/Ja + Zustand korrekt setzen
     if self.nfWpMapShow ~= nil and mgr ~= nil then
         local STATE_YES_V = BinaryOptionElement ~= nil and BinaryOptionElement.STATE_RIGHT or 2
         local mapState  = (mgr._wpHotspotsEnabled ~= false) and STATE_YES_V or 1
-        pcall(function()
-            self.nfWpMapShow.texts = {"Nein", "Ja"}
-            self.nfWpMapShow:setState(mapState)
-        end)
+        nfSetOptionState(self.nfWpMapShow, mapState)
     end
 
     -- Fahrzeugkategorie-Toggles
@@ -525,10 +546,7 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         for _, r in ipairs(catRows) do
             if r.elem ~= nil then
                 local enabled = cats[r.key] ~= false
-                pcall(function()
-                    r.elem.texts = {"Nein", "Ja"}
-                    r.elem:setState(enabled and STATE_YES_V or 1)
-                end)
+                nfSetOptionState(r.elem, enabled and STATE_YES_V or 1)
             end
         end
     end
@@ -539,23 +557,23 @@ function NachbarFelderWaypointPage:refreshWpInfo()
     local isAdmin = self.manager ~= nil and self.manager.getIsLocalAdmin ~= nil
                     and self.manager:getIsLocalAdmin()
     local hasWp = count > 0 and self.currentIdx ~= nil
-    if self.nfWpTeleport ~= nil then pcall(function() self.nfWpTeleport:setDisabled(not hasWp or not isAdmin) end) end
-    if self.nfWpType     ~= nil then pcall(function() self.nfWpType:setDisabled(not hasWp or not isAdmin)     end) end
-    if self.nfWpDelete   ~= nil then pcall(function() self.nfWpDelete:setDisabled(not hasWp or not isAdmin)   end) end
-    if self.nfWpAddHere      ~= nil then pcall(function() self.nfWpAddHere:setDisabled(not isAdmin)      end) end
-    if self.nfWpAddSpawnHere ~= nil then pcall(function() self.nfWpAddSpawnHere:setDisabled(not isAdmin) end) end
-    if self.nfWpPrev     ~= nil then pcall(function() self.nfWpPrev:setDisabled(count == 0)    end) end
-    if self.nfWpNext     ~= nil then pcall(function() self.nfWpNext:setDisabled(count == 0)    end) end
+    nfSetDisabled(self.nfWpTeleport, not hasWp or not isAdmin)
+    nfSetDisabled(self.nfWpType,     not hasWp or not isAdmin)
+    nfSetDisabled(self.nfWpDelete,   not hasWp or not isAdmin)
+    nfSetDisabled(self.nfWpAddHere,      not isAdmin)
+    nfSetDisabled(self.nfWpAddSpawnHere, not isAdmin)
+    nfSetDisabled(self.nfWpPrev,     count == 0)
+    nfSetDisabled(self.nfWpNext,     count == 0)
     local catIds = { "nfWpCatTractorS", "nfWpCatTractorM", "nfWpCatTractorL",
                      "nfWpCatLoader", "nfWpCatTeleLoader" }
     for _, catId in ipairs(catIds) do
         local ctl = self[catId]
-        if ctl ~= nil then pcall(function() ctl:setDisabled(not isAdmin) end) end
+        nfSetDisabled(ctl, not isAdmin)
     end
 
     -- Layout neu berechnen
     if self.nfWpLayout ~= nil then
-        pcall(function() self.nfWpLayout:invalidateLayout() end)
+        if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then self.nfWpLayout:invalidateLayout() end
     end
 end
 
@@ -573,7 +591,7 @@ end
 function NachbarFelderWaypointPage:onClickNFWpTab()
     local page = getPage()
     if page == nil then return end
-    pcall(function()
+    local function schritt()
         local sf = g_inGameMenu and g_inGameMenu.pageSettings
         if sf == nil then return end
         -- setState erwartet den PAGING-STATE, nicht die Seitennummer. Bei
@@ -593,7 +611,8 @@ function NachbarFelderWaypointPage:onClickNFWpTab()
         sf.subCategoryPaging:setState(state, true)
         -- Direkt aufrufen — setState löst onClickCallback nicht immer aus
         page:onTabOpen(sf)
-    end)
+    end
+    schritt()
 end
 
 function NachbarFelderWaypointPage:onNFWpPrev(state, elem)
@@ -659,14 +678,12 @@ function NachbarFelderWaypointPage:onNFWpType(state, elem)
         local newCat = naechsterTyp[wp.cat or 0] or 0
         wp.cat = newCat  -- sofort lokal anzeigen; Server-Sync bestätigt
         if isMpClient() then
-            pcall(function()
-                g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
-                    NachbarFelderWaypointEditEvent.OP_SETCAT, idx, newCat))
-            end)
+            g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
+                NachbarFelderWaypointEditEvent.OP_SETCAT, idx, newCat))
         else
             page.manager:saveWaypoints()
             -- Karten-Beschriftung ("12 S" fuer Spawnpunkte) sofort nachziehen
-            pcall(function() page.manager:updateWpHotspots() end)
+            if page.manager ~= nil and page.manager.updateWpHotspots ~= nil then page.manager:updateWpHotspots() end
         end
     end
     page:refreshWpInfo()
@@ -682,10 +699,8 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
     if idx ~= nil and wps[idx] ~= nil then
         local wp = wps[idx]
         if isMpClient() then
-            pcall(function()
-                g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
-                    NachbarFelderWaypointEditEvent.OP_DELETE, idx))
-            end)
+            g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
+                NachbarFelderWaypointEditEvent.OP_DELETE, idx))
             page.currentIdx = nil  -- Server-Sync liefert die neue Liste
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
@@ -717,20 +732,18 @@ local function setzePunktHier(cat)
     if not requireAdmin(page) then return end
     page._hinweisText = nil
     local vorher = #(page.manager.userTrafficWaypoints or {})
-    local ok, gesetzt, grund = pcall(function()
-        return page.manager:addWaypointAtPlayer(cat)
-    end)
-    if not ok then
-        print("NachbarFelder: [WP-PAGE] Punkt setzen fehlgeschlagen: " .. tostring(gesetzt))
-        grund = "Fehler beim Setzen (siehe log.txt)"
-        gesetzt = false
+    local gesetzt, grund = false, nil
+    if page.manager.addWaypointAtPlayer ~= nil then
+        gesetzt, grund = page.manager:addWaypointAtPlayer(cat)
+    else
+        print("NachbarFelder: [WP-PAGE] addWaypointAtPlayer fehlt")
     end
     if gesetzt then
         -- zum neuen Punkt springen, sobald er da ist (MP: nach dem Server-Sync)
         page._anzahlVorNeu      = vorher
         page._springeZuNeuemBis = (g_time or 0) + 10000
     else
-        page._hinweisText = grund or "Nicht gesetzt"
+        page._hinweisText = grund or nfPageText("NF_msg_nichtGesetzt")
         page._hinweisBis  = (g_time or 0) + 8000
     end
     page:refreshWpInfo()
@@ -761,7 +774,7 @@ local function setCatEnabled(catKey, state)
     local page = getPage()
     if page == nil then return end
     if not requireAdmin(page) then
-        pcall(function() page:refreshWpInfo() end)  -- Schalter zuruecksetzen
+        if page ~= nil and page.refreshWpInfo ~= nil then page:refreshWpInfo() end  -- Schalter zuruecksetzen
         return
     end
     local mgr = page.manager
@@ -770,13 +783,11 @@ local function setCatEnabled(catKey, state)
     mgr.vehicleCatEnabled[catKey] = enabled  -- lokal für sofortige Anzeige
     mgr.trafficVehicleList = nil  -- Liste beim naechsten Spawn neu aufbauen
     if isMpClient() then
-        pcall(function()
-            g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
-                NachbarFelderWaypointEditEvent.OP_VEHCAT,
-                VEHCAT_IDX[catKey] or 0, enabled and 1 or 0))
-        end)
+        g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
+            NachbarFelderWaypointEditEvent.OP_VEHCAT,
+            VEHCAT_IDX[catKey] or 0, enabled and 1 or 0))
     else
-        pcall(function() mgr:saveWaypoints() end)
+        if mgr ~= nil and mgr.saveWaypoints ~= nil then mgr:saveWaypoints() end
     end
     page:refreshWpInfo()
 end

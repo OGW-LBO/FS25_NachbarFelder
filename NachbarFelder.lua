@@ -82,9 +82,7 @@ function NachbarFelderWaypointEditEvent:readStream(streamId, connection)
             print("NachbarFelder: [ADMIN] Wegpunkt-Edit abgelehnt - Absender ist kein Admin")
             return
         end
-        pcall(function()
-            g_NachbarFelderManager:applyWaypointEdit(self.op, self.a, self.b, self.c)
-        end)
+        g_NachbarFelderManager:applyWaypointEdit(self.op, self.a, self.b, self.c)
     end
 end
 
@@ -124,9 +122,7 @@ function NachbarFelderSettingsEditEvent:readStream(streamId, connection)
             print("NachbarFelder: [ADMIN] Settings-Edit abgelehnt - Absender ist kein Admin")
             return
         end
-        pcall(function()
-            g_NachbarFelderManager:applySettingEdit(self.settingName, self.value)
-        end)
+        g_NachbarFelderManager:applySettingEdit(self.settingName, self.value)
     end
 end
 
@@ -179,9 +175,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     state.helferFarmId = streamReadUInt8(streamId)   -- Build 157
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
-        pcall(function()
-            g_NachbarFelderManager:applySettingsState(state)
-        end)
+        g_NachbarFelderManager:applySettingsState(state)
         print("NachbarFelder: [SETTINGS] Stand vom Server empfangen (maxWorkers=" ..
             tostring(state.maxWorkers) .. " trafficLimit=" .. tostring(state.trafficLimit) .. ")")
     end
@@ -212,10 +206,8 @@ function NachbarFelderWaypointRequestEvent:readStream(streamId, connection)
     -- Settings gleich mitschicken (Build 67): der joinende Client bekommt
     -- den aktuellen server-autoritativen Einstellungs-Stand.
     if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getSettingsState ~= nil then
-        pcall(function()
-            connection:sendEvent(NachbarFelderSettingsSyncEvent.new(
-                g_NachbarFelderManager:getSettingsState()))
-        end)
+        connection:sendEvent(NachbarFelderSettingsSyncEvent.new(
+            g_NachbarFelderManager:getSettingsState()))
         print("NachbarFelder: [SETTINGS] Stand an Client gesendet")
     end
 end
@@ -275,9 +267,9 @@ function NachbarFelderWaypointSyncEvent:readStream(streamId, connection)
     if g_NachbarFelderManager ~= nil then
         g_NachbarFelderManager.userTrafficWaypoints = wps
         g_NachbarFelderManager.vehicleCatEnabled    = cats
-        pcall(function() g_NachbarFelderManager:updateWpHotspots() end)
+        if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.updateWpHotspots ~= nil then g_NachbarFelderManager:updateWpHotspots() end
         if g_NachbarFelderWaypointPage ~= nil then
-            pcall(function() g_NachbarFelderWaypointPage:refreshWpInfo() end)
+            if g_NachbarFelderWaypointPage ~= nil and g_NachbarFelderWaypointPage.refreshWpInfo ~= nil then g_NachbarFelderWaypointPage:refreshWpInfo() end
         end
         print("NachbarFelder: [SYNC] " .. tostring(#wps) .. " Wegpunkte vom Server empfangen")
     end
@@ -339,18 +331,16 @@ local function addPlayerActionEvents(self, superFunc, ...)
         print("NachbarFelder: [INPUT] Registriere Action-Events...")
     end
 
-    pcall(function()
-        -- NF_DELETE_HELPER = Admin-Vollreinigung: aktive Fahrzeuge + Pool
-        local _, idDel = g_inputBinding:registerActionEvent(
-            InputAction.NF_DELETE_HELPER, g_NachbarFelderManager,
-            g_NachbarFelderManager.deleteAllVehiclesAndPool, false, true, false, true)
-        if idDel ~= nil then
-            g_inputBinding:setActionEventTextVisibility(idDel, false)
-        end
-    end)
+    -- NF_DELETE_HELPER = Admin-Vollreinigung: aktive Fahrzeuge + Pool
+    local _, idDel = g_inputBinding:registerActionEvent(
+        InputAction.NF_DELETE_HELPER, g_NachbarFelderManager,
+        g_NachbarFelderManager.deleteAllVehiclesAndPool, false, true, false, true)
+    if idDel ~= nil then
+        g_inputBinding:setActionEventTextVisibility(idDel, false)
+    end
 
     if InputAction.NF_ADD_WAYPOINT ~= nil then
-        local ok, err = pcall(function()
+        local function schritt()
             local _, idAdd = g_inputBinding:registerActionEvent(
                 InputAction.NF_ADD_WAYPOINT, g_NachbarFelderManager,
                 g_NachbarFelderManager.onInputAddWaypoint, false, true, false, true)
@@ -364,34 +354,28 @@ local function addPlayerActionEvents(self, superFunc, ...)
             else
                 print("NachbarFelder: [INPUT] NF_ADD_WAYPOINT registerActionEvent gab nil zurueck")
             end
-        end)
-        if not ok then
-            print("NachbarFelder: [INPUT] NF_ADD_WAYPOINT Fehler: " .. tostring(err))
         end
+        schritt()
     elseif logOnce then
         print("NachbarFelder: [INPUT] InputAction.NF_ADD_WAYPOINT ist nil!")
     end
 
     if InputAction.NF_REMOVE_WAYPOINT ~= nil then
-        pcall(function()
-            local _, idRem = g_inputBinding:registerActionEvent(
-                InputAction.NF_REMOVE_WAYPOINT, g_NachbarFelderManager,
-                g_NachbarFelderManager.onInputRemoveWaypoint, false, true, false, true)
-            if idRem ~= nil then
-                g_inputBinding:setActionEventTextVisibility(idRem, false)
-            end
-        end)
+        local _, idRem = g_inputBinding:registerActionEvent(
+            InputAction.NF_REMOVE_WAYPOINT, g_NachbarFelderManager,
+            g_NachbarFelderManager.onInputRemoveWaypoint, false, true, false, true)
+        if idRem ~= nil then
+            g_inputBinding:setActionEventTextVisibility(idRem, false)
+        end
     end
 
     if InputAction.NF_MANAGE_WAYPOINTS ~= nil then
-        pcall(function()
-            local _, idMgr = g_inputBinding:registerActionEvent(
-                InputAction.NF_MANAGE_WAYPOINTS, g_NachbarFelderManager,
-                g_NachbarFelderManager.onInputManageWaypoints, false, true, false, true)
-            if idMgr ~= nil then
-                g_inputBinding:setActionEventTextVisibility(idMgr, false)
-            end
-        end)
+        local _, idMgr = g_inputBinding:registerActionEvent(
+            InputAction.NF_MANAGE_WAYPOINTS, g_NachbarFelderManager,
+            g_NachbarFelderManager.onInputManageWaypoints, false, true, false, true)
+        if idMgr ~= nil then
+            g_inputBinding:setActionEventTextVisibility(idMgr, false)
+        end
     end
 
     if logOnce then
@@ -437,9 +421,7 @@ local function initialize(nachbarFelder)
     -- Im Dedicated-MP: Wegpunkte vom Server anfordern (Server ist autoritativ).
     -- In SP / Local-Host: getIsServer()=true → loadWaypoints() lief schon in loadMap().
     if not g_currentMission:getIsServer() then
-        pcall(function()
-            g_client:getServerConnection():sendEvent(NachbarFelderWaypointRequestEvent.new())
-        end)
+        g_client:getServerConnection():sendEvent(NachbarFelderWaypointRequestEvent.new())
     end
 end
 
