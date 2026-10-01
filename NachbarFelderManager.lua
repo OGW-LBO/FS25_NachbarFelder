@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 152
+NachbarFelderManager.BUILD = 153
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -1011,6 +1011,9 @@ function NachbarFelderManager:loadMap()
 
     self:addConsoleCommands()
 
+    -- Build 153: eigene Kategorie im Hilfe-Menue (ESC > Hilfe)
+    self:ladeHilfe()
+
     -- Client-lokale Anzeige-Einstellungen (Karten-Hotspots an/aus, Build 71)
     self:loadClientPrefs()
 
@@ -1034,6 +1037,28 @@ function NachbarFelderManager:loadMap()
             self.savegameSettings = nil
             print("NachbarFelder: [SETTINGS] Einstellungen aus dem Savegame angewendet")
         end
+    end
+end
+
+--- Ingame-Hilfe laden (Build 153). Gleiches Format und gleicher Weg wie die
+--- Hilfe des Spiels: HelpLineManager:loadFromXML liest <helpLines>/<category>/<page>
+--- (so laedt z. B. Courseplay FS25 seine Hilfe); die $l10n_-Texte kommen aus
+--- l10n_*.xml. Nur mit Spieler (nicht auf dem reinen Dedi), einmal je Sitzung.
+function NachbarFelderManager:ladeHilfe()
+    if self.hilfeGeladen or g_client == nil then return end
+    self.hilfeGeladen = true
+    local dir = NachbarFelderManager.modDirectory
+    if dir == nil or g_helpLineManager == nil or g_helpLineManager.loadFromXML == nil then
+        print("NachbarFelder: Ingame-Hilfe nicht geladen (HelpLineManager nicht verfuegbar)")
+        return
+    end
+    local ok, err = pcall(function()
+        g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
+    end)
+    if ok then
+        print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
+    else
+        print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden: " .. tostring(err))
     end
 end
 

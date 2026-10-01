@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 153 (01.10.): Ingame-Hilfe, ModHub-Beschreibung, GitHub** — neue Datei `help/helpLine.xml` (ESC > Hilfe >
+>   „Lebendige Straßen“, 5 Seiten de/en), geladen über `g_helpLineManager:loadFromXML`; modDesc-Beschreibung de/en/fr neu
+>   mit Changelog, **Version 1.2.0.0**; Settings-Texte ohne Feldarbeit; Issue-Vorlagen und Release-Titel angepasst. Abschnitt Build 153.
 > - **Build 152 (01.10.): Beim Spielverkehr anmelden** — Autos des Spielverkehrs bremsen nur für angemeldete Objekte
 >   (`addTrafficSystemPlayer`); unsere Fahrzeuge ohne Fahrer waren nie angemeldet. Jetzt Anmeldung beim Losfahren,
 >   Abmeldung bei Pool/Löschen/Spielende. Schalter `spielverkehrAnmelden`. Abschnitt Build 152.
@@ -59,7 +62,7 @@
 > - Im Spiel noch ungetestet: Build 135 (Buttons), 136 (Spurwahl, Pool), 137 („bebaut" je Feldumriss), 138 und 139.
 >
 > **Arbeitsweise (verbindlich)**
-> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **14 Dateien** seit Build 150; neue Dateien in `DATEIEN` eintragen).
+> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 153; neue Dateien in `DATEIEN` eintragen).
 > - GitHub-Release: `.github/workflows/release.yml` baut mit `build.py` und legt Release `build<N>` mit
 >   `FS25_NachbarFelder.zip` an — bei Push auf `main` (Merge), Tag `build<N>` oder „Run workflow“; schon vorhandenes
 >   Release → nichts. Neues Release nur mit hochgezähltem `BUILD`. ZIP-Name nie ändern = Mod-Name.
@@ -1316,3 +1319,33 @@ Pool, Schalter aus, ohne Verkehrssystem, Engine-Fehler → Log statt Absturz. St
 **Unverifiziert im Spiel:** ob die Engine eine Obergrenze für angemeldete Objekte hat, und ob Autos hinter einem länger
 parkenden Nachbar-Fahrzeug dauerhaft warten. Prüfen: Log-Zeile `Fahrzeuge werden beim Spielverkehr angemeldet`, Autos
 bremsen hinter Traktoren, keine Ruckler; falls Autos sich stauen, `spielverkehrAnmelden` auf false.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 153: Ingame-Hilfe, ModHub-Beschreibung, GitHub
+
+**Wunsch User:** Ingame-Hilfe, Beschreibung für ModHub und GitHub an „Lebendige Straßen“ / reinen Verkehr anpassen.
+
+**Ingame-Hilfe (neu, gab es vorher nicht):**
+- `help/helpLine.xml` im Format der Spielhilfe (`<helpLines>/<category>/<page>/<paragraph>/<title>|<text>`), Texte als
+  `$l10n_NF_help_*` in `l10n_de/en.xml`. Seiten: Überblick, Wegpunkte und Spawnpunkte, Einstellungen, Tasten und Konsole,
+  Spielverkehr und Probleme.
+- Laden: `NachbarFelderManager:ladeHilfe()` aus `loadMap`, nur mit `g_client` (nicht auf dem reinen Dedi), einmal je
+  Sitzung, `pcall`: `g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", modDirectory))`.
+  `NachbarFelderManager.modDirectory` setzt `NachbarFelder.lua` nach dem `source`. Vorbild: Courseplay FS25
+  (`CpHelpFrame`: `HelpLineManager:loadFromXML` + Kategorien je `customEnvironment` = Mod-Name). **Unverifiziert im
+  Spiel**, ob die Kategorie im Standard-Hilfemenü erscheint (Log: `Ingame-Hilfe geladen` bzw. Fehlerzeile).
+- `build.py`: `help/helpLine.xml` (15 Dateien).
+
+**ModHub-Beschreibung (`modDesc.xml`):** de/en/fr neu (Features, Bedienung: wo Einstellungen, Wegpunkte, Hilfe; PS
+Spielverkehr), Changelog 1.2.0.0 in de+en (TestRunner verlangt Changelog ab Version > 1.0.0.0, Build-81-Notiz).
+**Version 1.1.42.0 → 1.2.0.0** (Namenswechsel + Feldarbeit entfernt; ModHub/MP brauchen eine neue Versionsnummer).
+Titel fr „Routes Vivantes“ (TestRunner: jedes Wort groß).
+
+**Texte:** `NF_active_*` („Nachbar-Verkehr aktiv“), `NF_engeMap_long` ohne Feldarbeit; entfernt: `NF_MAX_ASSISTANT_WORKERS_*`
+und alle `NF_*Mission_*` (keine Regler mehr seit Build 150).
+
+**GitHub:** README (Hilfe, Version, Dateiliste), Issue-Vorlagen (Mod-Name, Build-Platzhalter 153, Beispiel ohne Strg+Alt+E,
+Frage nach Spielverkehr; nebenbei YAML-Fehler in `fehlerbericht.yml` Zeile 18 behoben – „: “ im ungequoteten Text, die Vorlage war dadurch ungültig), Release-Titel „Lebendige Straßen Build N“. Repo-Beschreibung/Name auf GitHub kann nur der User
+in den Repo-Einstellungen ändern (Repo-Name bleibt sinnvoll `FS25_NachbarFelder` = Mod-Name).
+
+**Tests:** XML aller Dateien, Strukturcheck, Vollparse, Mock `ladeHilfe` (Pfad, einmalig, Fehler → Log, ohne Client nichts).

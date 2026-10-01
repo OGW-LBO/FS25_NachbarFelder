@@ -1,6 +1,6 @@
 # Lebendige Straßen (FS25_NachbarFelder)
 
-Angezeigter Name seit Build 151: **Lebendige Straßen** (en „Living Roads“, fr „Routes vivantes“). Technisch heißt die
+Angezeigter Name seit Build 151: **Lebendige Straßen** (en „Living Roads“, fr „Routes Vivantes“). Technisch heißt die
 Mod weiter `FS25_NachbarFelder` – ZIP-Name, Ordner `modSettings/FS25_NachbarFelder/`, Spielstände und Tastenbelegungen
 bleiben dadurch gültig.
 
@@ -14,9 +14,9 @@ der Auftrag an den Lohnunternehmer) sind entfernt.
 Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multiplayer.
 
 - Autor: OGW
-- modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 152` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 152)`)
+- modDesc-Version: `1.2.0.0` (Changelog in der Beschreibung der `modDesc.xml`)
+- Interner Stand: `NachbarFelderManager.BUILD = 153` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 153)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -58,6 +58,7 @@ Die ZIP heißt immer `FS25_NachbarFelder.zip` – das Spiel verwendet den Datein
 | `NachbarFelderWaypointPage.lua` | Reiter „Wegpunkte" im ESC-Menü |
 | `NachbarFelderWaypointDialog.lua`, `NachbarFelderUIHelper.lua` | Dialog und GUI-Hilfsfunktionen |
 | `gui/` | GUI-Layouts und eigene GUI-Profile |
+| `help/helpLine.xml` | Ingame-Hilfe (ESC → Hilfe → „Lebendige Straßen“), Texte in `l10n/` |
 | `l10n/` | Übersetzungen Deutsch und Englisch |
 | `tools/` | Prüfskripte aus der Zeit der Feldhelfer (siehe unten), nicht Teil der ZIP |
 | `docs/PROJEKTSTAND.md` | Ausführlicher Projektstand und Historie. Oben steht der Block „ARBEITSGRUNDLAGE", alles darunter ist Historie je Build |
@@ -72,6 +73,9 @@ Tasten laut `modDesc.xml` (im Spiel unter Einstellungen → Steuerung änderbar)
 | `Strg+Alt+O` | Wegpunkt an der eigenen Position setzen |
 | `Strg+Alt+U` | Zuletzt gesetzten Wegpunkt entfernen |
 | `Strg+Alt+C` | Wegpunkte verwalten |
+
+Eine Kurzanleitung steht im Spiel unter **ESC → Hilfe → „Lebendige Straßen“** (Überblick, Wegpunkte, Einstellungen,
+Tasten, Spielverkehr). Die Einstellungen stehen unter ESC → Einstellungen im Abschnitt „Lebendige Straßen“.
 
 Wegpunkte lassen sich auch ohne Tasten pflegen: ESC → Einstellungen → Reiter **Wegpunkte**.
 Dort gibt es Schaltflächen zum Setzen, Ändern des Typs, Löschen und Teleportieren.

@@ -445,6 +445,7 @@ end
 -- ============================================================
 local function init()
     source(modDirectory .. "NachbarFelderManager.lua")
+    NachbarFelderManager.modDirectory = modDirectory   -- Build 153: fuer help/helpLine.xml
     source(modDirectory .. "NachbarFelderWorker.lua")
     source(modDirectory .. "NachbarFelderSettingsPage.lua")
     source(modDirectory .. "NachbarFelderUIHelper.lua")

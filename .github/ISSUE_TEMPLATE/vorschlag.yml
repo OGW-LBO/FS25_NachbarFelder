@@ -6,7 +6,7 @@ body:
     id: idee
     attributes:
       label: Worum geht es?
-      description: Was soll die Mod können, was sie heute nicht kann?
+      description: Was soll „Lebendige Straßen“ können, was die Mod heute nicht kann?
     validations:
       required: true
 

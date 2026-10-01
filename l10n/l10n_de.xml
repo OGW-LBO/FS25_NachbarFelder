@@ -3,32 +3,14 @@
     <texts>
         <text name="NachbarFelder" text="Lebendige Straßen"/>
         <text name="NF_setting_title" text="Lebendige Straßen"/>
-        <text name="NF_active_short" text="Aktivitaet auf fremden Feldern"/>
-        <text name="NF_active_long" text="Aktiviert/Deaktiviert die Aktivitaet auf fremden Feldern"/>
-        <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Anzahl Arbeiter"/>
-        <text name="NF_MAX_ASSISTANT_WORKERS_long" text="Wie viele Arbeiter koennen maximal parallel arbeiten?"/>
+        <text name="NF_active_short" text="Nachbar-Verkehr aktiv"/>
+        <text name="NF_active_long" text="Schaltet den Verkehr der Nachbarn ein oder aus. Aus = keine neuen Fahrzeuge, unterwegs befindliche fahren fertig."/>
         <text name="NF_trafficLimit_short" text="Traffic-Fahrzeuge"/>
         <text name="NF_trafficLimit_long" text="Wie viele KI-Verkehrsfahrzeuge fahren gleichzeitig auf der Karte? (1-8). Wegpunkte und Spawnpunkte setzt du im Reiter 'Wegpunkte'."/>
         <text name="NF_trafficTrailerSize_short" text="Anbaugeraete"/>
         <text name="NF_trafficTrailerSize_long" text="Anbaugeraete fuer Traffic-Fahrzeuge. 0 = Keine Anbaugeraete | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Maehwerk, Zinkenrotor, Rechen, Saemaschine)"/>
         <text name="NF_engeMap_short" text="Enge Karte"/>
-        <text name="NF_engeMap_long" text="Fuer enge Karten und kleine Haendler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugeraet (Wender, Schwader, bis 3 t), und die Feldarbeit bekommt immer die kleinste Fahrzeuggruppe - kurze Gespanne passen auf kurze Spawn-Plaetze. Grosstraktoren, Radlader und Teleskoplader bleiben draussen. Aus = wie bisher, alles erlaubt."/>
-        <text name="NF_plowMission_short" text="Pfluegen"/>
-        <text name="NF_plowMission_long" text="Pflugmission generieren"/>
-        <text name="NF_cultivateMission_short" text="Grubbern"/>
-        <text name="NF_cultivateMission_long" text="Grubbermission generieren"/>
-        <text name="NF_sowMission_short" text="Saeen"/>
-        <text name="NF_sowMission_long" text="Saatmission generieren"/>
-        <text name="NF_harvestMission_short" text="Ernten"/>
-        <text name="NF_harvestMission_long" text="Erntemission generieren"/>
-        <text name="NF_hoeMission_short" text="Hacken"/>
-        <text name="NF_hoeMission_long" text="Hackmission generieren"/>
-        <text name="NF_weedMission_short" text="Unkraut entfernen"/>
-        <text name="NF_weedMission_long" text="Unkrautmission generieren"/>
-        <text name="NF_herbicideMission_short" text="Spritzen"/>
-        <text name="NF_herbicideMission_long" text="Herbizid-Spritzmission generieren"/>
-        <text name="NF_fertilizeMission_short" text="Duengen"/>
-        <text name="NF_fertilizeMission_long" text="Duengemission generieren"/>
+        <text name="NF_engeMap_long" text="Fuer enge Karten und kleine Haendler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugeraet (Wender, Schwader, bis 3 t). Grosstraktoren, Radlader und Teleskoplader bleiben draussen. Aus = alles erlaubt."/>
         <text name="input_NF_DELETE_HELPER" text="Lebendige Straßen: Alle Nachbar-Fahrzeuge entfernen"/>
         <text name="input_NF_ADD_WAYPOINT" text="Lebendige Straßen: Wegpunkt setzen"/>
         <text name="input_NF_REMOVE_WAYPOINT" text="Lebendige Straßen: Letzten Wegpunkt entfernen"/>
@@ -75,5 +57,24 @@
         <text name="NF_wpCatTeleLoader_long" text="Teleskoplader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)"/>
         <!-- Build 148 -->
         <text name="NF_hinweisSpawnpunkt" text="Ein automatischer Ladeplatz hat nicht geklappt. Zuverlässiger: Spawnpunkt setzen (ESC &gt; Einstellungen &gt; Wegpunkte &gt; Spawnpunkt hier setzen)."/>
+        <!-- Build 153: Ingame-Hilfe (help/helpLine.xml) -->
+        <text name="NF_help_title" text="Lebendige Straßen"/>
+        <text name="NF_help_subTitle" text="Verkehr der Nachbarn"/>
+        <text name="NF_help_page_ueberblick_title" text="Überblick"/>
+        <text name="NF_help_ueberblick_text1" text="Mit „Lebendige Straßen“ sind deine Nachbarn unterwegs: KI-Traktoren, teils mit Anbaugerät, fahren selbstständig über die KI-Straßen der Karte, halten an deinen Wegpunkten, parken eine Weile und fahren weiter. Nach einigen Fahrten machen sie Feierabend und parken; später werden sie wieder geweckt."/>
+        <text name="NF_help_ueberblick_text2" text="Fahrzeuge kommen erst, wenn ein Spieler im Spiel ist, und nach dem Einloggen mit etwa 3 Minuten Verzögerung. Wie viele gleichzeitig fahren, stellst du in den Einstellungen ein; nachts und mittags fahren weniger (Tagesrhythmus). Fahrziele sind deine Wegpunkte plus Punkte entlang der KI-Straßen, die die Mod selbst findet (Server-Konfiguration „zielQuelle“ = „wegpunkte“: nur deine Punkte)."/>
+        <text name="NF_help_page_wegpunkte_title" text="Wegpunkte und Spawnpunkte"/>
+        <text name="NF_help_wegpunkte_text1" text="Wegpunkte verwaltest du unter ESC &gt; Einstellungen &gt; Reiter „Wegpunkte“ (nur Admin): „Wegpunkt hier setzen“ und „Spawnpunkt hier setzen“ legen einen Punkt an deiner Position an. Dort kannst du durch die Punkte blättern, den Typ ändern, Punkte löschen und zu ihnen teleportieren."/>
+        <text name="NF_help_wegpunkte_text2" text="Typen: Normal (20–60 s Halt), Kurz (5–20 s), Lang (2–5 Min.) und Spawnpunkt. An Spawnpunkten werden neue Fahrzeuge geladen. Am besten im Traktor auf der rechten Spur setzen, Front in Fahrtrichtung, mit etwas Platz nach vorn. Ohne Spawnpunkt sucht die Mod selbst einen freien Platz an einer KI-Straße."/>
+        <text name="NF_help_wegpunkte_text3" text="Unter „Fahrzeugtypen“ legst du fest, welche Fahrzeuge die Nachbarn benutzen (kleine, mittlere, große Traktoren, Radlader, Teleskoplader). Mit „WP auf Karte zeigen“ erscheinen die Punkte als Marker auf der Karte."/>
+        <text name="NF_help_page_einstellungen_title" text="Einstellungen"/>
+        <text name="NF_help_einstellungen_text1" text="Die Einstellungen findest du unter ESC &gt; Einstellungen im Abschnitt „Lebendige Straßen“ (nur Admin ändert): Mod an/aus, Anzahl der Verkehrsfahrzeuge (1–8), Größe der Anbaugeräte und „Enge Karte“ (nur kleine Traktoren mit leichten Geräten)."/>
+        <text name="NF_help_einstellungen_text2" text="Auf einem Server gibt es zusätzlich die Datei modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, z. B. für Spawn-Abstände, Parkzeiten, Pool-Größe, Gespann-Anteil und „spielverkehrAnmelden“. Änderungen dort wirken nach einem Neustart."/>
+        <text name="NF_help_page_tasten_title" text="Tasten und Konsole"/>
+        <text name="NF_help_tasten_text1" text="Standardtasten (unter Einstellungen &gt; Steuerung änderbar, Einträge „Lebendige Straßen: …“): Strg + Alt + O Wegpunkt setzen, Strg + Alt + U letzten Wegpunkt entfernen, Strg + Alt + C Wegpunkte nacheinander anzeigen, Strg + Alt + L alle Nachbar-Fahrzeuge entfernen (nur Admin)."/>
+        <text name="NF_help_tasten_text2" text="Konsolenbefehle: nachbarFelderTrafficStop hält den Verkehr an und entfernt die Fahrzeuge, nachbarFelderTrafficStart erlaubt ihn wieder, nachbarFelderEntfernen entfernt alle Fahrzeuge, nachbarFelderTimer zeigt die Zeit bis zum nächsten Spawn."/>
+        <text name="NF_help_page_verkehr_title" text="Spielverkehr und Probleme"/>
+        <text name="NF_help_verkehr_text1" text="Die Autos des Spielverkehrs bremsen für die Nachbar-Fahrzeuge. Kracht es an engen Stellen trotzdem, kannst du den Verkehr im Spielmenü ausschalten oder in der Server-Konfiguration „spielverkehrAnmelden“ auf false setzen."/>
+        <text name="NF_help_verkehr_text2" text="Bleibt ein Fahrzeug länger stecken, sucht es sich ein neues Ziel und wird notfalls entfernt. Ladeplätze, an denen Fahrzeuge nicht wegkommen, sperrt die Mod für diese Karte. Hilfreich bei Problemen sind die Zeilen mit „NachbarFelder:“ aus der log.txt."/>
     </texts>
 </l10n>

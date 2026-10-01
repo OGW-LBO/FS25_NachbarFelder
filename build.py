@@ -27,6 +27,8 @@ DATEIEN = [
     "gui/NachbarFelderWaypointPage.xml",
     "gui/NachbarFelderWaypointDialog.xml",
     "gui/NachbarFelderGuiProfiles.xml",   # Build 135: Aktions-Buttons im Reiter Wegpunkte
+    # Ingame-Hilfe (Build 153)
+    "help/helpLine.xml",
     # Uebersetzungen
     "l10n/l10n_de.xml",
     "l10n/l10n_en.xml",
