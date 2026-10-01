@@ -8,7 +8,7 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
-> - **Build 156 (01.10.): Kippen beim Ankuppeln** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
+> - **Build 156 (01.10.): Kippen beim Ankuppeln — im Spiel bestätigt** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
 >   zur Seite. Ursache: Kuppeln mit `noSmoothAttach = true` + Gerät nur gierrichtig gesetzt. Jetzt drehrichtig setzen
 >   (`jointOrigRotOffsetComponent`) und weich kuppeln wie ein Spieler. Abschnitt Build 156.
 > - **Build 155 (01.10.): Spawn wieder waagerecht** — Test 154: Vario 500 (Spawnpunkt WP1) lag mit einer Seite am Boden und
@@ -1431,4 +1431,8 @@ Damit ist der Spawn (Build 155) in Ordnung, der Fehler sitzt im Kuppeln. Vermutl
 - Spawn-Log nennt das Gerät (`lintrac130.xml + <Geraet>.xml` statt `+ Anbaugeraet`).
 
 **Tests:** Mock: Position/Drehung aus Kupplung + Offsets, Physik an, `attachImplement` mit noSmoothAttach=false.
-Strukturcheck, Vollparse, Referenzscan. **Unverifiziert im Spiel.**
+Strukturcheck, Vollparse, Referenzscan.
+
+**Bestätigt im Spiel (User, 01.10.):** „Traktor und Anbaugerät sauber gespawnt, erst der Traktor, dann wurde das
+Anbaugerät sanft angekuppelt.“ Damit bestätigt: Build 152 (Spielverkehr bremst), 155 (waagerechter Spawn) und 156
+(weiches Kuppeln).
