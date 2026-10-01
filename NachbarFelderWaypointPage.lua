@@ -17,6 +17,14 @@ local function nfPageText(key, ...)
 end
 
 
+-- Build 161: Kategorie eines Wegpunkts als l10n-Schluessel (0 Normal, 1 Kurz,
+-- 2 Lang, 3 Durchfahrt, 4 Spawnpunkt). Unbekanntes gilt als Normal.
+local NF_CAT_KEYS = { [0]="NF_wpCat_normal", [1]="NF_wpCat_kurz", [2]="NF_wpCat_lang",
+                      [3]="NF_wpCat_durchfahrt", [4]="NF_wpArt_spawn" }
+local function nfCatKey(cat)
+    return NF_CAT_KEYS[cat or 0] or "NF_wpCat_normal"
+end
+
 -- Build 160: Element sperren/freigeben, nur wenn das Element es kann (ersetzt die
 -- frueheren Fehlerfaenger; ein Fehler im Menue-Update reisst sonst den ganzen
 -- Spiel-Frame mit).
@@ -488,33 +496,33 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         else
             local idx = self.currentIdx or 1
             local wp  = wps[idx]
-            if wp ~= nil then
-                local catKeys = { [0]="NF_wpCat_normal", [1]="NF_wpCat_kurz",
-                                  [2]="NF_wpCat_lang", [4]="NF_wpArt_spawn" }
-                local catName = nfPageText(catKeys[wp.cat or 0] or "NF_wpCat_normal")
+            -- Build 161: ohne gueltige Koordinaten nicht formatieren - ein solcher
+            -- Punkt kaeme vom Server-Sync und wuerde den Beitritt abbrechen
+            if wp ~= nil and tonumber(wp.x) ~= nil and tonumber(wp.z) ~= nil then
                 text = string.format("WP %d / %d     x = %d     z = %d     [%s]",
-                    idx, count, math.floor(wp.x), math.floor(wp.z), catName)
+                    idx, count, math.floor(wp.x), math.floor(wp.z), nfPageText(nfCatKey(wp.cat)))
             else
                 text = nfPageText("NF_msg_wpGespeichert", count)
             end
         end
-        self.nfWpInfoText:setText(text)
+        if self.nfWpInfoText.setText ~= nil then
+            self.nfWpInfoText:setText(text)
+        end
     end
 
     -- Aktions-Buttons (Build 135: echte Buttons) - Beschriftung auffrischen
     for id, key in pairs(NachbarFelderWaypointPage.BUTTON_TEXT) do
         local elem = self[id]
         if elem ~= nil and elem.setText ~= nil then
-            if elem ~= nil and elem.setText ~= nil then elem:setText(g_i18n:getText(key)) end
+            elem:setText(nfPageText(key))
         end
     end
 
     -- Typ-Button: zeigt die aktuelle Kategorie, Klick schaltet weiter
     if self.nfWpType ~= nil and self.nfWpType.setText ~= nil then
-        local catNames = { [0]="Normal", [1]="Kurz", [2]="Lang", [4]="Spawnpunkt" }
-        local wp       = (count > 0 and self.currentIdx ~= nil) and wps[self.currentIdx] or nil
-        local catName  = wp ~= nil and (catNames[wp.cat or 0] or "Normal") or "-"
-        if self.nfWpType ~= nil and self.nfWpType.setText ~= nil then self.nfWpType:setText(catName) end
+        local wp      = (count > 0 and self.currentIdx ~= nil) and wps[self.currentIdx] or nil
+        local catName = (wp ~= nil) and nfPageText(nfCatKey(wp.cat)) or "-"
+        self.nfWpType:setText(catName)
     end
 
     -- Map-Toggle: BinaryOption, Nein/Ja + Zustand korrekt setzen

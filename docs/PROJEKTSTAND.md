@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 160 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 161 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 160`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 161`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
@@ -1451,3 +1451,33 @@ Existenz prüfen, besonders in Hooks auf Spielfunktionen (Speichern, Menü-Updat
   `getIsMotorStarted` vor dem Aufruf geprüft.
 - Komplettprüfung: alle 164 entfernten `pcall`-Stellen gegen Build 157 durchgesehen; Strukturcheck, Vollparse,
   Undefiniert-Scan (nf-Funktionen je Datei, Nutzung vor Definition), l10n-Abdeckung de/en/fr.
+
+---
+
+# ERGÄNZUNG 2026-10-01 — Build 161: Wegpunkt-Seite, letzte Lücken ohne pcall
+
+Build 160 hat den Beitritts-Absturz an seiner Hauptursache behoben (`container:setImageColor` in der
+Zeilenfärbung – nicht jedes Layout-Kind ist eine Bitmap). Eine Prüfung derselben Funktion in echtem Lua
+(lupa, Skript `mh_join_pruef.py`: GUI noch nicht geladen / Menü halb aufgebaut / Wegpunkt ohne Koordinaten /
+Normalbetrieb / Index zu groß) zeigte zwei verbliebene Stellen, die beim Beitritt genauso durchschlagen:
+
+- `self.nfWpInfoText:setText(text)` ohne Methodenprüfung → „attempt to call a nil value (method 'setText')“,
+  sobald das Menü erst halb aufgebaut ist.
+- `math.floor(wp.x)` ohne Prüfung → „bad argument #1 to 'floor' (number expected, got nil)“, sobald ein
+  Wegpunkt ohne Koordinaten in der Liste steht. Genau solche Punkte kommen über den Server-Sync.
+
+Beides ist jetzt geprüft, ohne Schutzhülle. Dazu ein ModHub-Punkt, der in Build 160 zurückgekommen war:
+die Kategorienamen am Typ-Schalter standen wieder fest auf Deutsch (`{ "Normal", "Kurz", "Lang",
+"Spawnpunkt" }`) – englische und französische Spieler hätten deutsche Wörter gesehen. Jetzt über den
+Helfer `nfCatKey` aus l10n, inklusive Kategorie 3 (Durchfahrt), die in der alten Liste fehlte. Die
+Button-Beschriftungen laufen über `nfPageText` statt `g_i18n:getText` (prüft den Schlüssel mit `hasText`).
+
+**Merke für den pcall-Umbau:** Ein Aufruf einer Funktion, die es nicht gibt, ist syntaktisch gültig – weder
+`luaparser` noch der TestRunner finden ihn, erst die Laufzeit. Beim Umbau von Build 158 war so
+`nfSetDisabled` aufgerufen, aber nie definiert worden. Deshalb gehört zur Prüfkette jetzt ein Referenzscan
+(`mh_referenzscan.py`: einfache Aufrufe gegen alle Definitionen) **und** ein lupa-Durchlauf der Funktionen,
+die ohne geöffnetes Menü laufen.
+
+**Prüfungen:** TestRunner 0.9.22 PASS (alle 15 Module), Vollparse, Referenzscan ohne echte Treffer,
+lupa-Join-Test 6 von 6 (dieselbe Prüfung meldet für Build 160 noch 2 Fehler), l10n de/en/fr je 105
+Schlüssel deckungsgleich, alle 21 benutzten Schlüssel vorhanden und formatierbar.
