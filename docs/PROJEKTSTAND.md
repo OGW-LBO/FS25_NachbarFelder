@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 156 (01.10.): Kippen beim Ankuppeln** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
+>   zur Seite. Ursache: Kuppeln mit `noSmoothAttach = true` + Gerät nur gierrichtig gesetzt. Jetzt drehrichtig setzen
+>   (`jointOrigRotOffsetComponent`) und weich kuppeln wie ein Spieler. Abschnitt Build 156.
 > - **Build 155 (01.10.): Spawn wieder waagerecht** — Test 154: Vario 500 (Spawnpunkt WP1) lag mit einer Seite am Boden und
 >   kippte auf die Räder. Ursache: unsere Neigung + Shop-Drehung des Modells = Schräglage. Jetzt waagerecht, Höhe über dem
 >   höchsten von 5 Messpunkten. Abschnitt Build 155.
@@ -1401,3 +1404,31 @@ bleiben. Konstanten `SPAWN_HOEHE`, `SPAWN_MESS_LAENGS`, `SPAWN_MESS_SEITE`, `SPA
 
 **Tests:** Mock 10 % Steigung → Rotation 0, Traktor 0,35 m über Mittelpunkt (vorne 0,10 m), Gerät 9 m dahinter.
 Strukturcheck, Vollparse.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 156: Kein Kippen mehr beim Ankuppeln
+
+**Test Build 155 (User):** „Traktor landet sauber, aber wenn das Anbaugerät montiert wird, kippt er zur Seite.“ Log
+17:19: `lintrac130.xml + Anbaugeraet` am Spawnpunkt WP1, `Gespann wird am Ladeplatz gekuppelt`, danach normal los.
+Damit ist der Spawn (Build 155) in Ordnung, der Fehler sitzt im Kuppeln. Vermutlich auch die Ursache vieler früherer
+„umgekippt“-Fälle (Builds 142–148), die damals Gewicht bzw. Ladeplatz zugeschrieben wurden.
+
+**Analyse (LUADOC):**
+- `AttacherJoints:createAttachmentJoint(implement, noSmoothAttach)`: mit `noSmoothAttach = true` sind die
+  Gelenkgrenzen sofort 0 (`attachingTransLimit/RotLimit = {0,0,0}`), jede Abweichung zwischen Eingangspunkt des Geräts
+  und Kupplung wird in einem Physik-Schritt erzwungen. Ohne (Spieler: `VehicleAttachEvent` → `attachImplement(…, true,
+  nil, startLowered)`) wird über `smoothAttachTime` weich zusammengezogen.
+- Unser `setzeGeraetAnKupplung` setzte nur die Gierrichtung (wie `additionalAttachmentLoaded`); geneigte oder
+  verdrehte Eingangspunkte (`jointOrigRotOffsetComponent`, Attachable.lua:1958) passten nicht → harter Ruck.
+  `SupportVehicle:enableSupportVehicle` setzt dagegen auch die Drehung: `localRotationToWorld(jointTransform, rotOffset)`.
+
+**Fix:**
+- `setzeGeraetAnKupplung`: Drehung = `localRotationToWorld(aj.jointTransform, ij.jointOrigRotOffsetComponent)`, sonst wie bisher
+  Gierrichtung. Mindesthöhe 5 cm bleibt.
+- Neu `kuppleGeraet(info)`: setzen + `attachImplement(…, true, nil, false, false, false)` = weich, nicht gesenkt, kein
+  Spielstand-Modus. Beide Kuppelstellen (`setAttachment`, Status-0-Zweig in `update`) nutzen sie. `attachObjectToCar`
+  (unbenutzt) entfernt.
+- Spawn-Log nennt das Gerät (`lintrac130.xml + <Geraet>.xml` statt `+ Anbaugeraet`).
+
+**Tests:** Mock: Position/Drehung aus Kupplung + Offsets, Physik an, `attachImplement` mit noSmoothAttach=false.
+Strukturcheck, Vollparse, Referenzscan. **Unverifiziert im Spiel.**

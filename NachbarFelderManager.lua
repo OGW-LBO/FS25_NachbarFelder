@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 155
+NachbarFelderManager.BUILD = 156
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2517,21 +2517,12 @@ function NachbarFelderManager:update(dt)
                     local pendingInfo = self:attachObjects(vehicle, attached, vehIndex == 2)
                     -- Build 125: Feldhelfer UND Verkehr an die Kupplung setzen (Build 117:
                     -- k.NachbarFelderWorker ist hier schon der Worker)
-                    do
-                        -- Build 116: Feldhelfer-Geraet an die Kupplung setzen / wieder in die Physik
-                        if pendingInfo ~= nil then
-                            self:setzeGeraetAnKupplung(pendingInfo.attacherVehicle, pendingInfo.attacherVehicleJointDescIndex,
-                                pendingInfo.attachable, pendingInfo.attachableJointDescIndex)
-                        elseif attached ~= nil then
-                            pcall(function()
-                                if not attached.isAddedToPhysics then attached:addToPhysics() end
-                            end)
-                        end
-                    end
                     if pendingInfo ~= nil then
-                        pendingInfo.attacherVehicle:attachImplement(
-                            pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-                            pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
+                        self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
+                    elseif attached ~= nil then
+                        pcall(function()
+                            if not attached.isAddedToPhysics then attached:addToPhysics() end
+                        end)
                     end
                     if #k.NachbarFelderWorker.vehiclesToLoad >= 3 and vehIndex == 2 then
                         k.NachbarFelderWorker.status = 0.5
@@ -3192,9 +3183,13 @@ end
 
 --- Geraet mit seinem Eingangs-Kupplungspunkt auf den Kupplungspunkt des
 --- Traktors setzen und wieder in die Physik nehmen (Build 116).
---- Genau so macht es das Spiel fuer Zusatzgeraete (AttacherJoints.lua:3076-3078
---- und 3141-3146): Position = localToWorld(jointTransform, jointOrigOffsetComponent),
---- Drehung aus der x-Achse des Kupplungspunkts, mindestens 5 cm ueber dem Boden.
+--- Build 156: auch die DREHUNG passend setzen - wie SupportVehicle:enableSupportVehicle:
+--- Position = localToWorld(jointTransform, jointOrigOffsetComponent), Drehung =
+--- localRotationToWorld(jointTransform, jointOrigRotOffsetComponent) (Attachable.lua:1957/1958).
+--- Bis Build 155 nur die Gierrichtung (wie AttacherJoints:additionalAttachmentLoaded); stand der
+--- Eingangspunkt des Geraets anders geneigt als die Kupplung, riss das sofortige Kuppeln den
+--- Traktor zur Seite (Test 01.10.: Lintrac 130 / Vario 500 kippten beim Ankuppeln).
+--- Mindestens 5 cm ueber dem Boden.
 function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex, implement, inputJointIndex)
     pcall(function()
         local aj = attacher:getAttacherJoints()[attacherJointIndex]
@@ -3202,10 +3197,16 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
         if aj ~= nil and aj.jointTransform ~= nil and ij ~= nil then
             local offset = ij.jointOrigOffsetComponent or { 0, 0, 0 }
             local x, y, z = localToWorld(aj.jointTransform, unpack(offset))
-            local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
-            local yRot = MathUtil.getYRotationFromDirection(dirX, dirZ)
+            local rx, ry, rz = nil, nil, nil
+            if ij.jointOrigRotOffsetComponent ~= nil then
+                rx, ry, rz = localRotationToWorld(aj.jointTransform, unpack(ij.jointOrigRotOffsetComponent))
+            end
+            if rx == nil or ry == nil or rz == nil then
+                local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
+                rx, ry, rz = 0, MathUtil.getYRotationFromDirection(dirX, dirZ), 0
+            end
             local terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
-            implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, 0, yRot, 0)
+            implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, rx, ry, rz)
         end
     end)
     pcall(function()
@@ -3213,13 +3214,17 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
     end)
 end
 
-function NachbarFelderManager:attachObjectToCar(vehicle, attachedVehicle, isBackSetting)
-    local pendingInfo = self:attachObjects(vehicle, attachedVehicle, isBackSetting)
-    if pendingInfo ~= nil then
-        pendingInfo.attacherVehicle:attachImplement(
-            pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-            pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
-    end
+--- Geraet ankuppeln (Build 156): an die Kupplung setzen, dann WEICH kuppeln wie ein Spieler
+--- (VehicleAttachEvent: noSmoothAttach = nil). Mit noSmoothAttach = true (bis Build 155,
+--- Spielstand-Laden) sind die Gelenkgrenzen sofort 0 (AttacherJoints:createAttachmentJoint) -
+--- jede Restabweichung wird in einem Physik-Schritt erzwungen, der Ruck kippte leichte Traktoren.
+--- Gesenkt wird nicht (startLowered = false).
+function NachbarFelderManager:kuppleGeraet(info)
+    if info == nil then return end
+    self:setzeGeraetAnKupplung(info.attacherVehicle, info.attacherVehicleJointDescIndex,
+        info.attachable, info.attachableJointDescIndex)
+    info.attacherVehicle:attachImplement(info.attachable, info.attachableJointDescIndex,
+        info.attacherVehicleJointDescIndex, true, nil, false, false, false)
 end
 
 function NachbarFelderManager:attachObjects(vehicle, attachedVehicle, isBackSetting)
@@ -3811,13 +3816,8 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
                     pendingInfo = self:attachObjects(vehicle, implement, false)
                 end
             end
-            if pendingInfo ~= nil then   -- Build 125: Feldhelfer und Verkehr gleich
-                -- Build 116: Feldhelfer - wie das Spiel an die Kupplung setzen, angehoben kuppeln
-                self:setzeGeraetAnKupplung(pendingInfo.attacherVehicle, pendingInfo.attacherVehicleJointDescIndex,
-                    pendingInfo.attachable, pendingInfo.attachableJointDescIndex)
-                pendingInfo.attacherVehicle:attachImplement(
-                    pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-                    pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
+            if pendingInfo ~= nil then
+                self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
             elseif implement ~= nil then
                 pcall(function()
                     if not implement.isAddedToPhysics then implement:addToPhysics() end
@@ -5310,7 +5310,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     self.countWorkers = self.countWorkers + 1
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
     print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
-        (trailerAdded and " + Anbaugeraet" or "") ..
+        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")) or "") ..
         " | Ziel: WP" .. tostring(destIdx) ..
         " | " .. tostring(worker.hopsLeft) .. " Hops" ..
         " | Aktiv: " .. tostring(activePatrol + 1) .. "/" .. tostring(effLimit) ..
