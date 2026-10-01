@@ -5,21 +5,27 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-09-21 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 139 (01.10.): Auftrag an den Lohnunternehmer** — Spieler steht an einem Feld und beauftragt die Helfer
+>   mit genau diesem Feld, auch mit dem eigenen (Taste `NF_ORDER_FIELD`, Standard Strg+Alt+J, oder Reiter Wegpunkte →
+>   „Lohnunternehmer“). Neue Datei `NachbarFelderAuftrag.lua`, Event `NachbarFelderAuftragEvent`. Details: Abschnitt Build 139 am Ende.
 > - **Build 138 (24.09.): Helfer-Farm nicht mehr fest 2**, sondern Konfig `<farmId>` (0 = auto) bzw. automatisch die hoechste Farm ohne Spieler/Farmland/Gebaeude (Bergisch Land: Farm 6 Raufutterhandel). Grund: User wechselt mit seiner Farm auf Hof Klein = Farm 2. Log: `Helfer-Farm = N ...`.
 > - **Build 137**, modDesc-Version `1.1.42.0` (wird nicht hochgezählt; maßgeblich ist `NachbarFelderManager.BUILD`,
 >   im Log `loadMap auf SERVER (Build n)`). Alles muss **kartenunabhängig** sein.
 > - ZIPs: `Codex\FS25_NachbarFelder_Build<N>.zip`, aktuell **Build137**. Build130/131-ZIPs sind fehlerhaft
 >   (build.py + ZIP im ZIP) — nicht verwenden.
 > - Deploy macht der User selbst (Server per FTP + eigener Mods-Ordner). **Nie** selbst in den Mods-Ordner legen.
-> - Im Spiel noch ungetestet: Build 135 (Buttons), 136 (Spurwahl, Pool) und 137 („bebaut" je Feldumriss).
+> - Im Spiel noch ungetestet: Build 135 (Buttons), 136 (Spurwahl, Pool), 137 („bebaut" je Feldumriss), 138 und 139.
 >
 > **Arbeitsweise (verbindlich)**
-> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **14 Dateien**; neue Dateien in `DATEIEN` eintragen).
+> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 139; neue Dateien in `DATEIEN` eintragen).
 > - Prüfen: `lsc.py` (Skill `ls25-modding/references/lua_syntax_check.py`, Kopie `%TEMP%\lsc.py`) + Vollparse mit
->   Python-`luaparser` (vorher `continue` → `break` ersetzen, GIANTS-Lua kennt `continue`); XML mit minidom.
+>   Python-`luaparser` oder `lupa` (`load()` ohne Ausführen; vorher `continue` → `break` ersetzen, GIANTS-Lua kennt
+>   `continue`; BOM vorher entfernen); XML mit minidom.
+> - API-Verifikation: Die LUADOC-Webseite kann gesperrt sein; dann das Repo `umbraprior/FS25-Community-LUADOC`
+>   (Sparse-Checkout `docs/script/...`) lesen.
 > - Textdateien nur per Edit-Tool oder Python-Bytes ändern (PowerShell Get-/Set-Content erzeugt Zeichensalat).
 >   Nachträge hier per Python anhängen, diesen Kopf aktuell halten.
 > - Logs: Server-Log schickt der User (eingefügt oder `Downloads\NeuServerLog.txt`). Client-Log:
@@ -45,9 +51,13 @@
 >   Teleportieren (nur Admin). Spawnpunkt: im Traktor auf der rechten Spur, Front in Fahrtrichtung, danach wegfahren.
 > - Tasten beim User (Profil `inputBinding.xml`): Wegpunkt setzen **Strg+Alt+O**, Helfer starten Strg+Alt+N,
 >   alles entfernen Strg+Alt+L, Shift+Alt+X/W (lösen Alt+X/Shift+X mit aus → umlegen). Neue Standards seit 134:
->   Strg+Alt+O/U/C/E/L. Vor Tastentipps immer das Profil prüfen.
+>   Strg+Alt+O/U/C/E/L, seit 139 zusätzlich Strg+Alt+J (Lohnunternehmer; Kollision mit Strg+J/Alt+J nicht geprüft).
+>   Vor Tastentipps immer das Profil prüfen.
+> - Lohnunternehmer (Build 139): an ein Feld stellen (im Feld oder ≤ 25 m vom Rand) → Strg+Alt+J oder Reiter
+>   Wegpunkte → „Dieses Feld bearbeiten lassen“. Antwort als Meldung und in der Infozeile des Reiters.
 >
 > **Offene Punkte (nach Priorität)**
+> 0. **Build 139 testen** (Auftrag an den Lohnunternehmer), Testplan im Abschnitt Build 139 am Ende.
 > 1. Servertest Build 137 auf Bergisch Land (enthält 136): im Log `0 Felder bebaut (Hindernis mind. 1 m im Feld)`,
 >    in der Feldarbeit-Statistik `0 bebaut` statt 83 und danach echte Feldaufträge; `[POOL] … aufgeweckt` muss
 >    auftauchen, „sofort abgewiesen" und „Ladeplatz … taugt nicht" deutlich seltener.
@@ -79,7 +89,10 @@
 >   `saveWaypoints`/`loadWaypoints` (Datei je Karte).
 > - Worker: `onAIJobFinished` (Abweisungen, `pathFails`, `nfRoadSnap`, `nfMarkStartPlaceBad`).
 > - Seite: `NachbarFelderWaypointPage.BUTTON_TEXT`, Profile in `gui/NachbarFelderGuiProfiles.xml`.
-> - Events: `NachbarFelderWaypointEditEvent` OP 1 ADD, 2 REMOVELAST, 3 DELETE, 4 SETCAT, 5 VEHCAT, 6 ADD_SPAWN;
+> - Auftrag (Build 139): `NachbarFelderAuftrag.anfordern` (Client), `.ausfuehren` (Server), `.pruefe`, `.starte`,
+>   `.getFeldAnPosition`, `.starteGespeichert`; Worker-Felder `istAuftrag`/`auftragFarmId`.
+> - Events: `NachbarFelderAuftragEvent` (Build 139, beide Richtungen, `connection:getIsServer()`);
+>   `NachbarFelderWaypointEditEvent` OP 1 ADD, 2 REMOVELAST, 3 DELETE, 4 SETCAT, 5 VEHCAT, 6 ADD_SPAWN;
 >   Liste an Clients per `NachbarFelderWaypointSyncEvent`.
 > - WP-Kategorien: 0 Normal, 1 Kurz, 2 Lang, 3 Durchfahrt (Straßenziele), 4 Spawnpunkt.
 >
@@ -786,3 +799,90 @@ ZIP: ``Codex\FS25_NachbarFelder_Build137.zip`` (14 Dateien, 240.460 Bytes) — N
 - Spieler-Erkennung wie AgrarOekonomie: `farm.players`/`userIds`/`activeUsers`; ohne bekannte Liste wird die Farm NICHT genommen.
 - Alle Hooks (addMoney, Farmland, MissionWork) nutzen weiter `self.farmId` - keine weitere feste 2 im Code.
 - Bestehende Server-Konfig hat den Schluessel nicht -> automatisch. Test: im Server-Log die Zeile `Helfer-Farm = 6 'Raufutterhandel' (automatisch (leere Farm) ...)`.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 139: Auftrag an den Lohnunternehmer
+
+Anlass: Wunsch des Users — der Spieler steht an einem Feld und beauftragt die NachbarFelder-Helfer, genau dieses
+Feld zu bearbeiten, auch wenn es ihm selbst gehört. Eingabe-Aktion plus Zeile im Reiter Wegpunkte, MP-tauglich.
+
+**Bedienung**
+- Taste „NachbarFelder: Lohnunternehmer für dieses Feld beauftragen“ (`NF_ORDER_FIELD`, Standard **Strg+Alt+J**)
+  oder ESC → Einstellungen → Wegpunkte → Abschnitt **Lohnunternehmer** → „Dieses Feld bearbeiten lassen“ (Button
+  „Beauftragen“). Der Button ist für alle Spieler aktiv, die Rechte prüft der Server.
+- Ergebnis: Ingame-Meldung und 8 s lang in der Infozeile des Reiters (das Menü verdeckt Meldungen).
+
+**Regeln (Server)**
+- Feld: Farmland unter der Position → `farmland.field`; sonst das nächste Feld nach Umriss (`getFeldPolygon`,
+  Punkt im Umriss = 0 m, sonst Randabstand), höchstens `NachbarFelderAuftrag.MAX_ABSTAND` = 25 m.
+- Besitz über `g_farmlandManager:getFarmlandOwner(farmland.id)` (liest `farmlandMapping`, bleibt vom temporären
+  Helfer-Besitz `farmland.farmId` unberührt):
+  - eigenes Feld (Besitzer = Farm des Absenders): Recht `hireAssistant` per
+    `g_currentMission:getHasPlayerPermission("hireAssistant", connection, farmId)` — dieselbe Prüfung wie
+    `AIJobFieldWork:getIsStartable`; prüft zugleich, dass der Absender zu der Farm gehört. Admin geht immer.
+  - freies Feld: nur Admin (`getIsConnectionAdmin`, wie „Helfer sofort starten“).
+  - Feld einer anderen Farm: immer abgelehnt, auch für Admins.
+  - SP / eigener Host: lokaler Aufruf ohne Verbindung → gilt als berechtigt (Konvention `getIsConnectionAdmin(nil)`).
+- Dann dieselben Sicherheitsprüfungen wie `isFieldUseful`, nur ohne „gehört einer Farm“ und ohne Cooldown:
+  Mod aus, Helfer schon auf dem Feld, `nachbarFelderSperre`, angenommener Vertrag, bebaut, Weide, < 0,3 ha, Grünland.
+- Arbeit über `getFeldAktion`: nur Pflügen (3) oder Grubbern (4) wie seit Build 125; Pflügen aus → Grubbern;
+  Frucht steht / schon bearbeitet / unklar → abgelehnt mit eigenem Text.
+- Start wie `generateWorkMission`: Helfer-Grenze `MAX_ASSISTANT_WORKERS`, Spawnpunkte belegt → „Händlerplatz belegt“,
+  dann `createMission`. Der Worker bekommt `istAuftrag = true` und `auftragFarmId`.
+- Feldbesitz während der Arbeit: unverändert der bestehende Trick (`farmland.farmId` = Helfer-Farm, Original in
+  `origFarmlandId`/`origIsOwned`, Rücksetzen an allen bekannten Stellen, `saveSavegame`-Hook). Bei eigenen Feldern
+  ist der Originalbesitzer die Spieler-Farm — wird genauso zurückgesetzt.
+
+**Multiplayer**
+- `NachbarFelderAuftragEvent` (neue Datei `NachbarFelderAuftrag.lua`), eine Klasse für beide Richtungen wie
+  `AIJobStartRequestEvent`: Client → Server `x`, `z` (Float32), Farm-ID (`streamWriteUIntN`,
+  `FarmManager.FARM_ID_SEND_NUM_BITS`); Server → Absender `ok`, Text-Key, Feld-Nr., Arbeits-Key
+  (`connection:sendEvent`). Die Richtung entscheidet `connection:getIsServer()`.
+- Der Server sucht das Feld selbst; der Client schickt nur Position und eigene Farm, die Farm wird über das Recht
+  `hireAssistant` gegengeprüft.
+
+**Savegame**
+- `NachbarFelder.xml`: `worker(?)#auftrag` (bool) und `#auftragFarmId` (int), im Schema registriert. Beim Laden geht
+  ein Auftrag über `NachbarFelderAuftrag.starteGespeichert` statt `startSavedMission` (das würde eigene Felder als
+  „gehört einer Farm“ verwerfen). Besitz und Feldzustand werden neu geprüft (Feld verkauft → verworfen), Rechte nicht.
+  Belegter Händlerplatz oder Helfer-Grenze → nächster Takt.
+
+**Kartenunabhängig:** keine Koordinaten, keine Feldnummern; Feldsuche nur über Farmland-Karte und Feldumrisse.
+
+**Verifiziert** (LUADOC-Repo `umbraprior/FS25-Community-LUADOC`, die Webseite war gesperrt):
+`FarmlandManager:getFarmlandAtWorldPosition` / `getFarmlandOwner` / `NO_OWNER_FARM_ID`, `Farmland.field` und
+`FieldManager:loadMapData` (`farmland:setField(field)`), `Field.new` (kein id-Feld → `NachbarFelderAuftrag.getFeldId`
+sucht den Index in `getFields()`), `AIJobStartRequestEvent` (Muster Event, `streamWriteUIntN`,
+`FarmManager.FARM_ID_SEND_NUM_BITS`, `connection:sendEvent`), `AIJobFieldWork:getIsStartable`
+(`getHasPlayerPermission("hireAssistant", connection, farmId)`), `g_currentMission:getFarmId()` und
+`g_localPlayer.farmId` (Verwendung im Spielcode). `XMLFile:getValue` mit Default bewusst nicht genutzt (nicht belegt).
+
+**Warum eigene Klassen-Tabelle:** `addSpecialization` lädt `NachbarFelderManager.lua` ein zweites Mal und legt die
+globale Tabelle neu an. Methoden aus einer anderen Datei wären danach am globalen `NachbarFelderManager` weg. Deshalb
+`NachbarFelderAuftrag.*(mgr, ...)`; die Polygon-Helfer sind als `NachbarFelderManager.nfPunktInPolygon` /
+`.nfRandAbstand` in der Manager-Datei selbst eingetragen und über die Instanz erreichbar.
+
+**Geändert:** `NachbarFelderAuftrag.lua` (neu), `NachbarFelder.lua` (source + Taste), `NachbarFelderManager.lua`
+(BUILD 139, Helfer-Export, Speichern/Laden, gespeicherte Aufträge in `generateWorkMission`),
+`NachbarFelderWaypointPage.lua` (Abschnitt + Button `nfAuftragHier`), `modDesc.xml` (Aktion, Taste, Beschreibung
+de/en/fr), `l10n_de.xml`/`l10n_en.xml` (`input_NF_ORDER_FIELD`, `NF_auftrag*`), `build.py` (**15 Dateien**).
+
+**Tests:** lsc.py + Vollparse (lupa) aller Lua-Dateien sauber, XML mit minidom. Logiktest mit nachgebauter Engine
+(lupa): Feld im Umriss / 20 m daneben / 100 m weg, eigenes Feld mit und ohne Recht, doppelt beauftragt, freies Feld
+mit und ohne Admin, fremde Farm (auch als Admin), Frucht steht, Helfer-Grenze, SP lokal, gespeicherter Auftrag
+fortgesetzt bzw. nach Verkauf verworfen, Event Client → Server → Client mit Meldung. Probe-Build: 15 Dateien.
+
+**Testplan im Spiel**
+1. SP: auf eigenem abgeerntetem Feld Strg+Alt+J → „Auftrag angenommen – Feld n wird gepflügt/gegrubbert“, Helfer
+   kommt vom Händler, bearbeitet das Feld; danach in der Karte wieder eigener Besitz. Log:
+   `[AUFTRAG] Feld n fuer Farm 1 gestartet`.
+2. Auf Feld mit Frucht → „Auf Feld n steht Frucht“. Auf der Straße fern jedes Felds → „Kein Feld in der Nähe“.
+3. Speichern während der Arbeit, neu laden → `[AUFTRAG] Gespeicherter Auftrag auf Feld n fortgesetzt`, `farmland.xml`
+   ohne Helfer-Farm.
+4. Dedi: Nicht-Admin auf eigenem Feld (mit Recht „Helfer einstellen“) → angenommen; freies Feld → „nur als Admin“;
+   Feld einer anderen Farm → abgelehnt.
+5. Taste Strg+Alt+J auf Kollision prüfen (Steuerung → „NachbarFelder: Lohnunternehmer …“).
+
+**Offen / Ideen:** Kosten für den Auftraggeber (Lohnunternehmer-Preis je ha) gibt es noch nicht — Helfer-Jobs laufen
+weiter kostenlos über die Helfer-Farm. Keine Rückmeldung an den Auftraggeber, wenn die Arbeit fertig ist (nur Log).
+Aufträge ohne Spieler online: es gilt wie bisher `stopAllHelpers`. Säen/Düngen/Ernten bleiben wie seit Build 125 aus.

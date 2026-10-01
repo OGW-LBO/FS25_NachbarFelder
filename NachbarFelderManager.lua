@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 138
+NachbarFelderManager.BUILD = 139
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -177,6 +177,9 @@ function NachbarFelderManager.new()
     createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".worker(?)#missionType", "Missionname")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#fieldId",    "FieldId")
+    -- Build 139: Auftrag an den Lohnunternehmer (NachbarFelderAuftrag.lua)
+    xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".worker(?)#auftrag",       "Auftrag eines Spielers")
+    xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#auftragFarmId", "Farm des Auftraggebers")
     -- Settings im SAVEGAME (Build 67): server-autoritativ, MP-synct.
     -- Die lokale NachbarFelderSetting.xml bleibt nur Fallback fuer
     -- Savegames, die noch keinen settings-Block haben.
@@ -4915,6 +4918,12 @@ local function nfRandAbstand(x, z, poly)
     return math.sqrt(best)
 end
 
+-- Build 139: fuer NachbarFelderAuftrag.lua (Feld an der Spielerposition).
+-- Als Tabellenfelder, damit sie auch nach dem zweiten Laden dieser Datei
+-- (addSpecialization) ueber die Manager-Instanz erreichbar sind.
+NachbarFelderManager.nfPunktInPolygon = nfPunktInPolygon
+NachbarFelderManager.nfRandAbstand    = nfRandAbstand
+
 --- Feldumriss als Polygon (Build 137). Felder bewegen sich nicht, also
 --- einmal je Feld gelesen.
 --- @return table|nil {x={}, z={}, n=, minX=, maxX=, minZ=, maxZ=}
@@ -6607,9 +6616,15 @@ function NachbarFelderManager:generateWorkMission(manuell)
     self.counter = self.counter + 1
 
     if #self.loadVehiclesFromXML > 0 then
-        local created, verworfen = self:startSavedMission(
-            self.loadVehiclesFromXML[1].fieldId,
-            self.loadVehiclesFromXML[1].missionType)
+        local eintrag = self.loadVehiclesFromXML[1]
+        local created, verworfen
+        if eintrag.auftrag and NachbarFelderAuftrag ~= nil then
+            -- Build 139: Auftrag eines Spielers - eigenes Feld ist erlaubt,
+            -- isFieldUseful wuerde es als "gehoert einer Farm" verwerfen
+            created, verworfen = NachbarFelderAuftrag.starteGespeichert(self, eintrag)
+        else
+            created, verworfen = self:startSavedMission(eintrag.fieldId, eintrag.missionType)
+        end
         -- Build 126: auch verworfene Auftraege entfernen, sonst Endlosschleife
         if created or verworfen then table.remove(self.loadVehiclesFromXML, 1) end
         return created
@@ -7769,6 +7784,11 @@ function NachbarFelderManager:saveToXMLFile()
                 local key = ("%s(%d)"):format(baseKey, i)
                 xmlFile:setInt(key .. "#fieldId", k.NachbarFelderWorker.fieldId)
                 xmlFile:setString(key .. "#missionType", k.NachbarFelderWorker.mission.type.name)
+                -- Build 139: Auftrag eines Spielers als solchen merken
+                if k.NachbarFelderWorker.istAuftrag then
+                    xmlFile:setBool(key .. "#auftrag", true)
+                    xmlFile:setInt(key .. "#auftragFarmId", k.NachbarFelderWorker.auftragFarmId or 0)
+                end
                 i = i + 1
             end
         end
@@ -7815,7 +7835,9 @@ function NachbarFelderManager:loadFromXML()
     xmlFile:iterate(itKey, function(_, key)
         local fieldId = xmlFile:getValue(key .. "#fieldId")
         local missionType = xmlFile:getValue(key .. "#missionType")
-        self:loadedSettings(fieldId, missionType)
+        local auftrag = xmlFile:getValue(key .. "#auftrag")
+        local auftragFarmId = xmlFile:getValue(key .. "#auftragFarmId")
+        self:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
     end)
     -- Settings-Block lesen (Build 67). NICHT sofort anwenden - erst
     -- nach loadServerConfig() (in loadMap), damit die Savegame-Werte
@@ -7854,8 +7876,9 @@ function NachbarFelderManager:loadFromXML()
     xmlFile:delete()
 end
 
-function NachbarFelderManager:loadedSettings(fieldId, missionType)
-    table.insert(self.loadVehiclesFromXML, {fieldId = fieldId, missionType = missionType})
+function NachbarFelderManager:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
+    table.insert(self.loadVehiclesFromXML, {fieldId = fieldId, missionType = missionType,
+        auftrag = auftrag == true, auftragFarmId = auftragFarmId or 0})
 end
 
 -- ============================================================

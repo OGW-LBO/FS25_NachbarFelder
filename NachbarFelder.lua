@@ -429,6 +429,19 @@ local function addPlayerActionEvents(self, superFunc, ...)
         end)
     end
 
+    -- Build 139: Auftrag an den Lohnunternehmer - fuer alle Spieler, der Server
+    -- prueft Besitz und Rechte (eigenes Feld: "Helfer einstellen", freies Feld: Admin)
+    if InputAction.NF_ORDER_FIELD ~= nil and NachbarFelderAuftrag ~= nil then
+        pcall(function()
+            local _, idAuftrag = g_inputBinding:registerActionEvent(
+                InputAction.NF_ORDER_FIELD, g_NachbarFelderManager,
+                NachbarFelderAuftrag.onInput, false, true, false, true)
+            if idAuftrag ~= nil then
+                g_inputBinding:setActionEventTextVisibility(idAuftrag, false)
+            end
+        end)
+    end
+
     if logOnce then
         print("NachbarFelder: [INPUT] Registrierung abgeschlossen")
         if g_NachbarFelderManager ~= nil then
@@ -483,6 +496,8 @@ end
 -- ============================================================
 local function init()
     source(modDirectory .. "NachbarFelderManager.lua")
+    -- Build 139: Auftrag an den Lohnunternehmer (eigene Klasse + Event)
+    source(modDirectory .. "NachbarFelderAuftrag.lua")
     source(modDirectory .. "NachbarFelderWorker.lua")
     source(modDirectory .. "NachbarFelderSettingsPage.lua")
     source(modDirectory .. "NachbarFelderUIHelper.lua")
