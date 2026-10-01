@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 147 (01.10.): Feldarbeit auf dem eigenen Feld** — Helfer kam auf Feld 47 an (Build 146), Arbeit endete nach
+>   0 s. Vermutung (LUADOC): `findClosestField` meldet `notOwned` → `AIMessageErrorFieldNotOwned`. Fix: während
+>   `startJob` `AIDriveStrategyFieldCourse.fieldDetectionPosition` setzen (Erkennung ohne Besitzprüfung). Abschnitt Build 147.
 > - **Build 146 (01.10.): Anfahrt mit Ausweich-Zugängen** — Zugänge nach Wegklasse (frei / über fremdes Feld / über
 >   Weide); bei „GOTO kein Pfad“ bis zu 3 andere Zugänge, zuletzt die alte Zielwahl, statt den Helfer zu entfernen.
 >   Build 145 bestätigt: Pflug-Gespann Series TJW 4,6 t + Juwel 6 1,1 t kippt nicht. Abschnitt Build 146.
@@ -1116,4 +1119,32 @@ Weg offenbar über eine Weide (Zaun) führt. Mit der alten Zielwahl (Build 140) 
 
 **Tests (lupa, echte Funktionen):** freier Zugang → Klasse 0; Ost über Weide, Süd über fremdes Feld → Süd (Klasse 1);
 Folge mit Ausschluss: Süd → Süd andere Ecke → Ost (Klasse 2) → alte Zielwahl. Strukturcheck und Vollparse sauber.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 147: Felderkennung der KI ohne Besitzprüfung
+
+Test Build 146 (Log 15:22): Pflug-Gespann `vestrum130.xml (110 PS, 5.5 t) + juwel6.xml (1.1 t)`, Anfahrt über
+`Weg kreuzt fremdes Feld` — **Helfer kam auf Feld 47 an**: `FIELDWORK Feld=47 (plowMission) | Gespann x=-428 z=-421
+im Feld: ja | Felderkennung x=-429 z=-421`, dann 1 ms später `Feldarbeit beendet Feld 47 (Laufzeit: 0s, Grund:
+unbekannt)`. Gleiches Bild wie mit dem Grubber-Gespann in Build 140 — es liegt am Feld, nicht am Gespann.
+
+**Analyse (LUADOC `AIDriveStrategyFieldCourse`):**
+- `setAIVehicle`: ohne `AIDriveStrategyFieldCourse.fieldDetectionPosition` →
+  `FieldCourse.findClosestField(nil, nil, nil, nil, vehicle:getAIJobFarmId(), vehicle, 2, settings)`; ist der dritte
+  Rückgabewert `notOwned` true → `fieldNotOwned`, kein Kurs.
+- `getDriveData` (nächstes Update, gleicher Frame) → `stopCurrentAIJob(AIMessageErrorFieldNotOwned)`.
+- `FieldCourse.findClosestField` selbst steht nicht in der LUADOC — wie `notOwned` entsteht, ist nicht belegt. Vermutung:
+  über `farmlandMapping` (bleibt beim Feldbesitz-Trick der Mod auf der Spielerfarm), auf herrenlosen Feldern greift die
+  Missions-Erlaubnis. Passt dazu, dass nur das eigene Feld 47 scheitert.
+- „Grund: unbekannt“: `onAIFieldWorkerEnd` kam offenbar vor dem `job.stop`-Wrapper.
+
+**Fix:**
+- `setAIOnField`: vor `aiSystem:startJob` `AIDriveStrategyFieldCourse.fieldDetectionPosition = {fieldDetectionX,
+  fieldDetectionZ}` (nur wenn nicht schon gesetzt), danach sofort wieder `nil`; Start in `pcall`. Log-Zusatz
+  `| Felderkennung ohne Besitzpruefung`.
+- `job.stop`-Wrapper loggt sofort `FIELDWORK Feld n gestoppt: <AIMessage> (nach x ms)`.
+- `NF_AI_MSG_CLASSES` um `AIMessageErrorFieldNotReady`, `AIMessageErrorVineyardNotSupported` ergänzt.
+
+**Unverifiziert** — im Spiel testen. Erwartung: Pflügen auf Feld 47 läuft; falls nicht, nennt die neue Zeile
+`FIELDWORK Feld 47 gestoppt: …` den Grund.
 
