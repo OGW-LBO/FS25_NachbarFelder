@@ -14,7 +14,7 @@ der Auftrag an den Lohnunternehmer) sind entfernt.
 Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multiplayer.
 
 - Autor: OGW
-- modDesc-Version: `1.2.0.0` (Changelog in der Beschreibung der `modDesc.xml`)
+- modDesc-Version: `1.0.0.0` (für den ModHub zurückgesetzt, `descVersion` 113)
 - Interner Stand: `NachbarFelderManager.BUILD = 159` (erscheint beim Start im Log als
   `NachbarFelder: loadMap auf SERVER (Build 159)`)
 
