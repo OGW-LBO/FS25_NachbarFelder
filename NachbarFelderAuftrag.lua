@@ -485,7 +485,7 @@ function NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, pr
 end
 
 --- Server: Helfer fuer das Feld starten (Grenzen wie generateWorkMission)
---- @return boolean gestartet, string textKey
+--- @return boolean gestartet, string textKey, number|nil tatsaechliche Arbeit (Build 144)
 function NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
     local T = NachbarFelderAuftrag.TEXT
     local fieldWorkers = 0
@@ -505,6 +505,16 @@ function NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
 
     mgr.feldSpawnBlockiert = false
     local created = mgr:createMission(fieldId, mgr.missionHelper[aktion])
+    -- Build 144: kein taugliches Grubber-Gespann (z.B. nach Kipp-Sperre) -> Pfluegen,
+    -- wenn eingeschaltet. Der Auftrag heisst "Feld bearbeiten", nicht "grubbern".
+    if not created and not mgr.feldSpawnBlockiert and aktion == 4 and mgr.vehicleType[fieldId] == nil
+       and mgr.missionHelper[3] ~= nil and mgr.missionHelper[3].active then
+        print("NachbarFelder: [AUFTRAG] Feld " .. tostring(fieldId) .. " - kein Grubber-Gespann, versuche Pfluegen")
+        created = mgr:createMission(fieldId, mgr.missionHelper[3])
+        if created then
+            aktion = 3
+        end
+    end
     if not created then
         return false, mgr.feldSpawnBlockiert and T.PLATZ or T.FEHLER
     end
@@ -513,7 +523,7 @@ function NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
         eintrag.NachbarFelderWorker.istAuftrag    = true
         eintrag.NachbarFelderWorker.auftragFarmId = farmId
     end
-    return true, T.OK
+    return true, T.OK, aktion
 end
 
 -- ============================================================
@@ -552,7 +562,8 @@ function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
         return false, textKey, fieldId, zusatz or ""
     end
 
-    local gestartet, startKey = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
+    local gestartet, startKey, aktionNeu = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
+    aktion = aktionNeu or aktion   -- Build 144: ggf. Pfluegen statt Grubbern
     local arbeitKey = NachbarFelderAuftrag.ARBEIT_TEXT[aktion] or ""
     if not gestartet then
         print(string.format("NachbarFelder: [AUFTRAG] %s angenommen, Start nicht moeglich: %s",

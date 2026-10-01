@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 144 (01.10.): Kippen liegt am Gespann, nicht am Platz** — Arion 550 + Ares XL kippte auf zwei verschiedenen
+>   Plätzen 1–2 s nach dem Laden. Gekipptes Gespann wird dauerhaft gesperrt (`NachbarFelderGespannSperren.xml`, alle Karten);
+>   Auftrag ohne Grubber-Gespann pflügt. Abschnitt Build 144.
 > - **Build 143 (01.10.): Ladeplatz-Suche in Stufen, kartenunabhängig** — erst „echte Straßenstücke“ (gerade ±20 m,
 >   eben ≤ 1,2 m, 30 × 5 m frei) 40–250 m, dann 250–800 m, erst danach die alte lockere Prüfung; Auftrag nach Kippen am
 >   Ladeplatz automatisch neu eingeplant (max. 2×). Abschnitt Build 143. **Vorgabe User: Spawn muss auf allen Karten gehen.**
@@ -1035,4 +1038,30 @@ der Schlange statt verworfen zu werden.
 
 **Tests:** `getIstLadeplatzGut` mit echtem Code (lupa): gerade+eben+frei → ja; Kurve/Hofecke, Hang 15 %, vorn zugestellt
 → streng nein, locker ja. Auftrags-Logiktest, Strukturcheck, Vollparse sauber. Im Spiel noch ungetestet.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 144: gekippte Gespanne dauerhaft sperren, Auftrag pflügt ersatzweise
+
+Test Build 143 (Log 14:58): Ladeplatz diesmal nach der strengen Prüfung (Stufe 1, x=-376 z=38, gerade/eben/30 × 5 m
+frei) — trotzdem `arion550.xml ist umgekippt` 4,5 s nach dem Laden (3 s Kipp-Wartezeit → gekippt ~1–2 s nach dem
+Laden, also beim Ankuppeln/Ausrichten). Zuvor dasselbe Gespann am Hof-Platz. Gespannwahl:
+`Eigenes Feldgespann fuer cultivateMission: arion550.xml (145 PS, 6.6 t) + aresXL.xml (Bedarf 150 PS) - Auswahl aus
+1 Geraeten, 1 Kombinationen` — jeder Grubber-Auftrag nimmt genau dieses Gespann. Vermutung: schwerer Anbaugrubber an
+leichtem Traktor ohne Frontgewicht (Gewichtsregel `getPasstFeldGeraetZuTraktor`: Gerät ≤ 50 % Traktor, entfällt bei
+unbekanntem Gerätegewicht). Nicht verifiziert — das Gerätegewicht stand nicht im Log.
+
+**Fix:**
+- Kipp-Erkennung sperrt bei Feldhelfern zusätzlich das Gespann dauerhaft: `sperreFeldGespannDauerhaft` →
+  `modSettings/FS25_NachbarFelder/NachbarFelderGespannSperren.xml` (kartenunabhängig, Schema `gsXmlSchema`,
+  Traktor-/Geräte-XML + Grund); `getIstFeldGespannGesperrt` lädt die Datei einmal (`ladeGespannSperren`). Freigeben:
+  Datei löschen.
+- Log der Gespannwahl nennt jetzt auch das Gerätegewicht (`Bedarf n PS, x t`).
+- `NachbarFelderAuftrag.starte`: schlägt `createMission` für Grubbern ohne Platzproblem fehl (kein taugliches Gespann)
+  und ist Pflügen an → Pflügen; Meldung/Log nennen die tatsächliche Arbeit.
+
+**Tests:** Auftrags-Logiktest sauber; Fallback (Grubbern scheitert → `plowMission` gestartet, Meldung „gepflügt“).
+Strukturcheck und Vollparse sauber. Im Spiel noch ungetestet.
+
+**Nächster Schritt, falls auch das Pflug-Gespann kippt:** Gewichtsregel verschärfen (Anbaugerät ≤ 35–40 % des
+Traktorgewichts, unbekanntes Gerätegewicht ablehnen) — erst mit den Gewichten aus dem neuen Log entscheiden.
 

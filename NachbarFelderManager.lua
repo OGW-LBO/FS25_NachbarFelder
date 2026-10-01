@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 143
+NachbarFelderManager.BUILD = 144
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -37,6 +37,14 @@ local lpXmlKey    = "NachbarFelderLadeplaetze"
 lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#x",     "LadeplatzX")
 lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#z",     "LadeplatzZ")
 lpXmlSchema:register(XMLValueType.STRING, lpXmlKey .. ".platz(?)#grund", "Grund der Sperre")
+
+-- Build 144: Gespanne, die umgekippt sind, dauerhaft sperren - kartenunabhaengig, das ist
+-- Physik des Gespanns (Arion 550 + Ares XL kippte auf jedem Ladeplatz sofort nach dem Laden)
+local gsXmlKey = "NachbarFelderGespannSperren"
+local gsXmlSchema = XMLSchema.new("NachbarFelderGespannSchema")
+gsXmlSchema:register(XMLValueType.STRING, gsXmlKey .. ".gespann(?)#traktor", "Traktor-XML")
+gsXmlSchema:register(XMLValueType.STRING, gsXmlKey .. ".gespann(?)#geraet",  "Geraete-XML")
+gsXmlSchema:register(XMLValueType.STRING, gsXmlKey .. ".gespann(?)#grund",   "Grund der Sperre")
 
 --- Kennung der geladenen Karte fuer Dateinamen (Build 132).
 --- missionInfo.mapId steht im Spielstand als <mapId> (z.B.
@@ -2484,6 +2492,12 @@ function NachbarFelderManager:update(dt)
                             w.isPatrol and "[TRAFFIC] Fahrzeug" or ("Feldhelfer fuer Feld " .. tostring(w.fieldId)),
                             tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
                         self:merkeSpawnFehlschlag(w, x, z, "umgekippt")
+                        -- Build 144: Feldhelfer-Gespann dauerhaft sperren - es kippte auf jedem Platz
+                        if not w.isPatrol then
+                            local impl = w.vehiclesToLoad[2]
+                            self:sperreFeldGespannDauerhaft(veh.configFileName,
+                                impl ~= nil and impl.configFileName or nil, "umgekippt")
+                        end
                         self:stopAIJobSafely(veh)
                         w.kippSeit  = nil
                         w.status    = 100
@@ -7610,7 +7624,65 @@ function NachbarFelderManager:sperreFeldGespann(traktorFile, geraetFile)
     self.feldGespannSperre[string.lower(tostring(traktorFile)) .. "|" .. string.lower(tostring(geraetFile or ""))] = true
 end
 
+--- Dauerhafte Gespann-Sperren (Build 144): Datei im modSettings-Ordner, fuer alle Karten.
+function NachbarFelderManager:ladeGespannSperren()
+    if self.gespannSperrenGeladen then return end
+    self.gespannSperrenGeladen = true
+    self.feldGespannSperre = self.feldGespannSperre or {}
+    self.feldGespannSperreDauer = {}
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = modSettingDirectory .. "NachbarFelderGespannSperren.xml"
+    pcall(function()
+        local xmlFile = XMLFile.loadIfExists("NachbarFelderGespannSperren", pfad, gsXmlSchema)
+        if xmlFile == nil then return end
+        xmlFile:iterate(gsXmlKey .. ".gespann", function(_, key)
+            local t = xmlFile:getValue(key .. "#traktor")
+            local g = xmlFile:getValue(key .. "#geraet")
+            if t ~= nil then
+                local k = string.lower(t) .. "|" .. string.lower(g or "")
+                self.feldGespannSperre[k] = true
+                self.feldGespannSperreDauer[k] = { t, g or "", xmlFile:getValue(key .. "#grund") or "?" }
+            end
+        end)
+        xmlFile:delete()
+    end)
+    local n = 0
+    for _ in pairs(self.feldGespannSperreDauer) do n = n + 1 end
+    if n > 0 then
+        print(string.format("NachbarFelder: %d dauerhaft gesperrte Gespanne geladen (%s)", n, pfad))
+    end
+end
+
+--- Gespann dauerhaft sperren und speichern (Build 144). Wieder freigeben: Datei loeschen.
+function NachbarFelderManager:sperreFeldGespannDauerhaft(traktorFile, geraetFile, grund)
+    if traktorFile == nil then return end
+    self:ladeGespannSperren()
+    self:sperreFeldGespann(traktorFile, geraetFile)
+    local k = string.lower(tostring(traktorFile)) .. "|" .. string.lower(tostring(geraetFile or ""))
+    self.feldGespannSperreDauer[k] = { tostring(traktorFile), tostring(geraetFile or ""), tostring(grund) }
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = modSettingDirectory .. "NachbarFelderGespannSperren.xml"
+    pcall(function()
+        local xmlFile = XMLFile.create("NachbarFelderGespannSperren", pfad, gsXmlKey, gsXmlSchema)
+        if xmlFile == nil then return end
+        local i = 0
+        for _, e in pairs(self.feldGespannSperreDauer) do
+            local key = ("%s.gespann(%d)"):format(gsXmlKey, i)
+            xmlFile:setString(key .. "#traktor", e[1])
+            xmlFile:setString(key .. "#geraet",  e[2])
+            xmlFile:setString(key .. "#grund",   e[3])
+            i = i + 1
+        end
+        xmlFile:save(false, false)
+        xmlFile:delete()
+    end)
+    local function kurz(f) return string.match(tostring(f), "[^/\\]+$") or tostring(f) end
+    print(string.format("NachbarFelder: Gespann %s + %s dauerhaft gesperrt (%s) - Datei %s",
+        kurz(traktorFile), kurz(geraetFile), tostring(grund), pfad))
+end
+
 function NachbarFelderManager:getIstFeldGespannGesperrt(traktorFile, geraetFile)
+    self:ladeGespannSperren()
     if self.feldGespannSperre == nil or traktorFile == nil then return false end
     return self.feldGespannSperre[string.lower(tostring(traktorFile)) .. "|" .. string.lower(tostring(geraetFile or ""))] == true
 end
@@ -7719,11 +7791,13 @@ function NachbarFelderManager:getEigenesFeldGespann(missionTypeName)
     end
     local g = geraeteMitPartner[math.random(#geraeteMitPartner)]
     local t = proGeraet[g][math.random(#proGeraet[g])]
-    print(string.format("NachbarFelder: Eigenes Feldgespann fuer %s: %s (%s PS, %s t) + %s (Bedarf %s PS)" ..
+    print(string.format("NachbarFelder: Eigenes Feldgespann fuer %s: %s (%s PS, %s t) + %s (Bedarf %s PS, %s t)" ..
         " - Auswahl aus %d Geraeten, %d Kombinationen",
         tostring(missionTypeName), kurz(t.filename), tostring(t.leistung or "?"),
         t.gewichtKg ~= nil and string.format("%.1f", t.gewichtKg / 1000) or "?",
-        kurz(g.filename), tostring(g.bedarf or "?"), #geraeteMitPartner, nPaare))
+        kurz(g.filename), tostring(g.bedarf or "?"),
+        g.gewichtKg ~= nil and string.format("%.1f", g.gewichtKg / 1000) or "?",
+        #geraeteMitPartner, nPaare))
     return { { filename = t.filename }, { filename = g.filename } }
 end
 
