@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 155 (01.10.): Spawn wieder waagerecht** — Test 154: Vario 500 (Spawnpunkt WP1) lag mit einer Seite am Boden und
+>   kippte auf die Räder. Ursache: unsere Neigung + Shop-Drehung des Modells = Schräglage. Jetzt waagerecht, Höhe über dem
+>   höchsten von 5 Messpunkten. Abschnitt Build 155.
 > - **Build 154 (01.10.): Spawn ohne Hüpfen** — Test 153: Autos bremsen hinter den Traktoren (Build 152 wirkt), aber
 >   Fahrzeuge/Geräte spawnen über dem Boden und hüpfen. Fix: Höhen-Raycast mit `TERRAIN_DELTA`, Längsneigung der Straße
 >   beim Laden, 0,10 m statt 0,15 m, Geräte ohne Physik laden. Abschnitt Build 154.
@@ -1379,3 +1382,22 @@ und Anbaugeräte spawnen über dem Boden und hüpfen → Umkippen/Verkeilen mög
 **Tests:** Mock: 10 % Steigung → Richtung (0; 0,1; 0,995), Gerät 9 m dahinter tiefer, `setAddToPhysics(false)` nur fürs
 Gerät. Strukturcheck, Vollparse. **Unverifiziert im Spiel** – besonders das Vorzeichen der Neigung (kommt aus der Engine).
 Prüfen: Fahrzeuge setzen weich auf, kein Hüpfen; am Hang nicht verdreht.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 155: Spawn wieder waagerecht, Höhe über dem höchsten Messpunkt
+
+**Test Build 154 (User, Log 17:09):** `vario500SCR.xml + Anbaugeraet` am Spawnpunkt WP1 geladen – „mit einer Seite auf dem
+Boden, kippte dann auf alle 4 Räder“. Kuppeln und Losfahren danach normal (`Gespann startet am Ladeplatz …`).
+
+**Ursache:** die Längsneigung aus Build 154 (`setDirection`/`getRotation` → `data:setRotation(rx, ry, rz)`). Beim Laden
+verrechnet das Spiel zusätzlich die Shop-Drehung des Modells (`storeData.shopRotationOffset` „Rotation offset for shop
+spawning“, `spawnRotationOffset`; StoreManager/VehicleLoadingData). Ein vorab berechneter Euler-Satz mit Neigung wird
+dadurch zur seitlichen Schräglage. Nicht das Anbaugerät: das hängt erst nach dem Laden (ohne Physik) an der Kupplung.
+
+**Fix:** Rotation wieder `(0, ry + Modelldrehung, 0)`. Höhe: Fahrbahn an Mitte, 2,5 m vorn/hinten, 1,2 m links/rechts
+messen, höchsten Wert nehmen (höchstens +0,5 m über Mitte, sonst traf der Strahl ein Objekt) + 0,10 m. Am Hang fällt
+das tiefere Ende ein paar Zentimeter, nichts steckt in der Fahrbahn. `TERRAIN_DELTA` und Geräte ohne Physik (Build 154)
+bleiben. Konstanten `SPAWN_HOEHE`, `SPAWN_MESS_LAENGS`, `SPAWN_MESS_SEITE`, `SPAWN_MAX_ANHEBEN`.
+
+**Tests:** Mock 10 % Steigung → Rotation 0, Traktor 0,35 m über Mittelpunkt (vorne 0,10 m), Gerät 9 m dahinter.
+Strukturcheck, Vollparse.

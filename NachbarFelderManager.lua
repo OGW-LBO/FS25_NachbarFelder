@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 154
+NachbarFelderManager.BUILD = 155
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -3631,33 +3631,27 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
         -- ueber dem Gelaende; darin geladen rutschte das Fahrzeug seitlich heraus.
         -- Build 128: an der Ladestelle (Traktor bzw. Geraet dahinter) gemessene Fahrbahnhoehe
         local y = self:getFahrbahnHoehe(x, z, sp.h) + NachbarFelderManager.SPAWN_HOEHE
-        -- Build 154: Laengsneigung der Fahrbahn uebernehmen. Waagerecht geladen steckte das
-        -- Fahrzeug am Hang mit einem Ende in der Strasse und wurde hochgeschleudert.
-        -- Die Euler-Winkel liefert die Engine selbst (setDirection + getRotation an einem
-        -- Hilfsknoten, wie Vehicle:setAbsolutePosition mit tempRootNode) - so stimmt die
-        -- Reihenfolge der Drehachsen, auch mit Modell-Drehung.
-        local winkel = sp.ry + modellDrehung
-        local dx, dz = math.sin(winkel), math.cos(winkel)
-        local a = NachbarFelderManager.SPAWN_NEIGUNG_ABST
-        local hVorn   = self:getFahrbahnHoehe(x + dx * a, z + dz * a, sp.h)
-        local hHinten = self:getFahrbahnHoehe(x - dx * a, z - dz * a, sp.h)
-        local dy = hVorn - hHinten
-        local maxDy = math.tan(NachbarFelderManager.SPAWN_MAX_NEIGUNG) * 2 * a
-        dy = math.max(-maxDy, math.min(maxDy, dy))   -- mehr ist Messfehler (Bordstein, Bruecke)
-        -- liegt der Punkt selbst in einer Delle, liegt das Fahrzeug vorn/hinten auf
-        y = math.max(y, (hVorn + hHinten) * 0.5 + NachbarFelderManager.SPAWN_HOEHE)
-        local rx, ry, rz = 0, winkel, 0
-        pcall(function()
-            local len = 2 * a
-            local n = math.sqrt(len * len + dy * dy)
-            local tg = createTransformGroup("nfSpawnNeigung")
-            setDirection(tg, dx * len / n, dy / n, dz * len / n, 0, 1, 0)
-            local qx, qy, qz = getRotation(tg)
-            delete(tg)
-            if qx ~= nil and qy ~= nil and qz ~= nil then rx, ry, rz = qx, qy, qz end
-        end)
+        -- Build 155: waagerecht laden, aber so hoch, dass keine Ecke in der Fahrbahn steckt.
+        -- Build 154 lud mit der Laengsneigung der Strasse; das Spiel addiert beim Laden aber
+        -- die Shop-Drehung des Modells (storeData.shopRotationOffset, VehicleLoadingData) auf
+        -- unsere Winkel - aus der Neigung wurde eine Schraeglage zur Seite (Test 01.10.: Vario
+        -- 500 lag mit einer Seite am Boden und kippte auf die Raeder). Jetzt: Fahrbahnhoehe
+        -- vorn/hinten/links/rechts messen, hoechsten Punkt nehmen (gedeckelt, falls der Strahl
+        -- ein Objekt am Rand trifft) - das Fahrzeug faellt hoechstens ein paar cm auf die Raeder.
+        local dx, dz = math.sin(sp.ry), math.cos(sp.ry)
+        local px, pz = dz, -dx
+        local hMitte = y - NachbarFelderManager.SPAWN_HOEHE
+        local hMax = hMitte
+        local la, sa = NachbarFelderManager.SPAWN_MESS_LAENGS, NachbarFelderManager.SPAWN_MESS_SEITE
+        local messpunkte = { { la, 0 }, { -la, 0 }, { 0, sa }, { 0, -sa } }
+        for _, o in ipairs(messpunkte) do
+            local hh = self:getFahrbahnHoehe(x + dx * o[1] + px * o[2], z + dz * o[1] + pz * o[2], sp.h)
+            if hh ~= nil and hh > hMax then hMax = hh end
+        end
+        hMax = math.min(hMax, hMitte + NachbarFelderManager.SPAWN_MAX_ANHEBEN)
+        y = hMax + NachbarFelderManager.SPAWN_HOEHE
         data:setPosition(x, y, z)
-        data:setRotation(rx, ry, rz)
+        data:setRotation(0, sp.ry + modellDrehung, 0)
         -- Build 154: Anbaugeraete gar nicht erst in die Physik - setAttachment setzt sie an die
         -- Kupplung und nimmt sie dann auf (vorher: geladen, einen Takt Physik, erst dann entfernt)
         if index >= 2 and data.setAddToPhysics ~= nil then
@@ -3678,10 +3672,11 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     return ok
 end
 
--- Build 154: Ladehoehe ueber der Fahrbahn und Laengsneigung beim Laden
-NachbarFelderManager.SPAWN_HOEHE         = 0.10   -- m ueber der gemessenen Fahrbahn (vorher 0,15)
-NachbarFelderManager.SPAWN_NEIGUNG_ABST  = 2.5    -- m vor und hinter dem Ladepunkt messen
-NachbarFelderManager.SPAWN_MAX_NEIGUNG   = 0.2    -- rad (~11 Grad), mehr ist Messfehler
+-- Build 154/155: Ladehoehe ueber der hoechsten Fahrbahnstelle unter dem Fahrzeug
+NachbarFelderManager.SPAWN_HOEHE        = 0.10   -- m ueber der Fahrbahn (bis Build 153: 0,15)
+NachbarFelderManager.SPAWN_MESS_LAENGS  = 2.5    -- m vor und hinter dem Ladepunkt messen
+NachbarFelderManager.SPAWN_MESS_SEITE   = 1.2    -- m links und rechts messen
+NachbarFelderManager.SPAWN_MAX_ANHEBEN  = 0.5    -- m hoechstens anheben (mehr = Strahl traf ein Objekt)
 
 -- Build 143: Ladeplatz-Suche in Stufen (setzeLadepositionStrasse)
 -- streng = echtes Strassenstueck: gerade, eben, grosser freier Kasten
