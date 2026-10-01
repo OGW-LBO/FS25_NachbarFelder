@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 154 (01.10.): Spawn ohne Hüpfen** — Test 153: Autos bremsen hinter den Traktoren (Build 152 wirkt), aber
+>   Fahrzeuge/Geräte spawnen über dem Boden und hüpfen. Fix: Höhen-Raycast mit `TERRAIN_DELTA`, Längsneigung der Straße
+>   beim Laden, 0,10 m statt 0,15 m, Geräte ohne Physik laden. Abschnitt Build 154.
 > - **Build 153 (01.10.): Ingame-Hilfe, ModHub-Beschreibung, GitHub** — neue Datei `help/helpLine.xml` (ESC > Hilfe >
 >   „Lebendige Straßen“, 5 Seiten de/en), geladen über `g_helpLineManager:loadFromXML`; modDesc-Beschreibung de/en/fr neu
 >   mit Changelog, **Version 1.2.0.0**; Settings-Texte ohne Feldarbeit; Issue-Vorlagen und Release-Titel angepasst. Abschnitt Build 153.
@@ -1349,3 +1352,30 @@ Frage nach Spielverkehr; nebenbei YAML-Fehler in `fehlerbericht.yml` Zeile 18 be
 in den Repo-Einstellungen ändern (Repo-Name bleibt sinnvoll `FS25_NachbarFelder` = Mod-Name).
 
 **Tests:** XML aller Dateien, Strukturcheck, Vollparse, Mock `ladeHilfe` (Pfad, einmalig, Fehler → Log, ohne Client nichts).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 154: Fahrzeuge und Geräte spawnen ohne Hüpfen
+
+**Test Build 153 (User):** Spielverkehr bremst und fährt nicht mehr auf (Build 152 bestätigt). Neu gemeldet: Fahrzeuge
+und Anbaugeräte spawnen über dem Boden und hüpfen → Umkippen/Verkeilen möglich.
+
+**Analyse (LUADOC):**
+- `VehicleLoadingData:setPosition(x, y, z)` übernimmt y absolut; beim Laden kommt `storeItem.shopTranslationOffset` dazu
+  (Höhe des Root-Knotens über dem Boden, vgl. `AIDrivable:drawDebugAIAgent`) – das ist richtig und bleibt.
+- `getFahrbahnHoehe` maß mit `TERRAIN + ROAD + STATIC_OBJECT + BUILDING`. Das Spiel nimmt beim Paletten-Spawn
+  (`VehicleSystem.lua`, `consoleCommandAddPallet`) zusätzlich `TERRAIN_DELTA`. Ohne sie trifft der Strahl bei Straßen aus
+  Gelände-Deltas das tiefere Grundgelände → Fahrzeug steckt beim Laden in der Fahrbahn, die Physik drückt es heraus = Hüpfen.
+- Geladen wurde immer waagerecht (`setRotation(0, ry, 0)`): am Hang steckt ein Ende in der Straße.
+- Geräte wurden mit Physik geladen und erst im Ladecallback herausgenommen.
+
+**Fix:**
+- Maske + `CollisionFlag.TERRAIN_DELTA` (nur wenn vorhanden).
+- Längsneigung: Höhe 2,5 m vor/hinter dem Ladepunkt, Richtung über `setDirection` an einem Hilfsknoten und `getRotation`
+  (Euler-Reihenfolge der Engine, auch mit Modell-Drehung), höchstens ~11°; Höhe = max(Punkt, Mittel vorn/hinten) + 0,10 m.
+  Neue Konstanten `SPAWN_HOEHE`, `SPAWN_NEIGUNG_ABST`, `SPAWN_MAX_NEIGUNG`. Gilt für Spawnpunkte und automatische Ladeplätze.
+- Geräte (`index >= 2`) mit `data:setAddToPhysics(false)` laden; `setzeGeraetAnKupplung` bzw. die Rückfallwege nehmen
+  sie wie bisher in die Physik.
+
+**Tests:** Mock: 10 % Steigung → Richtung (0; 0,1; 0,995), Gerät 9 m dahinter tiefer, `setAddToPhysics(false)` nur fürs
+Gerät. Strukturcheck, Vollparse. **Unverifiziert im Spiel** – besonders das Vorzeichen der Neigung (kommt aus der Engine).
+Prüfen: Fahrzeuge setzen weich auf, kein Hüpfen; am Hang nicht verdreht.
