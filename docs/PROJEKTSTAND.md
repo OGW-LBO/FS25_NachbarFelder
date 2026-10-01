@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 152 (01.10.): Beim Spielverkehr anmelden** — Autos des Spielverkehrs bremsen nur für angemeldete Objekte
+>   (`addTrafficSystemPlayer`); unsere Fahrzeuge ohne Fahrer waren nie angemeldet. Jetzt Anmeldung beim Losfahren,
+>   Abmeldung bei Pool/Löschen/Spielende. Schalter `spielverkehrAnmelden`. Abschnitt Build 152.
 > - **Build 151 (01.10.): Angezeigter Name „Lebendige Straßen“** (en Living Roads, fr Routes vivantes) — nur Titel, Tastennamen,
 >   Settings-Überschrift und Ingame-Meldungen. Technischer Name bleibt `FS25_NachbarFelder` (ZIP, modSettings, Spielstand,
 >   Tasten, Log-Präfix `NachbarFelder:`). Abschnitt Build 151.
@@ -1282,3 +1285,34 @@ Anpassung von `g_currentModName`, neue Tastenbelegung bei allen Spielern und wä
 
 **Tests:** XML (minidom), Strukturcheck, Vollparse. Im Spiel prüfen: Mod-Menü zeigt „Lebendige Straßen“, Steuerung zeigt
 „Lebendige Straßen: …“, Einstellungsseite Überschrift „Lebendige Straßen“.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 152: Nachbar-Fahrzeuge beim Spielverkehr anmelden
+
+**Frage User:** Fügt sich der KI-Verkehr in den normalen Spielverkehr ein, wenn der aktiv ist?
+
+**Befund (LUADOC):** Die Autos des Spielverkehrs laufen in der Engine (`g_currentMission.trafficSystem`). Sie reagieren nur
+auf angemeldete Objekte: `Player.lua` meldet den Spieler zu Fuß an (`addTrafficSystemPlayer(trafficSystemId,
+graphicsRootNode)`), `Enterable.lua:1724` ein Fahrzeug beim Einsteigen (`components[1].node`), Zeile 1808 meldet beim
+Aussteigen ab (`removeTrafficSystemPlayer`). Fahrzeuge ohne Fahrer – unsere Traktoren, auch normale Spieler-Helfer – kennt
+der Spielverkehr nicht: Autos fahren auf sie auf. Umgekehrt bremst die KI vor Autos (`AICollisionTriggerHandler`,
+Autos sind kinematisch → `hitStaticCounter`). Folge: Auffahrunfälle, verkeilte Autos, weggeschobene Gespanne.
+Die alte Beschreibungszeile „PS: Es ist ratsam, den Verkehr auszuschalten“ (in Build 150 entfallen) war also berechtigt.
+
+**Umsetzung:**
+- Manager: `getSpielverkehrId`, `meldeBeimSpielverkehrAn` (je Fahrzeug einmal, merkt `vehicle.nf_spielverkehrNode`,
+  `pcall`, Fehler einmal ins Log), `meldeGespannBeimSpielverkehrAn` (Traktor + `getChildVehicles`),
+  `meldeBeimSpielverkehrAb`.
+- Anmelden nach `aiSystem:startJob` in `driveToField` (jede Fahrt, idempotent; geweckte Pool-Fahrzeuge melden sich so
+  wieder an). Während des Parkens bleibt die Anmeldung bestehen.
+- Abmelden: `sleepPatrolEntry` (schlafend = wie ein abgestelltes Fahrzeug), Worker-`onDelete` (neues Event-Abo, deckt
+  jedes Löschen ab), `prepareForShutdown` (aktive und Pool-Fahrzeuge, vor dem Abbau des Verkehrssystems).
+- Server-Konfig `spielverkehrAnmelden` (Standard true, in Vorlage und Log-Zeile). Ohne Verkehrssystem
+  (`trafficSystemId` 0/nil) oder ohne die Engine-Funktion passiert nichts.
+- modDesc: PS-Zeile de/en/fr wieder aufgenommen (Autos bremsen; kracht es an Engstellen trotzdem → Verkehr ausschalten).
+
+**Tests:** Mock (lupa): Anmeldung Traktor + Gerät, keine Doppelanmeldung, Abmeldung über `onDelete` und Shutdown inkl.
+Pool, Schalter aus, ohne Verkehrssystem, Engine-Fehler → Log statt Absturz. Strukturcheck, Vollparse, XML.
+**Unverifiziert im Spiel:** ob die Engine eine Obergrenze für angemeldete Objekte hat, und ob Autos hinter einem länger
+parkenden Nachbar-Fahrzeug dauerhaft warten. Prüfen: Log-Zeile `Fahrzeuge werden beim Spielverkehr angemeldet`, Autos
+bremsen hinter Traktoren, keine Ruckler; falls Autos sich stauen, `spielverkehrAnmelden` auf false.

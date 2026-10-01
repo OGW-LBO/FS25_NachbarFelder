@@ -15,8 +15,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 151` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 151)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 152` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 152)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -90,6 +90,13 @@ im Fahrzeug auf der rechten Spur gesetzt, Front in Fahrtrichtung.
 | `nachbarFelderTimer` | Zeit bis zum nächsten Verkehrs-Spawn anzeigen |
 | `nachbarFelderEntfernen` | Alle Nachbar-Fahrzeuge entfernen |
 | `nachbarFelderTrafficStop` / `…Start` | Patrouille-Verkehr anhalten und fortsetzen |
+
+### Spielverkehr
+
+Die Autos des Spielverkehrs bremsen nur für Objekte, die bei ihnen angemeldet sind – im Spiel sind das Spieler zu Fuß
+und Fahrzeuge mit Spieler am Steuer. Seit Build 152 meldet die Mod ihre Traktoren und Geräte beim Losfahren genauso an
+und beim Einschlafen im Pool, beim Löschen und beim Spielende wieder ab. Abschalten lässt sich das in der
+`NachbarFelderServerConfig.xml` mit `spielverkehrAnmelden` = `false`.
 
 ## Einstellungen und Daten
 

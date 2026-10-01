@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 151
+NachbarFelderManager.BUILD = 152
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -114,6 +114,7 @@ function NachbarFelderManager.new()
     self.trafficPool = {}           -- Fahrzeug-Pool (Build 65): schlafende Patrol-Fahrzeuge
     self.poolSize    = 6            -- max. schlafende Fahrzeuge (0 = Pool aus, Server-Konfig)
     self.fahrerfigurenAufServer = true  -- Build 95: false = Fahrerfiguren nur auf dem Server weglassen
+    self.spielverkehrAnmelden   = true  -- Build 152: Fahrzeuge beim Spielverkehr anmelden (Autos bremsen)
     self.rueckwaertsPlanen      = false -- Build 108; Build 125: Standard aus (Server-Konfig ohne Eintrag lief mit true, viele Sofort-Abweisungen)
     self.dayRhythm      = true      -- Tagesrhythmus (Build 68): Verkehrsdichte folgt der Uhrzeit
     self.zielQuelle     = "strassen" -- Build 104: "strassen" = Ziele aus dem KI-Strassennetz,
@@ -737,6 +738,7 @@ function NachbarFelderManager:loadServerConfig()
                 setXMLInt(xf, root .. ".poolSize",                6)
                 setXMLBool(xf, root .. ".fahrerfigurenAufServer", true)
                 setXMLBool(xf, root .. ".rueckwaertsPlanen",      false)   -- Build 125
+                setXMLBool(xf, root .. ".spielverkehrAnmelden",   true)    -- Build 152
                 setXMLBool(xf, root .. ".dayRhythm",              true)
                 setXMLString(xf, root .. ".zielQuelle",           "strassen")
                 setXMLInt(xf, root .. ".trailerChance",           40)
@@ -824,6 +826,9 @@ function NachbarFelderManager:loadServerConfig()
         -- Build 108: Rueckwaertsplanen fuer NF-Fahrzeuge ohne Anbaugeraet.
         self.rueckwaertsPlanen = readBool("rueckwaertsPlanen", self.rueckwaertsPlanen ~= false)
 
+        -- Build 152: beim Spielverkehr anmelden (false = Verhalten bis Build 151)
+        self.spielverkehrAnmelden = readBool("spielverkehrAnmelden", self.spielverkehrAnmelden ~= false)
+
         -- Enge Karte: schmale Wege, nur Kleintraktoren mit leichtem Geraet.
         local em = readBool("engeMap", nil)
         if em ~= nil and em ~= (self.engeMap ~= false) then
@@ -862,6 +867,7 @@ function NachbarFelderManager:loadServerConfig()
             " poolSize=" .. tostring(self.poolSize) ..
             " fahrerfigurenAufServer=" .. tostring(self.fahrerfigurenAufServer ~= false) ..
             " rueckwaertsPlanen=" .. tostring(self.rueckwaertsPlanen ~= false) ..
+            " spielverkehrAnmelden=" .. tostring(self.spielverkehrAnmelden ~= false) ..
             " dayRhythm=" .. tostring(self.dayRhythm) ..
             " zielQuelle=" .. tostring(self.zielQuelle) ..
             " trailerChance=" .. tostring(self.trailerChance) .. "%" ..
@@ -1142,6 +1148,12 @@ function NachbarFelderManager:prepareForShutdown()
             if self:getIsVehicleAlive(veh) then
                 self:stopAIJobSafely(veh)
             end
+            self:meldeBeimSpielverkehrAb(veh)   -- Build 152: solange das Verkehrssystem noch lebt
+        end
+    end
+    for _, p in ipairs(self.trafficPool or {}) do
+        for _, veh in ipairs(p.vehicles or p.vehicleType or {}) do
+            self:meldeBeimSpielverkehrAb(veh)
         end
     end
     print("NachbarFelder: Shutdown - AI-Jobs gestoppt, Fahrzeuge raeumt die Engine auf")
@@ -3876,6 +3888,66 @@ local function nfAIMessageName(msg)
 end
 
 -- ============================================================
+-- Spielverkehr (Build 152)
+-- Die Autos des Spielverkehrs (Engine, g_currentMission.trafficSystem) bremsen
+-- nur fuer angemeldete Objekte. Das Spiel meldet einen Spieler zu Fuss an
+-- (Player.lua: addTrafficSystemPlayer mit graphicsRootNode) und ein Fahrzeug,
+-- in das ein Spieler einsteigt (Enterable.lua:1724, components[1].node; beim
+-- Aussteigen removeTrafficSystemPlayer, Zeile 1808). Fahrzeuge ohne Fahrer -
+-- also auch unsere - kennt der Spielverkehr nicht und faehrt in sie hinein.
+-- Deshalb melden wir Traktor und Geraete beim Losfahren genauso an und beim
+-- Einschlafen im Pool, Loeschen und Spielende wieder ab.
+-- Abschaltbar: <spielverkehrAnmelden>false</...> in der Server-Konfig.
+-- ============================================================
+function NachbarFelderManager:getSpielverkehrId()
+    local ts = g_currentMission ~= nil and g_currentMission.trafficSystem or nil
+    if ts == nil or ts.trafficSystemId == nil or ts.trafficSystemId == 0 then return nil end
+    return ts.trafficSystemId
+end
+
+function NachbarFelderManager:meldeBeimSpielverkehrAn(vehicle)
+    if self.spielverkehrAnmelden == false or self.isShuttingDown then return end
+    if not self:getIsVehicleAlive(vehicle) or vehicle.nf_spielverkehrNode ~= nil then return end
+    if addTrafficSystemPlayer == nil then return end
+    local id = self:getSpielverkehrId()
+    if id == nil then return end
+    local node = vehicle.components ~= nil and vehicle.components[1] ~= nil and vehicle.components[1].node or nil
+    if node == nil then return end
+    local ok, err = pcall(addTrafficSystemPlayer, id, node)
+    if ok then
+        vehicle.nf_spielverkehrNode = node
+        if not self.spielverkehrGemeldet then
+            self.spielverkehrGemeldet = true
+            print("NachbarFelder: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
+        end
+    elseif not self.spielverkehrFehler then
+        self.spielverkehrFehler = true
+        print("NachbarFelder: [TRAFFIC] Anmeldung beim Spielverkehr fehlgeschlagen: " .. tostring(err))
+    end
+end
+
+function NachbarFelderManager:meldeGespannBeimSpielverkehrAn(vehicle)
+    if self.spielverkehrAnmelden == false or vehicle == nil then return end
+    self:meldeBeimSpielverkehrAn(vehicle)
+    pcall(function()
+        if vehicle.getChildVehicles == nil then return end
+        for _, v in ipairs(vehicle:getChildVehicles()) do
+            if v ~= vehicle then self:meldeBeimSpielverkehrAn(v) end
+        end
+    end)
+end
+
+function NachbarFelderManager:meldeBeimSpielverkehrAb(vehicle)
+    local node = vehicle ~= nil and vehicle.nf_spielverkehrNode or nil
+    if node == nil then return end
+    vehicle.nf_spielverkehrNode = nil
+    if removeTrafficSystemPlayer == nil then return end
+    local id = self:getSpielverkehrId()
+    if id == nil then return end
+    pcall(removeTrafficSystemPlayer, id, node)
+end
+
+-- ============================================================
 -- driveToField: GOTO-Job zum naechsten Ziel oder zurück zum Ladeplatz
 -- (Name historisch - seit Build 150 nur noch Verkehr)
 -- WICHTIG: farmId darf NICHT 0 (Spectator) sein – der Engine
@@ -4018,6 +4090,9 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     end
 
     g_currentMission.aiSystem:startJob(job, self.farmId)
+
+    -- Build 152: Gespann beim Spielverkehr anmelden, damit die Autos bremsen
+    self:meldeGespannBeimSpielverkehrAn(vehicle)
 
     -- Build 100: Zustand direkt NACH dem Start. Nur so ist zu sehen, warum ein
     -- Auftrag ohne Fehlermeldung anlaeuft und das Fahrzeug trotzdem steht.
@@ -4753,6 +4828,7 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     -- aiSystem behalten (sonst Frame-Fehler wie bei geloeschten Vehicles)
     for _, veh in ipairs(vehs) do
         self:stopAIJobSafely(veh)
+        self:meldeBeimSpielverkehrAb(veh)   -- Build 152: schlafend wie ein abgestelltes Fahrzeug
     end
 
     -- Build 103: nicht zu mehreren am selben Fleck einschlafen. Am 12.09.

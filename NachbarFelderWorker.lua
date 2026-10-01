@@ -27,6 +27,7 @@ function NachbarFelderWorker.registerEventListeners(vehicleType)
     SpecializationUtil.registerEventListener(vehicleType, "onTargetReached",    NachbarFelderWorker)
     SpecializationUtil.registerEventListener(vehicleType, "onAIJobFinished",    NachbarFelderWorker)
     SpecializationUtil.registerEventListener(vehicleType, "onAIJobVehicleBlock",NachbarFelderWorker)
+    SpecializationUtil.registerEventListener(vehicleType, "onDelete",           NachbarFelderWorker)   -- Build 152
 end
 
 -- ============================================================
@@ -547,4 +548,10 @@ function NachbarFelderWorker:onAIJobVehicleBlock()
     if tt ~= nil then
         tt.isBlocked = (tt.isBlocked or 0) + 10
     end
+end
+
+-- Build 152: beim Loeschen vom Spielverkehr abmelden (nur wenn wir das Fahrzeug angemeldet hatten)
+function NachbarFelderWorker:onDelete()
+    if self.nf_spielverkehrNode == nil or g_NachbarFelderManager == nil then return end
+    g_NachbarFelderManager:meldeBeimSpielverkehrAb(self)
 end

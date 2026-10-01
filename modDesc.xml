@@ -24,6 +24,7 @@ Features:
 
 Wegpunkte und Spawnpunkte setzt du unter ESC > Einstellungen > Wegpunkte.
 Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten aenderbar in der Steuerung, Eintraege „Lebendige Straßen: …“).
+PS: Die Autos des Spielverkehrs bremsen fuer die Nachbar-Fahrzeuge. Kracht es an engen Stellen trotzdem, den Verkehr im Spielmenue ausschalten.
 ]]></de>
     <en><![CDATA[
 No more empty roads – it’s time to bring your world to life!
@@ -41,6 +42,7 @@ Features:
 
 Waypoints and spawn points are set in ESC > Settings > Waypoints.
 All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "Living Roads: …").
+PS: The cars of the game traffic brake for the neighbour vehicles. If they still collide in narrow spots, switch off traffic in the game menu.
 ]]></en>
     <fr><![CDATA[
 Fini les routes vides – donne vie à ton monde !
@@ -58,6 +60,7 @@ Fonctionnalités :
 
 Les points de passage et les points d’apparition se placent dans ÉCHAP > Paramètres > Waypoints.
 Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « Routes vivantes: … »).
+PS : Les voitures de la circulation du jeu freinent pour les véhicules voisins. Si elles se heurtent encore dans les passages étroits, désactive la circulation dans le menu du jeu.
 ]]></fr>
     </description>
     <iconFilename>icon_NachbarFelder.dds</iconFilename>
