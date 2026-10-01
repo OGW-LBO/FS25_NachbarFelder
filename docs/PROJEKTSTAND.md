@@ -8,6 +8,8 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 140 (01.10.): „Frucht steht“ auf abgeernteten Feldern behoben** — Messpunkte von `getFeldAktion` lagen
+>   neben dem Feld (Grasstreifen gleiches Farmland). Jetzt nur Punkte im Feldumriss, ≥ 2 m vom Rand. Abschnitt Build 140.
 > - **Build 139 (01.10.): Auftrag an den Lohnunternehmer** — Spieler steht an einem Feld und beauftragt die Helfer
 >   mit genau diesem Feld, auch mit dem eigenen (Taste `NF_ORDER_FIELD`, Standard Strg+Alt+J, oder Reiter Wegpunkte →
 >   „Lohnunternehmer“). Neue Datei `NachbarFelderAuftrag.lua`, Event `NachbarFelderAuftragEvent`. Details: Abschnitt Build 139 am Ende.
@@ -912,3 +914,28 @@ fortgesetzt bzw. nach Verkauf verworfen, Event Client → Server → Client mit 
 **Offen / Ideen:** Kosten für den Auftraggeber (Lohnunternehmer-Preis je ha) gibt es noch nicht — Helfer-Jobs laufen
 weiter kostenlos über die Helfer-Farm. Keine Rückmeldung an den Auftraggeber, wenn die Arbeit fertig ist (nur Log).
 Aufträge ohne Spieler online: es gilt wie bisher `stopAllHelpers`. Säen/Düngen/Ernten bleiben wie seit Build 125 aus.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 140: Messpunkte nur im Feldumriss
+
+Anlass (User-Test Build 139): Lohnunternehmer-Auftrag auf Feld 54 immer abgelehnt mit „Auf Feld 54 steht Frucht“,
+obwohl dort keine Frucht stand.
+
+**Ursache:** `getFeldAktion` misst Feldmitte plus 16 Punkte auf zwei Ringen (Radius 0,2 bzw. 0,42 × √Fläche). Die
+Ringpunkte wurden nur gegen „gleiches Farmland“ geprüft, nicht gegen den Feldumriss. Bei langen, schmalen oder
+verwinkelten Feldern liegen sie neben dem Feld — auf Gras-/Wiesenstreifen desselben Farmlands. Gras zählt als wachsende
+Frucht, und ein einziger Fruchtpunkt macht das Feld tabu. Betraf auch die normale Feldwahl und die Feldarbeit-Statistik
+(„mit stehender Frucht“ zu hoch).
+
+**Fix:** Ringpunkte zählen nur, wenn sie im Feldumriss (`getFeldPolygon`) und mindestens
+`NachbarFelderManager.MESSPUNKT_RANDABSTAND` = 2 m vom Rand liegen; ohne Umriss wie bisher. Das Log nennt die Zahl
+der verworfenen Punkte („n ausserhalb des Feldumrisses verworfen“) und die gefundene Frucht. `getFeldAktion` liefert als
+4. Wert Frucht + Zustand (z. B. `GRASS waechst`); die Auftrags-Meldung zeigt das: „Auf Feld 54 steht Frucht (GRASS
+waechst) …“, das Auftrags-Log hängt die Messwerte an (`… abgelehnt …: NF_auftrag_frucht | 9 Messpunkte: …`).
+
+**Test:** echte Funktionen aus dem Manager (lupa), Feld 200 × 20 m abgeerntet mit Grasstreifen daneben: alt
+`frucht (GRASS)`, neu `abgeerntet → pflügen`, 14 Punkte außerhalb verworfen. Auftrags-Logiktest und Vollparse sauber.
+
+**Falls es weiter auftritt:** die Log-Zeile `[AUFTRAG] Feld n … abgelehnt …` enthält jetzt Fruchtname und Messpunkt —
+die liefern.
+

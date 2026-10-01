@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 139
+NachbarFelderManager.BUILD = 140
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -4870,6 +4870,9 @@ end
 ---   localToLocal / localToWorld (PlaceablePlacement.lua:168, DebugUtil.lua:172)
 ---   placeable:getName() (Placeable.lua:1219), configFileNameClean (Zeile 258)
 NachbarFelderManager.BEBAUT_MIN_TIEFE = 1.0   -- m, so weit muss ein Hindernis ins Feld ragen
+-- Build 139: Messpunkte fuer den Feldzustand (getFeldAktion) muessen so weit
+-- im Feldumriss liegen - am Rand liegen Vorgewende, Grasnarbe, Nachbarflaechen.
+NachbarFelderManager.MESSPUNKT_RANDABSTAND = 2.0
 NachbarFelderManager.BEBAUT_RASTER    = 8.0   -- m, max. Punktabstand auf Grundflaechen/Zaeunen
 NachbarFelderManager.BEBAUT_ZELLE     = 50    -- m, Kantenlaenge des Suchrasters
 
@@ -6779,6 +6782,7 @@ end
 --- @return integer|nil 3 = pfluegen, 4 = grubbern, nil = nichts
 --- @return string Grund ("abgeerntet", "verdorrt", "stoppel", "frucht", "bearbeitet", "unklar", "ungueltig")
 --- @return string Messwerte fuers Log
+--- @return string|nil Frucht und Zustand am Messpunkt mit Frucht, z.B. "GRASS waechst" (Build 139)
 ---
 --- Build 111 entschied nach einem einzelnen "abgeerntet"-Punkt. Am 13.09. 13:54
 --- wurden so Feld 69 (Boden Mitte HARVEST_READY) und Feld 64 (Boden Mitte SOWN)
@@ -6793,6 +6797,12 @@ end
 ---     ein einzelner abgeernteter Punkt auf einer Nachbarflaeche reicht nicht,
 ---   * "leer auf Frucht-Bodentyp" (Fahrgasse u. ae.) zaehlt weder dafuer noch
 ---     dagegen und steht nur im Log.
+---
+--- Build 139: Die Ringpunkte zaehlen nur, wenn sie im Feldumriss liegen und
+--- mindestens MESSPUNKT_RANDABSTAND vom Rand entfernt sind. Vorher genuegte
+--- "gleiches Farmland" - bei langen, schmalen oder verwinkelten Feldern lagen
+--- Punkte auf Wiesen-/Grasstreifen neben dem Feld, Gras zaehlt als wachsende
+--- Frucht -> Feld galt faelschlich als "Frucht steht" (Auftrag Feld 54).
 function NachbarFelderManager:getFeldAktion(field)
     local fs = field ~= nil and field:getFieldState() or nil
     if fs == nil or not fs.isValid then return nil, "ungueltig", "" end
@@ -6809,15 +6819,32 @@ function NachbarFelderManager:getFeldAktion(field)
         end
     end
 
-    local punkte = {}   -- je Punkt: { Fruchtzustand, Bodentyp }
+    local punkte = {}   -- je Punkt: { Fruchtzustand, Bodentyp, Fruchtname }
     local function hatFrucht(pt)
         return pt[1] == "waechst" or pt[1] == "erntereif"
     end
-
-    punkte[1] = { self:getFruchtZustand(fs), fs.groundType }
-    if hatFrucht(punkte[1]) then
-        return nil, "frucht", "Mitte " .. punkte[1][1] .. "/" .. self:getBodenName(punkte[1][2])
+    -- Name der Frucht an einem Messpunkt (fuers Log und die Auftrags-Meldung)
+    local function fruchtName(state)
+        local name = "?"
+        pcall(function()
+            local ft = g_fruitTypeManager:getFruitTypeByIndex(state.fruitTypeIndex)
+            if ft ~= nil and ft.name ~= nil then
+                name = ft.name
+            end
+        end)
+        return name
     end
+
+    punkte[1] = { self:getFruchtZustand(fs), fs.groundType, fruchtName(fs) }
+    if hatFrucht(punkte[1]) then
+        return nil, "frucht", "Mitte " .. punkte[1][1] .. "/" .. self:getBodenName(punkte[1][2]) ..
+            " (" .. punkte[1][3] .. ")", punkte[1][3] .. " " .. punkte[1][1]
+    end
+
+    -- Build 139: Feldumriss fuer die Ringpunkte (nil = kein Umriss -> wie bisher nur Farmland)
+    local poly = self:getFeldPolygon(field)
+    local randMin = NachbarFelderManager.MESSPUNKT_RANDABSTAND
+    local ausserhalb = 0
 
     local fruchtPunkt = nil
     pcall(function()
@@ -6828,10 +6855,17 @@ function NachbarFelderManager:getFeldAktion(field)
             local r = seite * anteil
             for n = 0, 7 do
                 local a = (n + (ring - 1) * 0.5) * math.pi / 4
+                local px, pz = field.posX + math.cos(a) * r, field.posZ + math.sin(a) * r
+                local imFeld = poly == nil or (nfPunktInPolygon(px, pz, poly) and nfRandAbstand(px, pz, poly) >= randMin)
+                if not imFeld then
+                    ausserhalb = ausserhalb + 1
+                end
                 local probe = FieldState.new()
-                probe:update(field.posX + math.cos(a) * r, field.posZ + math.sin(a) * r)
-                if probe.isValid and (farmlandId == nil or probe.farmlandId == farmlandId) then
-                    local pt = { self:getFruchtZustand(probe), probe.groundType }
+                if imFeld then
+                    probe:update(px, pz)
+                end
+                if imFeld and probe.isValid and (farmlandId == nil or probe.farmlandId == farmlandId) then
+                    local pt = { self:getFruchtZustand(probe), probe.groundType, fruchtName(probe) }
                     punkte[#punkte + 1] = pt
                     if hatFrucht(pt) then
                         fruchtPunkt = pt
@@ -6855,12 +6889,13 @@ function NachbarFelderManager:getFeldAktion(field)
             nLeerFruchtboden = nLeerFruchtboden + 1   -- Fahrgasse o. ae.: nur Info
         end
     end
-    local info = string.format("%d Messpunkte: abgeerntet %d, verdorrt %d, Stoppel %d, leer auf Fruchtboden %d",
-        #punkte, nAbgeerntet, nVerdorrt, nStoppel, nLeerFruchtboden)
+    local info = string.format("%d Messpunkte: abgeerntet %d, verdorrt %d, Stoppel %d, leer auf Fruchtboden %d" ..
+        " (%d ausserhalb des Feldumrisses verworfen)",
+        #punkte, nAbgeerntet, nVerdorrt, nStoppel, nLeerFruchtboden, ausserhalb)
 
     if fruchtPunkt ~= nil then
         return nil, "frucht", info .. ", Frucht an Messpunkt (" .. fruchtPunkt[1] .. "/" ..
-            self:getBodenName(fruchtPunkt[2]) .. ")"
+            self:getBodenName(fruchtPunkt[2]) .. ", " .. fruchtPunkt[3] .. ")", fruchtPunkt[3] .. " " .. fruchtPunkt[1]
     end
     if #punkte < 3 then
         return nil, "unklar", info
