@@ -1,0 +1,47 @@
+# Release bauen: Tag "build<N>" pushen (z. B. build139) -> build.py baut
+# FS25_NachbarFelder.zip, die ZIP haengt am GitHub-Release zum Tag.
+# Der Tag muss zu NachbarFelderManager.BUILD passen, sonst bricht der Lauf ab.
+name: Release
+
+on:
+  push:
+    tags:
+      - "build*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag gegen NachbarFelderManager.BUILD pruefen
+        run: |
+          build=$(grep -oP '^NachbarFelderManager\.BUILD = \K[0-9]+' NachbarFelderManager.lua)
+          if [ "build${build}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} passt nicht zu NachbarFelderManager.BUILD = ${build}"
+            exit 1
+          fi
+          echo "BUILD=${build}" >> "$GITHUB_ENV"
+
+      - name: ZIP bauen
+        run: python3 build.py
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(grep -oP '<version>\K[^<]+' modDesc.xml)
+          cat > notes.md <<EOF
+          FS25_NachbarFelder Build ${BUILD} (modDesc-Version ${version}).
+
+          Installation: FS25_NachbarFelder.zip unveraendert in den Mods-Ordner legen.
+          Den Dateinamen nicht aendern - das Spiel verwendet ihn als Mod-Namen.
+
+          Aenderungen: siehe docs/PROJEKTSTAND.md, Abschnitt Build ${BUILD}.
+          EOF
+          gh release create "${GITHUB_REF_NAME}" FS25_NachbarFelder.zip \
+            --title "FS25_NachbarFelder Build ${BUILD}" \
+            --notes-file notes.md
