@@ -105,7 +105,7 @@ im Fahrzeug auf der rechten Spur gesetzt, Front in Fahrtrichtung.
 
 ## Einstellungen und Daten
 
-Beides liegt im Profil unter `modSettings/FS25_NachbarFelder/`:
+Alle Dateien liegen im Profil unter `modSettings/FS25_NachbarFelder/`:
 
 - `NachbarFelderServerConfig.xml` — Server-Einstellungen (Anzahl Helfer, Verkehrsdichte, Fahrzeug-
   kategorien, `logLevel` 1 oder 2 für ausführliche Diagnose).
