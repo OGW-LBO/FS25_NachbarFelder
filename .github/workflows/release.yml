@@ -59,7 +59,7 @@ jobs:
         run: |
           version=$(grep -oP '<version>\K[^<]+' modDesc.xml)
           cat > notes.md <<EOF
-          FS25_NachbarFelder Build ${BUILD} (modDesc-Version ${version}).
+          Lebendige Straßen (FS25_NachbarFelder) Build ${BUILD} (modDesc-Version ${version}).
 
           Installation: FS25_NachbarFelder.zip unveraendert in den Mods-Ordner legen.
           Den Dateinamen nicht aendern - das Spiel verwendet ihn als Mod-Namen.
@@ -68,5 +68,5 @@ jobs:
           EOF
           gh release create "${TAG}" FS25_NachbarFelder.zip \
             --target "${GITHUB_SHA}" \
-            --title "FS25_NachbarFelder Build ${BUILD}" \
+            --title "Lebendige Straßen Build ${BUILD}" \
             --notes-file notes.md

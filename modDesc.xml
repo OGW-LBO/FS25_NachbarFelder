@@ -1,83 +1,92 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="111">
     <author>OGW</author>
-    <version>1.1.42.0</version>
+    <version>1.2.0.0</version>
     <title>
-        <en>NachbarFelder</en>
-        <fr>Champs Voisins</fr>
+        <de>Lebendige Straßen</de>
+        <en>Living Roads</en>
+        <fr>Routes Vivantes</fr>
     </title>
     <description>
         <de><![CDATA[
-Schluss mit leeren Strassen – jetzt kommt Leben in deine Welt!
+Schluss mit leeren Straßen – jetzt kommt Leben in deine Welt!
 
-Warum solltest nur du arbeiten? Mit diesem Mod sind auch deine Nachbarn unterwegs! KI-Farmer spawnen am Shop, fahren selbststaendig zu ihren Feldern und erledigen dort ihre Arbeiten – vom Saeen bis zur Ernte. Danach geht’s wieder zurueck, genau wie im echten Farmer-Alltag.
-
-Ploetzlich ist richtig was los: Traktoren auf den Strassen, Arbeit auf den Feldern und eine Welt, die sich endlich lebendig anfuehlt. Du bist nicht mehr allein – deine Konkurrenz schlaeft nicht!
+Mit „Lebendige Straßen“ sind deine Nachbarn unterwegs: KI-Traktoren, teils mit Anbaugerät, fahren selbstständig über die KI-Straßen der Karte, halten an deinen Wegpunkten, parken eine Weile und fahren weiter. Nach getaner Arbeit machen sie Feierabend und kommen später wieder.
 
 Features:
+- Verkehr mit eigenen Fahrzeugen der Nachbarn, auf Wunsch mit Anbaugerät
+- Fahrziele entlang der KI-Straßen plus deine eigenen Wegpunkte
+- Eigene Spawnpunkte: dort starten neue Fahrzeuge
+- Tagesrhythmus: nachts und mittags weniger Verkehr
+- Wiederkehrende Stammfahrzeuge, Fahrzeug-Pool gegen Ruckler
+- Die Autos des Spielverkehrs bremsen für die Nachbar-Fahrzeuge
+- Festgefahrene Fahrzeuge suchen ein neues Ziel oder werden entfernt
+- Kartenunabhängig, Singleplayer, Multiplayer und Dedicated Server
 
-- Aktive KI-Farmer mit eigenen Fahrzeugen
-- Fahrten vom Shop zu Feldern und zurueck
-- Sichtbare Feldarbeit
-- Mehr Verkehr & deutlich mehr Leben auf der Map
-- Spuerbar realistischeres Gameplay
-- Zwischen 5 und 30 echten(!) minuten spawnt ein Helfer
-- Sollte ein Helfer längere Zeit sich nicht bewegen, wird er entfernt
-- Um Fahrzeuge zu Spawnen, sollte der Shop noch ausreichend frei Plätze haben.
+Bedienung:
+- Einstellungen: ESC > Einstellungen, Abschnitt „Lebendige Straßen“
+- Wegpunkte und Spawnpunkte: ESC > Einstellungen > Reiter „Wegpunkte“
+- Hilfe: ESC > Hilfe > „Lebendige Straßen“
+- Strg + Alt + L entfernt alle Nachbar-Fahrzeuge (Tasten änderbar unter Steuerung, Einträge „Lebendige Straßen: …“)
 
-Wegpunkte und Spawnpunkte setzt du unter ESC > Einstellungen > Wegpunkte.
-Lohnunternehmer: Stell dich an ein Feld und drücke Strg + Alt + J (oder ESC > Einstellungen > Wegpunkte > Lohnunternehmer) - die Nachbarn pflügen bzw. grubbern genau dieses Feld, auch dein eigenes.
-Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten änderbar in der Steuerung, Einträge „NachbarFelder: …“).
+PS: Kracht es an engen Stellen trotzdem mit dem Spielverkehr, den Verkehr im Spielmenü ausschalten.
 
-PS: Es ist ratsam, den Verkehr auszuschalten, aber kein Muss!
+Changelog 1.2.0.0:
+- Neuer Name „Lebendige Straßen“ (vorher NachbarFelder)
+- Feldarbeit der Nachbarn und Lohnunternehmer entfernt – die Mod ist jetzt reiner Verkehr
+- Nachbar-Fahrzeuge werden beim Spielverkehr angemeldet, Autos bremsen für sie
+- Ingame-Hilfe unter ESC > Hilfe
+- Ladeplatz-Suche an der KI-Straße überarbeitet, Kipp-Erkennung, Hinweis auf Spawnpunkte
 ]]></de>
     <en><![CDATA[
-No more empty roads – it’s time to bring your world to life! 
+No more empty roads – it’s time to bring your world to life!
 
-Why should you be the only one working? With this mod, your neighbors are busy too! AI farmers spawn at the shop, drive independently to their fields, and carry out their work – from sowing to harvesting. Afterwards, they head back, just like in real farming life.
-
-Suddenly, there’s action everywhere: tractors on the roads, work on the fields, and a world that finally feels alive. You’re no longer alone – the competition never sleeps!
+With "Living Roads" your neighbours are on the move: AI tractors, some with an implement, drive on their own along the AI roads of the map, stop at your waypoints, park for a while and drive on. When their work is done they call it a day and come back later.
 
 Features:
+- Traffic with the neighbours' own vehicles, optionally with an implement
+- Destinations along the AI roads plus your own waypoints
+- Own spawn points where new vehicles start
+- Daily rhythm: less traffic at night and at noon
+- Recurring regular vehicles, vehicle pool against stutters
+- The cars of the game traffic brake for the neighbour vehicles
+- Stuck vehicles pick a new destination or are removed
+- Works on any map, single player, multiplayer and dedicated server
 
-- Active AI farmers with their own vehicles
-- Trips from the shop to fields and back
-- Visible field work
-- More traffic & a livelier map
-- Noticeably more realistic gameplay
-- A helper spawns every 5 to 30 real(!) minutes.
-- If a helper remains motionless for an extended period, they will be removed.
-- To spawn vehicles, the shop must still have sufficient free slots.
+Usage:
+- Settings: ESC > Settings, section "Living Roads"
+- Waypoints and spawn points: ESC > Settings > tab "Waypoints"
+- Help: ESC > Help > "Living Roads"
+- Ctrl + Alt + L removes all neighbour vehicles (keys can be changed in the controls, entries "Living Roads: …")
 
-Waypoints and spawn points are set in ESC > Settings > Waypoints.
-Contractor: stand at a field and press Ctrl + Alt + J (or ESC > Settings > Waypoints > Contractor) - the neighbours plow or cultivate exactly this field, your own as well.
-All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "NachbarFelder: …").
+PS: If the game traffic still collides in narrow spots, switch off traffic in the game menu.
 
-PS: It is recommended to disable traffic, but it’s not required!
+Changelog 1.2.0.0:
+- New name "Living Roads" (formerly NachbarFelder)
+- Neighbour field work and contractor removed – the mod is now pure traffic
+- Neighbour vehicles are registered with the game traffic, cars brake for them
+- In-game help in ESC > Help
+- Reworked loading spot search on the AI road, tip-over detection, spawn point hint
 ]]></en>
     <fr><![CDATA[
 Fini les routes vides – donne vie à ton monde !
 
-Pourquoi serais-tu le seul à travailler ? Avec ce mod, tes voisins sont eux aussi actifs ! Des agriculteurs IA apparaissent au magasin, se rendent automatiquement à leurs champs et effectuent leurs travaux – du semis à la récolte. Ensuite, ils rentrent, comme dans la vraie vie agricole.
-
-Soudain, il y a de l’activité partout : des tracteurs sur les routes, du travail dans les champs et un monde qui paraît enfin vivant. Tu n’es plus seul – la concurrence ne dort jamais !
+Avec « Routes Vivantes », tes voisins circulent : des tracteurs IA, parfois avec un outil, roulent seuls sur les routes IA de la carte, s’arrêtent à tes points de passage, stationnent un moment puis repartent.
 
 Fonctionnalités :
+- Circulation avec les propres véhicules des voisins, parfois avec un outil
+- Destinations le long des routes IA et tes propres points de passage
+- Points d’apparition personnels pour les nouveaux véhicules
+- Rythme journalier : moins de circulation la nuit et à midi
+- Les voitures de la circulation du jeu freinent pour les véhicules voisins
+- Fonctionne sur toutes les cartes, en solo, en multijoueur et sur serveur dédié
 
-- Agriculteurs IA actifs avec leurs propres véhicules
-- Déplacements du magasin aux champs et retour
-- Travaux agricoles visibles
-- Plus de trafic & une carte plus vivante
-- Une expérience de jeu plus réaliste
-- Un assistant apparaît toutes les 5 à 30 minutes (temps réel).
-- Si un assistant reste immobile pendant une période prolongée, il sera supprimé.
-- Pour que des véhicules puissent apparaître, le magasin doit encore disposer de suffisamment d'espace libre.
+Utilisation :
+- Paramètres : ÉCHAP > Paramètres, section « Living Roads »
+- Points de passage et d’apparition : ÉCHAP > Paramètres > onglet « Waypoints »
+- « Ctrl » + « Alt » + « L » supprime tous les véhicules voisins
 
-Les points de passage et les points d’apparition se placent dans ÉCHAP > Paramètres > Waypoints.
-Entrepreneur : place-toi près d’un champ et appuie sur « Ctrl » + « Alt » + « J » (ou ÉCHAP > Paramètres > Waypoints > Contractor) - les voisins labourent ou cultivent exactement ce champ, même le tien.
-Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « NachbarFelder: … »).
-
-PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obligatoire !
+PS : Si la circulation du jeu provoque encore des collisions dans les passages étroits, désactive-la dans le menu du jeu.
 ]]></fr>
     </description>
     <iconFilename>icon_NachbarFelder.dds</iconFilename>
@@ -94,9 +103,6 @@ PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obliga
         <actionBinding action="NF_DELETE_HELPER">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_l" />
         </actionBinding>
-        <actionBinding action="NF_START_NOW">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_e" />
-        </actionBinding>
         <actionBinding action="NF_ADD_WAYPOINT">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_o" />
         </actionBinding>
@@ -106,17 +112,11 @@ PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obliga
         <actionBinding action="NF_MANAGE_WAYPOINTS">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_c" />
         </actionBinding>
-        <!-- Build 139: Auftrag an den Lohnunternehmer (Feld an der eigenen Position) -->
-        <actionBinding action="NF_ORDER_FIELD">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_j" />
-        </actionBinding>
     </inputBinding>
     <actions>
         <action name="NF_DELETE_HELPER" />
-        <action name="NF_START_NOW" />
         <action name="NF_ADD_WAYPOINT" />
         <action name="NF_REMOVE_WAYPOINT" />
         <action name="NF_MANAGE_WAYPOINTS" />
-        <action name="NF_ORDER_FIELD" />
     </actions>
 </modDesc>

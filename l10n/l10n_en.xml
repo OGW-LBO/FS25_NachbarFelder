@@ -1,39 +1,20 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <l10n>
     <texts>
-        <text name="NachbarFelder" text="NachbarFelder"/>
-        <text name="NF_setting_title" text="Activity on Other Fields"/>
-        <text name="NF_active_short" text="Activity on Other Fields"/>
-        <text name="NF_active_long" text="Enables/Disables activity on other fields"/>
-        <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Number of Workers"/>
-        <text name="NF_MAX_ASSISTANT_WORKERS_long" text="How many workers can work in parallel at maximum?"/>
+        <text name="NachbarFelder" text="Living Roads"/>
+        <text name="NF_setting_title" text="Living Roads"/>
+        <text name="NF_active_short" text="Neighbour traffic active"/>
+        <text name="NF_active_long" text="Switches the neighbours' traffic on or off. Off = no new vehicles, vehicles on the road finish their trip."/>
         <text name="NF_trafficLimit_short" text="Traffic vehicles"/>
         <text name="NF_trafficLimit_long" text="How many AI traffic vehicles drive simultaneously on the map? (1-8). Waypoints and spawn points are set in the 'Waypoints' tab."/>
         <text name="NF_trafficTrailerSize_short" text="Implements"/>
         <text name="NF_trafficTrailerSize_long" text="Implements for traffic vehicles. 0 = None | 1 = Small | 2 = Medium | 3 = All (plows, cultivators, mowers, tedders, rakes, seed drills)"/>
         <text name="NF_engeMap_short" text="Narrow map"/>
-        <text name="NF_engeMap_long" text="For narrow maps and cramped dealer areas: neighbours only use small and medium tractors (up to 12 t) with light implements (tedders, rakes, up to 3 t), and field work always gets the smallest vehicle group - short rigs fit short spawn places. Large tractors, wheel loaders and telehandlers stay out. Off = as before, everything allowed."/>
-        <text name="NF_plowMission_short" text="Plowing"/>
-        <text name="NF_plowMission_long" text="Generate plowing mission"/>
-        <text name="NF_cultivateMission_short" text="Cultivating"/>
-        <text name="NF_cultivateMission_long" text="Generate cultivating mission"/>
-        <text name="NF_sowMission_short" text="Sowing"/>
-        <text name="NF_sowMission_long" text="Generate sowing mission"/>
-        <text name="NF_harvestMission_short" text="Harvesting"/>
-        <text name="NF_harvestMission_long" text="Generate harvesting mission"/>
-        <text name="NF_hoeMission_short" text="Hoeing"/>
-        <text name="NF_hoeMission_long" text="Generate hoeing mission"/>
-        <text name="NF_weedMission_short" text="Remove Weeds"/>
-        <text name="NF_weedMission_long" text="Generate weeding mission"/>
-        <text name="NF_herbicideMission_short" text="Spraying"/>
-        <text name="NF_herbicideMission_long" text="Generate herbicide spraying mission"/>
-        <text name="NF_fertilizeMission_short" text="Fertilizing"/>
-        <text name="NF_fertilizeMission_long" text="Generate fertilizing mission"/>
-        <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Remove all neighbour vehicles"/>
-        <text name="input_NF_START_NOW" text="NachbarFelder: Start helper now"/>
-        <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Set waypoint"/>
-        <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Remove last waypoint"/>
-        <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Show waypoints one by one"/>
+        <text name="NF_engeMap_long" text="For narrow maps and cramped dealer areas: neighbours only use small and medium tractors (up to 12 t) with light implements (tedders, rakes, up to 3 t). Large tractors, wheel loaders and telehandlers stay out. Off = everything allowed."/>
+        <text name="input_NF_DELETE_HELPER" text="Living Roads: Remove all neighbour vehicles"/>
+        <text name="input_NF_ADD_WAYPOINT" text="Living Roads: Set waypoint"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="Living Roads: Remove last waypoint"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="Living Roads: Show waypoints one by one"/>
         <text name="NF_wpPage_tabTitle" text="Waypoints"/>
         <text name="NF_WPPAGE_TABTITLE" text="Waypoints"/>
         <text name="NF_wpActions_title" text="Actions"/>
@@ -74,36 +55,26 @@
         <text name="NF_wpCatLoader_long" text="Spawn wheel loaders as traffic vehicles (only if navmesh-capable)"/>
         <text name="NF_wpCatTeleLoader_short" text="Telescopic handlers"/>
         <text name="NF_wpCatTeleLoader_long" text="Spawn telescopic handlers as traffic vehicles (only if navmesh-capable)"/>
-        <!-- Build 139: Auftrag an den Lohnunternehmer -->
-        <text name="input_NF_ORDER_FIELD" text="NachbarFelder: Hire contractor for this field"/>
-        <text name="NF_auftrag_section_title" text="Contractor"/>
-        <text name="NF_auftragHier_short" text="Have this field worked"/>
-        <text name="NF_auftragHier_long" text="The neighbour helpers plow or cultivate the field you are standing at (up to 25 m from the field edge) - your own field as well. Own fields: permission 'Hire assistant' required. Unowned fields: admin only. Fields of other farms and fields with a standing crop are refused."/>
-        <text name="NF_auftragBtn" text="Hire"/>
-        <text name="NF_auftrag_ok" text="Order accepted - field %s will be %s. The helper starts at the dealer."/>
-        <text name="NF_auftrag_arbeitPflug" text="plowed"/>
-        <text name="NF_auftrag_arbeitGrubber" text="cultivated"/>
-        <text name="NF_auftrag_gesendet" text="Order sent to the server ..."/>
-        <text name="NF_auftrag_keinePosition" text="Order not possible - your position is unknown."/>
-        <text name="NF_auftrag_keinFeld" text="No field nearby - stand in the field or at most 25 m from its edge."/>
-        <text name="NF_auftrag_fremd" text="Field %s belongs to another farm - no order possible."/>
-        <text name="NF_auftrag_keinRecht" text="Field %s: you lack the permission 'Hire assistant' for your farm."/>
-        <text name="NF_auftrag_nurAdmin" text="Field %s has no owner - orders for unowned fields are admin only."/>
-        <text name="NF_auftrag_belegt" text="A neighbour helper is already working on field %s."/>
-        <text name="NF_auftrag_gesperrt" text="Field %s is locked for the neighbour helpers (console: nachbarFelderSperre)."/>
-        <text name="NF_auftrag_vertrag" text="An accepted contract is running on field %s."/>
-        <text name="NF_auftrag_bebaut" text="Field %s: building or fence inside the field - too risky for the helper."/>
-        <text name="NF_auftrag_weide" text="Field %s lies inside a fenced pasture."/>
-        <text name="NF_auftrag_klein" text="Field %s is smaller than 0.3 ha - too small for the helper."/>
-        <text name="NF_auftrag_gruenland" text="Field %s is grassland - the contractor only plows and cultivates."/>
-        <text name="NF_auftrag_frucht" text="There is a crop on field %s (%s) - harvest first, then hire."/>
-        <text name="NF_auftrag_bearbeitet" text="Field %s is already worked - nothing to do."/>
-        <text name="NF_auftrag_unklar" text="The state of field %s is unclear - no order."/>
-        <text name="NF_auftrag_arbeitAus" text="Plowing and cultivating are disabled in the settings."/>
-        <text name="NF_auftrag_voll" text="All neighbour helpers are busy - try again later."/>
-        <text name="NF_auftrag_keineFarm" text="No helper farm available - see the server log.txt."/>
-        <text name="NF_auftrag_inaktiv" text="NachbarFelder is switched off in the settings."/>
-        <text name="NF_auftrag_platz" text="Field %s: the dealer spot is occupied - try again in a minute."/>
-        <text name="NF_auftrag_fehler" text="Order could not be started - see the server log.txt."/>
+        <!-- Build 148 -->
+        <text name="NF_hinweisSpawnpunkt" text="An automatic loading spot failed. More reliable: set a spawn point (ESC &gt; Settings &gt; Waypoints &gt; Set spawn point here)."/>
+        <!-- Build 153: Ingame-Hilfe (help/helpLine.xml) -->
+        <text name="NF_help_title" text="Living Roads"/>
+        <text name="NF_help_subTitle" text="Neighbour traffic"/>
+        <text name="NF_help_page_ueberblick_title" text="Overview"/>
+        <text name="NF_help_ueberblick_text1" text="With &quot;Living Roads&quot; your neighbours are on the move: AI tractors, some with an implement, drive on their own along the AI roads of the map, stop at your waypoints, park for a while and drive on. After a number of trips they call it a day and park; later they are woken up again."/>
+        <text name="NF_help_ueberblick_text2" text="Vehicles only appear while a player is in the game, about 3 minutes after joining. You set how many drive at the same time in the settings; fewer drive at night and at noon (daily rhythm). Destinations are your waypoints plus points along the AI roads that the mod finds itself (server config &quot;zielQuelle&quot; = &quot;wegpunkte&quot;: your points only)."/>
+        <text name="NF_help_page_wegpunkte_title" text="Waypoints and spawn points"/>
+        <text name="NF_help_wegpunkte_text1" text="Waypoints are managed in ESC &gt; Settings &gt; tab &quot;Waypoints&quot; (admin only): &quot;Set waypoint here&quot; and &quot;Set spawn point here&quot; create a point at your position. There you can browse the points, change their type, delete them and teleport to them."/>
+        <text name="NF_help_wegpunkte_text2" text="Types: Normal (20–60 s stop), Short (5–20 s), Long (2–5 min) and spawn point. New vehicles are loaded at spawn points. Best set them from a tractor on the right lane, front facing the driving direction, with some room ahead. Without a spawn point the mod looks for a free spot on an AI road itself."/>
+        <text name="NF_help_wegpunkte_text3" text="Under &quot;Vehicle types&quot; you choose which vehicles the neighbours use (small, medium, large tractors, wheel loaders, telehandlers). &quot;Show WP on map&quot; displays the points as map markers."/>
+        <text name="NF_help_page_einstellungen_title" text="Settings"/>
+        <text name="NF_help_einstellungen_text1" text="The settings are in ESC &gt; Settings, section &quot;Living Roads&quot; (only admins can change them): mod on/off, number of traffic vehicles (1–8), implement size and &quot;Narrow map&quot; (small tractors with light implements only)."/>
+        <text name="NF_help_einstellungen_text2" text="On a server there is also the file modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, e.g. for spawn intervals, parking times, pool size, implement share and &quot;spielverkehrAnmelden&quot;. Changes there take effect after a restart."/>
+        <text name="NF_help_page_tasten_title" text="Keys and console"/>
+        <text name="NF_help_tasten_text1" text="Default keys (changeable in Settings &gt; Controls, entries &quot;Living Roads: …&quot;): Ctrl + Alt + O set waypoint, Ctrl + Alt + U remove last waypoint, Ctrl + Alt + C show waypoints one by one, Ctrl + Alt + L remove all neighbour vehicles (admin only)."/>
+        <text name="NF_help_tasten_text2" text="Console commands: nachbarFelderTrafficStop stops traffic and removes the vehicles, nachbarFelderTrafficStart allows it again, nachbarFelderEntfernen removes all vehicles, nachbarFelderTimer shows the time until the next spawn."/>
+        <text name="NF_help_page_verkehr_title" text="Game traffic and problems"/>
+        <text name="NF_help_verkehr_text1" text="The cars of the game traffic brake for the neighbour vehicles. If they still collide in narrow spots, switch off traffic in the game menu or set &quot;spielverkehrAnmelden&quot; to false in the server config."/>
+        <text name="NF_help_verkehr_text2" text="A vehicle that stays stuck picks a new destination and is removed if necessary. Loading spots where vehicles cannot get away are locked for that map. For problem reports the lines starting with &quot;NachbarFelder:&quot; from log.txt help most."/>
     </texts>
 </l10n>

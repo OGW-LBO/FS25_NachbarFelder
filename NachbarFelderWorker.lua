@@ -24,10 +24,10 @@ function NachbarFelderWorker.prerequisitesPresent(specializations)
 end
 
 function NachbarFelderWorker.registerEventListeners(vehicleType)
-    SpecializationUtil.registerEventListener(vehicleType, "onAIFieldWorkerEnd", NachbarFelderWorker)
     SpecializationUtil.registerEventListener(vehicleType, "onTargetReached",    NachbarFelderWorker)
     SpecializationUtil.registerEventListener(vehicleType, "onAIJobFinished",    NachbarFelderWorker)
     SpecializationUtil.registerEventListener(vehicleType, "onAIJobVehicleBlock",NachbarFelderWorker)
+    SpecializationUtil.registerEventListener(vehicleType, "onDelete",           NachbarFelderWorker)   -- Build 152
 end
 
 -- ============================================================
@@ -105,7 +105,7 @@ local function nfMarkStartPlaceBad(tt, mgr, veh)
 end
 
 -- ============================================================
--- onAIJobFinished: GOTO abgeschlossen → Feldarbeit starten
+-- onAIJobFinished: GOTO abgeschlossen → Verkehr parkt am Ziel
 -- Nur auf dem Server verarbeiten (Logik liegt beim Server)
 -- ============================================================
 function NachbarFelderWorker:onAIJobFinished(...)
@@ -181,8 +181,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
         end
 
     elseif tt.status == 2 then
-        -- Feldarbeit-Job wurde beendet (normal oder frühzeitig).
-        -- onAIFieldWorkerEnd übernimmt die Verarbeitung.
+        -- Verkehr parkt (Park-Timer in Manager:update) - nichts zu tun
 
     elseif tt.status >= 3 and tt.status ~= 60 then
         -- Spezialfall: Status ≥ 3 (aber nicht 60, das oben behandelt wird) → aufräumen
@@ -261,136 +260,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
             end
             if instantReject or pathFail then
                 gotoOk = false
-                local m = g_NachbarFelderManager
                 local msgInfo = stopMsg ~= nil and (", " .. stopMsg) or ""
-                if instantReject then
-                    -- Patrol: Meldung/Handling im Patrol-Block weiter unten (Positionsproblem).
-                    -- Build 117: Feldhelfer - eine Sofort-Abweisung ist ein Problem der
-                    -- STARTPOSITION (kein Navmesh fuer das lange Gespann am engen Shop),
-                    -- nicht des Geraets. Deshalb einmal mind. 40 m weiter auf die
-                    -- KI-Strasse setzen, Richtung Feld ausrichten und neu versuchen.
-                    -- Erst eine zweite Sofort-Abweisung sperrt das Geraet (unten).
-                    if not tt.isPatrol and not tt.feldRettungVersucht and m ~= nil
-                       and m.getNearestRoadPoint ~= nil then
-                        tt.feldRettungVersucht = true
-                        local versetzt = false
-                        pcall(function()
-                            local veh0 = tt.vehiclesToLoad and tt.vehiclesToLoad[1]
-                            if veh0 == nil or veh0.rootNode == nil then return end
-                            local vx, _, vz = getWorldTranslation(veh0.rootNode)
-                            if m.merkeSpawnFehlschlag ~= nil then   -- Build 129
-                                m:merkeSpawnFehlschlag(tt, vx, vz, "Feldhelfer sofort abgewiesen")
-                            end
-                            -- Build 136: Spur Richtung Feld waehlen statt 180-Grad-Drehung (Einbahn-Splines)
-                            local field = g_fieldManager:getFieldById(tt.fieldId)
-                            local wdx, wdz = nil, nil
-                            if field ~= nil and field.posX ~= nil then
-                                wdx, wdz = field.posX - vx, field.posZ - vz
-                            end
-                            local rx, rz, rry, rdist = m:getRoadPointInRichtung(vx, vz, 200, 40, wdx, wdz)
-                            if rx ~= nil and m:isSpotBlockedByAnyVehicle(rx, rz, 12, veh0) then
-                                rx, rz, rry, rdist = m:getRoadPointInRichtung(vx, vz, 250, 80, wdx, wdz)
-                                if rx ~= nil and m:isSpotBlockedByAnyVehicle(rx, rz, 12, veh0) then
-                                    rx = nil
-                                end
-                            end
-                            if rx == nil then return end
-                            local ry = rry or 0
-                            g_currentMission:teleportVehicle(veh0, rx, rz, ry)
-                            versetzt = true
-                            print(string.format("NachbarFelder: GOTO sofort abgewiesen (%dms%s) - Gespann %s" ..
-                                " %.0f m weiter auf die KI-Strasse gesetzt, neuer Versuch zu Feld %s",
-                                math.floor(gotoElapsed), msgInfo, tostring(m:getWorkerName(tt)),
-                                rdist or 0, tostring(tt.fieldId)))
-                        end)
-                        if versetzt then
-                            tt.fieldGotoStartedAt = nil
-                            tt.status    = 1
-                            tt.needTimer = true
-                            return
-                        end
-                    end
-                    if not tt.isPatrol then
-                        print("NachbarFelder: GOTO sofort abgewiesen (" ..
-                            tostring(math.floor(gotoElapsed)) .. "ms" .. msgInfo ..
-                            ") - Gespann ungeeignet fuer Feld " ..
-                            tostring(tt.fieldId) .. ", Fahrzeug wird am Shop entfernt")
-                        if m ~= nil and tt.mission ~= nil and tt.mission.type ~= nil then
-                            local mName = tt.mission.type.name
-                            local implVeh = tt.vehiclesToLoad and tt.vehiclesToLoad[2]
-                            local implFile = implVeh ~= nil and (implVeh.configFileName or implVeh.typeName) or nil
-                            if mName ~= nil and implFile ~= nil then
-                                m.vehicleImplBlacklist[mName] = m.vehicleImplBlacklist[mName] or {}
-                                m.vehicleImplBlacklist[mName][implFile] =
-                                    (m.vehicleImplBlacklist[mName][implFile] or 0) + 1
-                                print("NachbarFelder: Implement [" .. tostring(implFile) ..
-                                    "] fuer " .. tostring(mName) .. " gesperrt (GOTO-Abweisung)")
-                            end
-                        end
-                    end
-                else
-                    -- Build 120: Feldhelfer ist GEFAHREN (>= 20 s) und unterwegs haengen
-                    -- geblieben - das ist ein Problem des Gespanns/der Stelle, nicht des Felds.
-                    if not tt.isPatrol and m ~= nil and gotoElapsed >= 20000 then
-                        local vx, vz, kmh = 0, 0, 0
-                        local tFile, iFile = nil, nil
-                        pcall(function()
-                            local veh0 = tt.vehiclesToLoad and tt.vehiclesToLoad[1]
-                            local impl = tt.vehiclesToLoad and tt.vehiclesToLoad[2]
-                            if veh0 ~= nil and veh0.rootNode ~= nil then
-                                local x, _, z = getWorldTranslation(veh0.rootNode)
-                                vx, vz = x, z
-                                if veh0.getLastSpeed ~= nil then kmh = veh0:getLastSpeed() end
-                                tFile = veh0.configFileName
-                            end
-                            if impl ~= nil then iFile = impl.configFileName end
-                        end)
-                        if m.merkeSpawnFehlschlag ~= nil then   -- Build 129
-                            m:merkeSpawnFehlschlag(tt, vx, vz, "Anfahrt abgebrochen")
-                        end
-                        if not tt.feldNeuplanung then
-                            tt.feldNeuplanung = true
-                            print(string.format("NachbarFelder: Anfahrt Feld %s nach %d s abgebrochen (%s) bei x=%d z=%d," ..
-                                " %.1f km/h - %s hing unterwegs, neuer Anlauf von hier",
-                                tostring(tt.fieldId), math.floor(gotoElapsed / 1000), tostring(stopMsg),
-                                math.floor(vx), math.floor(vz), kmh, tostring(m:getWorkerName(tt))))
-                            tt.fieldGotoStartedAt = nil
-                            tt.status    = 1
-                            tt.needTimer = true
-                            return
-                        end
-                        if m.sperreFeldGespann ~= nil then
-                            m:sperreFeldGespann(tFile, iFile)
-                        end
-                        print(string.format("NachbarFelder: Anfahrt Feld %s erneut abgebrochen nach %d s bei x=%d z=%d" ..
-                            " - Gespann %s + %s fuer diese Session gesperrt, Feld wird NICHT bestraft," ..
-                            " Fahrzeug wird entfernt", tostring(tt.fieldId), math.floor(gotoElapsed / 1000),
-                            math.floor(vx), math.floor(vz), tostring(m:getWorkerName(tt)),
-                            tostring(iFile ~= nil and (string.match(iFile, "[^/\\]+$") or iFile) or "-")))
-                        tt.status = 100
-                        tt.needTimer = true
-                        tt.gotoStartedAt = nil
-                        tt.fieldGotoStartedAt = nil
-                        return
-                    end
-                    if not tt.isPatrol then
-                        print("NachbarFelder: GOTO kein Pfad (" ..
-                            tostring(math.floor(gotoElapsed)) .. "ms" .. msgInfo .. ") zu Feld " ..
-                            tostring(tt.fieldId) .. " -> Fahrzeug wird am Shop entfernt")
-                    end
-                    -- Patrol: keine Feld-Cooldowns auf negativen Pseudo-Keys
-                    if not tt.isPatrol and m ~= nil then
-                        m.fieldPathFails = m.fieldPathFails or {}
-                        m.fieldPathFails[tt.fieldId] = (m.fieldPathFails[tt.fieldId] or 0) + 1
-                        if m.fieldPathFails[tt.fieldId] >= 2 then
-                            m.fieldCooldown[tt.fieldId] = 999999
-                            print("NachbarFelder: Feld " .. tostring(tt.fieldId) ..
-                                " fuer diese Session gesperrt (2x kein Pfad)")
-                        else
-                            m.fieldCooldown[tt.fieldId] = 60
-                        end
-                    end
-                end
                 -- Patrol: nach Fehlerklasse unterscheiden
                 if tt.isPatrol then
                     if instantReject then
@@ -658,169 +528,15 @@ function NachbarFelderWorker:onAIJobFinished(...)
             return
         end
 
-        if tt:isSpecialHarvestMission() then
-            local trailer = tt.vehiclesToLoad[3]
-            trailer:forceUnmountDynamicMountedObjects()
-            tt.removeVehicleInfo.fileName = trailer.configFileName
-            tt.removeVehicleInfo.configurations = trailer.configurations
-            tt.removeVehicleInfo.fieldId = tt.fieldId
-            trailer:delete()
-
-            local x, y, z = getWorldTranslation(tt.vehiclesToLoad[1].rootNode)
-            local dirX, dirY, dirZ = localDirectionToWorld(tt.vehiclesToLoad[1].rootNode, 0, 0, 1)
-            local angle = MathUtil.getYRotationFromDirection(dirX, dirZ)
-            g_currentMission:teleportVehicle(tt.vehiclesToLoad[2], x + dirX * 10, z + dirZ * 10, angle)
-            g_NachbarFelderManager:attachObjectToCar(tt.vehiclesToLoad[1], tt.vehiclesToLoad[2])
-        end
-
-        tt.status = 2
+        -- Build 150: keine Feldhelfer mehr - Eintrag ohne Patrol aufraeumen
+        tt.status = 100
         tt.needTimer = true
     end
-end
-
--- ============================================================
--- onAIFieldWorkerEnd: Feldarbeit beendet → Rückfahrt
--- ============================================================
-function NachbarFelderWorker:onAIFieldWorkerEnd()
-    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
-    if g_NachbarFelderManager == nil then return end
-
-    local tt = g_NachbarFelderManager:getCorrectobject(self)
-    if tt == nil or tt.vehiclesToLoad == nil then
-        print("NachbarFelder: onAIFieldWorkerEnd - kein Worker gefunden fuer Fahrzeug " .. tostring(self.typeName or "?"))
-        return
-    end
-    if tt.isPatrol then return end
-    if tt.status >= 3 then return end
-
-    -- Build 141: Abbruchgrund der KI (setAIOnField merkt ihn per job.stop-Wrapper)
-    print("NachbarFelder: Feldarbeit beendet Feld " .. tostring(tt.fieldId) ..
-        " (Laufzeit: " .. tostring(g_time and tt.fieldWorkStartedAt and
-        math.floor((g_time - tt.fieldWorkStartedAt) / 1000) or "?") .. "s, Grund: " ..
-        tostring(tt.lastFieldStopMsg or "unbekannt") .. ")")
-
-    -- Zu früh beendet?
-    if tt.status == 2 and tt.fieldWorkStartedAt ~= nil and g_time ~= nil then
-        local elapsed = g_time - tt.fieldWorkStartedAt
-        if elapsed < 5000 then
-            -- < 5s: Feldarbeit sofort gescheitert
-            -- Implement auf Sperrliste setzen (inkompatibles Fahrzeug, nicht Feldproblem)
-            local mName = tt.mission and tt.mission.type and tt.mission.type.name
-            local implVeh = tt.vehiclesToLoad and tt.vehiclesToLoad[2]
-            if g_NachbarFelderManager ~= nil and mName ~= nil and implVeh ~= nil then
-                local implFile = implVeh.configFileName or (implVeh.typeName or "?")
-                if g_NachbarFelderManager.vehicleImplBlacklist[mName] == nil then
-                    g_NachbarFelderManager.vehicleImplBlacklist[mName] = {}
-                end
-                local failCount = (g_NachbarFelderManager.vehicleImplBlacklist[mName][implFile] or 0) + 1
-                g_NachbarFelderManager.vehicleImplBlacklist[mName][implFile] = failCount
-                print("NachbarFelder: Implement [" .. tostring(implFile) .. "] fuer " ..
-                    tostring(mName) .. " gesperrt (" .. failCount .. "x gescheitert in " ..
-                    tostring(math.floor(elapsed)) .. "ms)")
-            end
-            -- Nur Feldcooldown wenn Implement schon 3x gescheitert (dann vielleicht wirklich Feldproblem)
-            local cooldownMinutes = 0
-            if g_NachbarFelderManager ~= nil and mName ~= nil and implVeh ~= nil then
-                local implFile = implVeh.configFileName or (implVeh.typeName or "?")
-                local fails = g_NachbarFelderManager.vehicleImplBlacklist[mName] and
-                    g_NachbarFelderManager.vehicleImplBlacklist[mName][implFile] or 0
-                if fails >= 3 then cooldownMinutes = 20 end
-            end
-            print("NachbarFelder: Feldarbeit gescheitert auf Feld " .. tostring(tt.fieldId) ..
-                " (" .. tostring(math.floor(elapsed)) .. "ms)" ..
-                (cooldownMinutes > 0 and (" - Cooldown " .. cooldownMinutes .. " Spielmin.") or " - kein Feldcooldown") ..
-                ", Fahrzeug faehrt zurueck")
-            if g_NachbarFelderManager ~= nil and cooldownMinutes > 0 then
-                g_NachbarFelderManager.fieldCooldown[tt.fieldId] = cooldownMinutes
-            end
-            if tt.tempFarmland ~= nil then
-                tt.tempFarmland.farmId  = tt.origFarmlandId
-                tt.tempFarmland.isOwned = tt.origIsOwned
-                tt.tempFarmland = nil
-            end
-            tt.status = 60
-            tt.needTimer = true
-            tt.gotoStartedAt = nil
-            tt.isBlocked = 1
-            return
-        elseif elapsed < 15000 then
-            -- 5s–15s: kurze Arbeit (Feld fast fertig) → kurzen Cooldown setzen + zurückfahren
-            print("NachbarFelder: Feldarbeit kurz beendet (" .. tostring(math.floor(elapsed / 1000)) ..
-                "s) - Fahrzeug faehrt zurueck zum Shop (Feld " .. tostring(tt.fieldId) .. ")")
-            if g_NachbarFelderManager ~= nil then
-                g_NachbarFelderManager.fieldCooldown[tt.fieldId] = 10  -- 10 Spielminuten Cooldown
-            end
-            -- Feldbesitz wiederherstellen
-            if tt.tempFarmland ~= nil then
-                tt.tempFarmland.farmId  = tt.origFarmlandId
-                tt.tempFarmland.isOwned = tt.origIsOwned
-                tt.tempFarmland = nil
-            end
-            tt.status = 60
-            tt.needTimer = true
-            tt.gotoStartedAt = nil
-            return
-        end
-    end
-
-    local vehicle = tt.vehiclesToLoad[1]
-
-    -- Ernte-Spezialfall: Mähdrescher wieder zusammenbauen
-    if tt.removeVehicleInfo.fileName ~= nil then
-        local object = tt.vehiclesToLoad[2]
-        if object ~= nil and object.isDetachAllowed ~= nil then
-            local detachAllowed = object:isDetachAllowed()
-            if detachAllowed then object:startDetachProcess() end
-        end
-        local data = VehicleLoadingData.new()
-        data:setFilename(tt.removeVehicleInfo.fileName)
-        if data.isValid then
-            if tt.removeVehicleInfo.configurations ~= nil then
-                data:setConfigurations(tt.removeVehicleInfo.configurations)
-            end
-            local x, y, z = getWorldTranslation(vehicle.rootNode)
-            local rx, ry, rz = getWorldRotation(vehicle.rootNode)
-            data:setPosition(x, y, z)
-            data:setRotation(rx, ry, rz)
-            data:setPropertyState(VehiclePropertyState.MISSION)
-            data:setOwnerFarmId(g_NachbarFelderManager.farmId)
-            local loadingInfo = {loadingData = data, vehicleInfo = tt.removeVehicleInfo}
-            data:load(tt.onSpawnedVehicle, tt, loadingInfo)
-        end
-    else
-        -- Feldarbeit erfolgreich (>= 15s) → Feld-Zustand aktualisieren
-        if g_NachbarFelderManager ~= nil then
-            pcall(function()
-                g_NachbarFelderManager:finishFieldState(tt.fieldId, 2)
-            end)
-        end
-        if tt.tempFarmland ~= nil then
-            tt.tempFarmland.farmId  = tt.origFarmlandId
-            tt.tempFarmland.isOwned = tt.origIsOwned
-            tt.tempFarmland = nil
-        end
-        tt.status = 60
-        tt.needTimer = true
-        tt.gotoStartedAt = nil
-        print("NachbarFelder: Rueckfahrt Feld " .. tostring(tt.fieldId))
-    end
-
-    tt.isBlocked = 1
 end
 
 -- ============================================================
 -- Hilfsfunktionen
 -- ============================================================
-function NachbarFelderWorker:isSpecialHarvestMission()
-    local dynamicVeh = false
-    if self.vehiclesToLoad ~= nil and #self.vehiclesToLoad >= 3 then
-        dynamicVeh = string.sub(self.vehiclesToLoad[3].typeName, 1, string.len("dynamic")) == "dynamic"
-    end
-    return self.mission ~= nil and self.mission.type ~= nil and
-        self.mission.type.name == "harvestMission" and
-        self.vehiclesToLoad ~= nil and #self.vehiclesToLoad >= 3 and dynamicVeh
-end
-
 function NachbarFelderWorker:onTargetReached()
     -- Wird von GOTO genutzt; Logik läuft über onAIJobFinished
 end
@@ -834,15 +550,8 @@ function NachbarFelderWorker:onAIJobVehicleBlock()
     end
 end
 
-function NachbarFelderWorker:onSpawnedVehicle(vehicles, vehicleLoadState, loadingInfo)
-    if vehicleLoadState == VehicleLoadingState.OK then
-        if loadingInfo.vehicleInfo ~= nil and loadingInfo.vehicleInfo.fileName ~= nil then
-            for _, trailer in ipairs(vehicles) do
-                self.vehiclesToLoad[3] = trailer
-                trailer.isVehicleSaved = false
-                self.status = 33
-                self.needTimer = true
-            end
-        end
-    end
+-- Build 152: beim Loeschen vom Spielverkehr abmelden (nur wenn wir das Fahrzeug angemeldet hatten)
+function NachbarFelderWorker:onDelete()
+    if self.nf_spielverkehrNode == nil or g_NachbarFelderManager == nil then return end
+    g_NachbarFelderManager:meldeBeimSpielverkehrAb(self)
 end

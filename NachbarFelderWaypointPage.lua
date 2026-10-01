@@ -20,7 +20,6 @@ NachbarFelderWaypointPage.BUTTON_TEXT = {
     nfWpDelete       = "NF_wpBtn_delete",
     nfWpAddHere      = "NF_wpBtn_set",
     nfWpAddSpawnHere = "NF_wpBtn_set",
-    nfAuftragHier    = "NF_auftragBtn",   -- Build 139
 }
 
 function NachbarFelderWaypointPage.new(manager)
@@ -191,9 +190,6 @@ function NachbarFelderWaypointPage:registerAndInject()
             addSection("NF_wpNew_section_title")
             addRow("nfWpAddHere",       "NF_wpAddHere_short",       "onNFWpAddHere",       "NF_wpAddHere_long",       true)
             addRow("nfWpAddSpawnHere",  "NF_wpAddSpawnHere_short",  "onNFWpAddSpawnHere",  "NF_wpAddSpawnHere_long",  true)
-            -- Build 139: Auftrag an den Lohnunternehmer - das Feld an der eigenen Position
-            addSection("NF_auftrag_section_title")
-            addRow("nfAuftragHier",     "NF_auftragHier_short",     "onNFAuftragHier",     "NF_auftragHier_long",     true)
             addSection("NF_wpMap_section_title")
             addRow("nfWpMapShow",       "NF_wpMapShow_short",       "onNFWpMapShow",       "NF_wpMapShow_long",       false)
             addSection("NF_wpVehicles_section_title")
@@ -694,7 +690,7 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
                     FSBaseMission.INGAME_NOTIFICATION_OK,
-                    string.format("NachbarFelder: WP%d Löschung an Server gesendet", idx))
+                    string.format("Lebendige Straßen: WP%d Löschung an Server gesendet", idx))
             end
         else
             table.remove(wps, idx)
@@ -705,7 +701,7 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
                     FSBaseMission.INGAME_NOTIFICATION_OK,
-                    string.format("NachbarFelder: WP%d geloescht (x=%d z=%d). Noch %d WP.",
+                    string.format("Lebendige Straßen: WP%d geloescht (x=%d z=%d). Noch %d WP.",
                         idx, math.floor(wp.x), math.floor(wp.z), count))
             end
         end
@@ -746,18 +742,6 @@ end
 
 function NachbarFelderWaypointPage:onNFWpAddSpawnHere(state, elem)
     setzePunktHier(NachbarFelderManager.WP_CAT_SPAWN or 4)
-end
-
--- Build 139: Auftrag an den Lohnunternehmer. Kein Admin-Zwang: eigene Felder
--- darf jeder mit dem Recht "Helfer einstellen" beauftragen - das prueft der Server.
--- Das Ergebnis steht danach in der Infozeile (NachbarFelderAuftrag.zeigeAntwort).
-function NachbarFelderWaypointPage:onNFAuftragHier(state, elem)
-    local page = getPage()
-    if page == nil or page.manager == nil or NachbarFelderAuftrag == nil then return end
-    local ok, err = pcall(NachbarFelderAuftrag.anfordern, page.manager)
-    if not ok then
-        print("NachbarFelder: [WP-PAGE] Auftrag fehlgeschlagen: " .. tostring(err))
-    end
 end
 
 function NachbarFelderWaypointPage:onNFWpMapShow(state, elem)

@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 141
+NachbarFelderManager.BUILD = 157
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -29,6 +29,14 @@ wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTractorM",   "CatTrac
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTractorL",   "CatTractorL")
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catLoader",     "CatLoader")
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTeleLoader", "CatTeleLoader")
+
+-- Build 142: gesperrte Ladeplaetze je Karte dauerhaft merken (vorher nur je Session -
+-- derselbe schlechte Platz im Shop-Hof wurde nach jedem Neustart wieder genommen)
+local lpXmlSchema = XMLSchema.new("NachbarFelderLadeplatzSchema")
+local lpXmlKey    = "NachbarFelderLadeplaetze"
+lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#x",     "LadeplatzX")
+lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#z",     "LadeplatzZ")
+lpXmlSchema:register(XMLValueType.STRING, lpXmlKey .. ".platz(?)#grund", "Grund der Sperre")
 
 --- Kennung der geladenen Karte fuer Dateinamen (Build 132).
 --- missionInfo.mapId steht im Spielstand als <mapId> (z.B.
@@ -84,9 +92,7 @@ function NachbarFelderManager.new()
         self.farmId = FarmManager.SPECTATOR_FARM_ID
     end
     self.vehiclesToLoad = {}
-    self.fieldID = 10
     self.aiVeh = nil
-    self.loadVehiclesFromXML = {}
     self.countWorkers = 0
     self.timeToNextStart = -1
 
@@ -96,10 +102,7 @@ function NachbarFelderManager.new()
     self.playerJoinTime       = nil  -- g_time beim ersten Join; 3 Echtzeit-Minuten warten (robust gegen Zeitsprünge)
     self.regularVehicleXMLs   = {}   -- bis zu 3 Stamm-Fahrzeug-XMLs (Wiederkehrende Fahrzeuge)
     self.pendingRespawns      = {}   -- {filename, spawnAt} – Respawn-Warteschlange für Stammfahrzeuge
-    self.fieldCooldown = {}  -- Felder die kürzlich gescheitert sind: fieldId → verbleibende Spielminuten
-    self.fieldPathFails = {} -- fieldId → Anzahl "kein Pfad"-Fehlschläge (2x → Session-Sperre)
     self.spawnPlaceIndex = 1 -- Index des besten Shop-Spawn-Punktes (wird in selectBestSpawnPlace gesetzt)
-    self.vehicleImplBlacklist = {}      -- missionType → {implFilename → failCount} für inkompatible Implements
     self.trafficVehicleBlacklist = {}   -- filename → true (Session-Blacklist: Patrol-Fahrzeuge ohne Navigation-Agent)
     self.patrolCounter = 0          -- negative Pseudo-Keys für Patrol-Einträge in vehicleType
     self.trafficLimit = 4           -- max. gleichzeitige Traffic-Fahrzeuge (1–8, einstellbar)
@@ -107,15 +110,12 @@ function NachbarFelderManager.new()
     self.trafficTrailerSize = 2     -- 0=keine Anhänger  1=klein(≤4kL)  2=mittel(≤8kL)  3=alle(≤15kL)
     self.engeMap        = true      -- enge Karte: nur Kleintraktoren + leichte Anbaugeraete
     self.spawnBereichRadius = 25    -- Umkreis um den Shop-Spawn, der frei sein muss (m)
-    self.feldSperre     = {}        -- manuell ausgesperrte Felder: fieldId -> true
-    self.bebauteFelder  = nil       -- Cache: Felder mit Gebaeude/Zaun im Umriss (Build 137)
-    self.weideBereiche  = nil       -- Cache: eingezaeunte Weiden (Build 82)
     self.spawnLookAt    = nil       -- gecachter Zielpunkt der Spawn-Blickrichtung {x=,z=,quelle=}
     self.trafficPool = {}           -- Fahrzeug-Pool (Build 65): schlafende Patrol-Fahrzeuge
     self.poolSize    = 6            -- max. schlafende Fahrzeuge (0 = Pool aus, Server-Konfig)
     self.fahrerfigurenAufServer = true  -- Build 95: false = Fahrerfiguren nur auf dem Server weglassen
+    self.spielverkehrAnmelden   = true  -- Build 152: Fahrzeuge beim Spielverkehr anmelden (Autos bremsen)
     self.rueckwaertsPlanen      = false -- Build 108; Build 125: Standard aus (Server-Konfig ohne Eintrag lief mit true, viele Sofort-Abweisungen)
-    self.fieldLastFruit = {}        -- Vorfrucht-Gedaechtnis (Build 68): fieldId -> Fruchtname
     self.dayRhythm      = true      -- Tagesrhythmus (Build 68): Verkehrsdichte folgt der Uhrzeit
     self.zielQuelle     = "strassen" -- Build 104: "strassen" = Ziele aus dem KI-Strassennetz,
                                      -- "wegpunkte" = nur die selbst gesetzten Punkte
@@ -159,20 +159,6 @@ function NachbarFelderManager.new()
     self.missionHelper[15] = { id = 15, name = "treeTransportMission",  class = TreeTransportMission,  skip = true,  active = true }
     self.missionHelper[16] = { id = 16, name = "deadwoodMission",       class = DestructibleRockMission, skip = true, active = true }
 
-    self.vehicleHarvestVariant = {}
-    self.vehicleHarvestVariant["GRAIN"]     = {"WHEAT","BARLEY","OAT","CANOLA","MAIZE","SUNFLOWER","SOYBEAN","RICELONGGRAIN","SORGHUM"}
-    self.vehicleHarvestVariant["POTATO"]    = {"POTATO"}
-    self.vehicleHarvestVariant["SUGARBEET"] = {"SUGARBEET","BEETROOT"}
-    self.vehicleHarvestVariant["COTTON"]    = {"COTTON"}
-    self.vehicleHarvestVariant["PEA"]       = {"PEA"}
-    self.vehicleHarvestVariant["SPINACH"]   = {"SPINACH"}
-    self.vehicleHarvestVariant["ONION"]     = {"ONION"}
-    self.vehicleHarvestVariant["GREENBEAN"] = {"GREENBEAN"}
-    self.vehicleHarvestVariant["VEGETABLES"]= {"CARROT","PARSNIP"}
-    self.vehicleHarvestVariant["SUGARCANE"] = {"SUGARCANE"}
-    self.vehicleHarvestVariant["OLIVE"]     = {"GRAPE","OLIVE"}
-    self.vehicleHarvestVariant["GRAPE"]     = {"GRAPE"}
-    self.vehicleHarvestVariant["RICE"]      = {"RICE"}
 
     createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".worker(?)#missionType", "Missionname")
@@ -219,12 +205,17 @@ function NachbarFelderManager:getSettingsState()
         trafficTrailerSize = self.trafficTrailerSize or 2,
         engeMap            = self.engeMap ~= false,
         missions           = missions,
+        -- Build 157: Helfer-Farm fuer die Clients (Karten-Symbole ausblenden); 0 = noch unbekannt
+        helferFarmId       = self:getHelferFarmIdAnzeige(),
     }
 end
 
 -- Einstellungs-Stand anwenden (Server nach Savegame-Load, Client nach Sync)
 function NachbarFelderManager:applySettingsState(state)
     if state == nil then return end
+    if state.helferFarmId ~= nil then   -- Build 157, nur fuer die Anzeige
+        self.helferFarmIdSync = state.helferFarmId
+    end
     if state.active ~= nil then
         self.active = state.active == true
     end
@@ -425,6 +416,7 @@ function NachbarFelderManager:getEffectiveFarmId()
     self.farmId = gewaehlt.farmId
     print(string.format("NachbarFelder: Helfer-Farm = %d '%s' (%s, Farmland %d, Gebaeude %d)",
         gewaehlt.farmId, gewaehlt.name, grund, gewaehlt.farmlands, gewaehlt.gebaeude))
+    self:broadcastSettingsToClients()   -- Build 157: Clients kennen damit die Helfer-Farm
     return self.farmId
 end
 
@@ -481,7 +473,7 @@ function NachbarFelderManager:notifyAdminRequired()
         pcall(function()
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
-                "NachbarFelder: Nur fuer Admins - bitte zuerst im Menue als Admin anmelden")
+                "Lebendige Straßen: Nur fuer Admins - bitte zuerst im Menue als Admin anmelden")
         end)
     end
 end
@@ -752,6 +744,7 @@ function NachbarFelderManager:loadServerConfig()
                 setXMLInt(xf, root .. ".poolSize",                6)
                 setXMLBool(xf, root .. ".fahrerfigurenAufServer", true)
                 setXMLBool(xf, root .. ".rueckwaertsPlanen",      false)   -- Build 125
+                setXMLBool(xf, root .. ".spielverkehrAnmelden",   true)    -- Build 152
                 setXMLBool(xf, root .. ".dayRhythm",              true)
                 setXMLString(xf, root .. ".zielQuelle",           "strassen")
                 setXMLInt(xf, root .. ".trailerChance",           40)
@@ -839,6 +832,9 @@ function NachbarFelderManager:loadServerConfig()
         -- Build 108: Rueckwaertsplanen fuer NF-Fahrzeuge ohne Anbaugeraet.
         self.rueckwaertsPlanen = readBool("rueckwaertsPlanen", self.rueckwaertsPlanen ~= false)
 
+        -- Build 152: beim Spielverkehr anmelden (false = Verhalten bis Build 151)
+        self.spielverkehrAnmelden = readBool("spielverkehrAnmelden", self.spielverkehrAnmelden ~= false)
+
         -- Enge Karte: schmale Wege, nur Kleintraktoren mit leichtem Geraet.
         local em = readBool("engeMap", nil)
         if em ~= nil and em ~= (self.engeMap ~= false) then
@@ -877,6 +873,7 @@ function NachbarFelderManager:loadServerConfig()
             " poolSize=" .. tostring(self.poolSize) ..
             " fahrerfigurenAufServer=" .. tostring(self.fahrerfigurenAufServer ~= false) ..
             " rueckwaertsPlanen=" .. tostring(self.rueckwaertsPlanen ~= false) ..
+            " spielverkehrAnmelden=" .. tostring(self.spielverkehrAnmelden ~= false) ..
             " dayRhythm=" .. tostring(self.dayRhythm) ..
             " zielQuelle=" .. tostring(self.zielQuelle) ..
             " trailerChance=" .. tostring(self.trailerChance) .. "%" ..
@@ -898,36 +895,6 @@ function NachbarFelderManager:installHooks()
     if self.hooksInstalled then return end
     self.hooksInstalled = true
     print("NachbarFelder: Hooks werden installiert")
-
-    -- MissionManager: Fahrzeuge mit allowedDrive dürfen überall arbeiten.
-    -- WICHTIG: Die Engine ruft das pro ARBEITSBEREICH mit dem jeweiligen
-    -- Geraet (Spritze/Pflug) als 'vehicle' auf - nicht mit dem Traktor.
-    -- Deshalb tragen ALLE Worker-Fahrzeuge allowedDrive (siehe setAIOnField).
-    MissionManager.getIsMissionWorkAllowed = Utils.overwrittenFunction(
-        MissionManager.getIsMissionWorkAllowed,
-        function(mm, superFunc, farmId, x, z, workAreaType, vehicle)
-            local nf = g_NachbarFelderManager
-            if vehicle ~= nil and nf ~= nil and
-               (farmId == nf.farmId or
-                (vehicle.allowedDrive ~= nil and vehicle.allowedDrive) or
-                vehicle.nf_isHelper == true or
-                (vehicle.getRootVehicle ~= nil and vehicle:getRootVehicle() ~= nil
-                 and vehicle:getRootVehicle().nf_isHelper == true)) then
-                return true
-            end
-            -- Diagnose: Verweigerte Aufrufe waehrend aktiver Helfer loggen
-            -- (begrenzt), um "Geraet darf nicht arbeiten" zu bestaetigen.
-            if nf ~= nil and nf:hasActiveWorkers() and (nf._wamLog or 0) < 8 then
-                nf._wamLog = (nf._wamLog or 0) + 1
-                print(string.format(
-                    "NachbarFelder: [DIAG] WorkAllowed verweigert farmId=%s allowedDrive=%s isHelper=%s typ=%s",
-                    tostring(farmId),
-                    tostring(vehicle ~= nil and vehicle.allowedDrive),
-                    tostring(vehicle ~= nil and vehicle.nf_isHelper),
-                    tostring(vehicle ~= nil and vehicle.typeName)))
-            end
-            return superFunc(mm, farmId, x, z, workAreaType, vehicle)
-        end)
 
     -- FarmlandManager: KLASSEN-Level-Hooks
     -- Für unsere Farm-ID ÜBERALL true liefern solange Helfer aktiv sind -
@@ -1025,39 +992,6 @@ function NachbarFelderManager:installHooks()
             return superFunc(mission, ...)
         end)
 
-    -- Savegame-Schutz: Temporären Helfer-Feldbesitz NIE mitspeichern.
-    -- Wird während laufender Feldarbeit gespeichert, stünde sonst
-    -- farmId=2 in farmland.xml (dauerhafte Savegame-Korruption).
-    -- Vor dem Speichern Originalbesitz wiederherstellen, danach wieder
-    -- anwenden, damit die laufende Feldarbeit weiterläuft.
-    if FSBaseMission.saveSavegame ~= nil then
-        FSBaseMission.saveSavegame = Utils.overwrittenFunction(FSBaseMission.saveSavegame,
-            function(mission, superFunc, ...)
-                local reapply = {}
-                if g_NachbarFelderManager ~= nil then
-                    local nfVehType = g_NachbarFelderManager.vehicleType or {}
-                    for _, k in pairs(nfVehType) do
-                        local w = k.NachbarFelderWorker
-                        if w ~= nil and w.tempFarmland ~= nil then
-                            table.insert(reapply, {
-                                fl      = w.tempFarmland,
-                                farmId  = w.tempFarmland.farmId,
-                                isOwned = w.tempFarmland.isOwned
-                            })
-                            w.tempFarmland.farmId  = w.origFarmlandId
-                            w.tempFarmland.isOwned = w.origIsOwned
-                        end
-                    end
-                end
-                local r1, r2, r3 = superFunc(mission, ...)
-                for _, e in ipairs(reapply) do
-                    e.fl.farmId  = e.farmId
-                    e.fl.isOwned = e.isOwned
-                end
-                return r1, r2, r3
-            end)
-    end
-
     -- Spielstand speichern
     ItemSystem.save = Utils.prependedFunction(ItemSystem.save, g_NachbarFelderManager.saveToXMLFile)
 end
@@ -1082,6 +1016,12 @@ function NachbarFelderManager:loadMap()
     end
 
     self:addConsoleCommands()
+
+    -- Build 153: eigene Kategorie im Hilfe-Menue (ESC > Hilfe)
+    self:ladeHilfe()
+
+    -- Build 157: Nachbar-Fahrzeuge ohne Helfer-Symbol auf der Karte
+    self:installKartenHook()
 
     -- Client-lokale Anzeige-Einstellungen (Karten-Hotspots an/aus, Build 71)
     self:loadClientPrefs()
@@ -1109,6 +1049,82 @@ function NachbarFelderManager:loadMap()
     end
 end
 
+--- Helfer-Farm fuer die Anzeige (Build 157): Server = eigene Wahl, Client = per Settings-Sync.
+--- 0 = unbekannt bzw. Spectator - dann wird nichts ausgeblendet.
+function NachbarFelderManager:getHelferFarmIdAnzeige()
+    local fid = nil
+    if g_currentMission ~= nil and g_currentMission:getIsServer() then
+        fid = self.farmIdResolved and self.farmId or nil
+    else
+        fid = self.helferFarmIdSync
+    end
+    local spectator = (FarmManager ~= nil and FarmManager.SPECTATOR_FARM_ID) or 0
+    if fid == nil or fid <= 0 or fid == spectator then return 0 end
+    return fid
+end
+
+--- Gehoert der Karten-Hotspot zu einem Nachbar-Fahrzeug? (Build 157)
+--- Kennzeichen: Besitzer-Farm des Fahrzeugs (bzw. seines Zugfahrzeugs) = Helfer-Farm. Die
+--- Helfer-Farm hat nie Spieler (Build 138), andere Fahrzeuge trifft das also nicht.
+function NachbarFelderManager:getIstNachbarHotspot(hotspot)
+    local fid = self:getHelferFarmIdAnzeige()
+    if fid == 0 or hotspot == nil then return false end
+    local veh = nil
+    if hotspot.getVehicle ~= nil then veh = hotspot:getVehicle() end
+    if veh == nil then veh = hotspot.vehicle end
+    if type(veh) ~= "table" or veh.getOwnerFarmId == nil then return false end
+    if veh.getRootVehicle ~= nil then
+        local root = veh:getRootVehicle()
+        if root ~= nil and root.getOwnerFarmId ~= nil then veh = root end
+    end
+    return veh:getOwnerFarmId() == fid
+end
+
+--- Helfer-Symbol der Nachbar-Fahrzeuge auf Minimap und grosser Karte ausblenden (Build 157).
+--- Beide zeichnen jeden Hotspot ueber IngameMap:drawHotspot (IngameMapElement ->
+--- drawHotspotsOnly); Hotspots kennen ihr Fahrzeug (getVehicle, vgl. IngameMapElement).
+--- So verwechselt niemand die Nachbarn mit eigenen Helfern. Nur mit Client, einmal.
+function NachbarFelderManager:installKartenHook()
+    if NachbarFelderManager.kartenHookInstalliert or g_client == nil then return end
+    if IngameMap == nil or IngameMap.drawHotspot == nil then
+        print("NachbarFelder: Karten-Symbole bleiben sichtbar (IngameMap.drawHotspot fehlt)")
+        return
+    end
+    NachbarFelderManager.kartenHookInstalliert = true
+    IngameMap.drawHotspot = Utils.overwrittenFunction(IngameMap.drawHotspot,
+        function(map, superFunc, hotspot, ...)
+            local nf = g_NachbarFelderManager
+            if nf ~= nil then
+                local ok, unser = pcall(nf.getIstNachbarHotspot, nf, hotspot)
+                if ok and unser then return end
+            end
+            return superFunc(map, hotspot, ...)
+        end)
+    print("NachbarFelder: Helfer-Symbole der Nachbar-Fahrzeuge auf der Karte ausgeblendet")
+end
+
+--- Ingame-Hilfe laden (Build 153). Gleiches Format und gleicher Weg wie die
+--- Hilfe des Spiels: HelpLineManager:loadFromXML liest <helpLines>/<category>/<page>
+--- (so laedt z. B. Courseplay FS25 seine Hilfe); die $l10n_-Texte kommen aus
+--- l10n_*.xml. Nur mit Spieler (nicht auf dem reinen Dedi), einmal je Sitzung.
+function NachbarFelderManager:ladeHilfe()
+    if self.hilfeGeladen or g_client == nil then return end
+    self.hilfeGeladen = true
+    local dir = NachbarFelderManager.modDirectory
+    if dir == nil or g_helpLineManager == nil or g_helpLineManager.loadFromXML == nil then
+        print("NachbarFelder: Ingame-Hilfe nicht geladen (HelpLineManager nicht verfuegbar)")
+        return
+    end
+    local ok, err = pcall(function()
+        g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
+    end)
+    if ok then
+        print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
+    else
+        print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden: " .. tostring(err))
+    end
+end
+
 -- ============================================================
 -- Server-Initialisierung (einmalig, mit Guard)
 -- ============================================================
@@ -1128,15 +1144,10 @@ function NachbarFelderManager:serverSideInit()
         g_currentMission.maxNumHirables = g_currentMission.maxNumHirables + 20
     end
 
-    -- Gespeicherte Missionen aus XML einlesen (nur merken, NICHT sofort starten!)
-    -- Start erfolgt erst wenn erster Spieler joined (in onMinuteChanged).
+    -- Einstellungen aus dem Spielstand lesen (angewendet in loadMap)
     self:loadFromXML()
     -- Wegpunkte wurden bereits in loadMap() geladen (Client + Server)
     self:updateWpHotspots()
-    if #self.loadVehiclesFromXML > 0 then
-        print("NachbarFelder: " .. tostring(#self.loadVehiclesFromXML) ..
-            " gespeicherte Mission(en) - werden nach Spieler-Login geladen")
-    end
 
     local timeScale = g_currentMission:getEffectiveTimeScale()
     self.timeToNextStart = math.random(1 * timeScale, 2 * timeScale)
@@ -1147,9 +1158,6 @@ function NachbarFelderManager:serverSideInit()
 
     g_messageCenter:unsubscribe(MessageType.PERIOD_CHANGED, self)
     g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.deleteAllVehicles, self)
-
-    g_messageCenter:unsubscribe(MissionStartedEvent, self)
-    g_messageCenter:subscribe(MissionStartedEvent, self.onMissionStarted, self)
 
     -- Admin-Logins merken (Build 75): Grundlage fuer den Event-Admin-Check
     pcall(function()
@@ -1218,22 +1226,22 @@ function NachbarFelderManager:serverSideInit()
 end
 
 -- ============================================================
--- prepareForShutdown: Beim Spielende NUR AI-Jobs stoppen und
--- Feldbesitz wiederherstellen. KEINE Fahrzeuge löschen - das
+-- prepareForShutdown: Beim Spielende NUR AI-Jobs stoppen.
+-- KEINE Fahrzeuge löschen - das
 -- macht die Engine direkt danach selbst (sonst "delete twice").
 -- ============================================================
 function NachbarFelderManager:prepareForShutdown()
     for fieldId, k in pairs(self.vehicleType or {}) do
-        local worker = k.NachbarFelderWorker
-        if worker ~= nil and worker.tempFarmland ~= nil then
-            worker.tempFarmland.farmId  = worker.origFarmlandId
-            worker.tempFarmland.isOwned = worker.origIsOwned
-            worker.tempFarmland = nil
-        end
         for _, veh in ipairs(k.vehicleType or {}) do
             if self:getIsVehicleAlive(veh) then
                 self:stopAIJobSafely(veh)
             end
+            self:meldeBeimSpielverkehrAb(veh)   -- Build 152: solange das Verkehrssystem noch lebt
+        end
+    end
+    for _, p in ipairs(self.trafficPool or {}) do
+        for _, veh in ipairs(p.vehicles or p.vehicleType or {}) do
+            self:meldeBeimSpielverkehrAb(veh)
         end
     end
     print("NachbarFelder: Shutdown - AI-Jobs gestoppt, Fahrzeuge raeumt die Engine auf")
@@ -1245,17 +1253,6 @@ end
 -- ============================================================
 function NachbarFelderManager:stopAllHelpers()
     if not g_currentMission:getIsServer() then return end
-    -- Farmland-Besitz für alle Helfer wiederherstellen die gerade Feldarbeit machen
-    for fieldId, k in pairs(self.vehicleType or {}) do
-        local worker = k.NachbarFelderWorker
-        if worker ~= nil and worker.tempFarmland ~= nil then
-            worker.tempFarmland.farmId  = worker.origFarmlandId
-            worker.tempFarmland.isOwned = worker.origIsOwned
-            worker.tempFarmland = nil
-            print("NachbarFelder: stopAllHelpers: Feldbesitz Feld " ..
-                tostring(fieldId) .. " wiederhergestellt")
-        end
-    end
     -- Alle Fahrzeuge löschen (nutzt die bestehende Logik)
     self:deleteAllVehicles()
     -- Respawn-Queue leeren: kein Spieler → kein Respawn nötig; nach Login startet der
@@ -1269,40 +1266,6 @@ function NachbarFelderManager:stopAllHelpers()
         "NachbarFelder: Alle Helfer gestoppt (kein Spieler online). Erster Spawn ca. %d Min " ..
         "nach Spieler-Login (3 Min Echtzeit-Pause + %d Min Timer)",
         self.timeToNextStart + 3, self.timeToNextStart))
-end
-
--- ============================================================
--- Key-Binding-Callbacks (Admin-Client)
--- Im Dedicated-MP: Event an Server schicken
--- In SP / Local-Host: direkt ausführen (getIsServer()=true)
--- ============================================================
-function NachbarFelderManager:onInputStartNow(actionName, inputValue, callbackState, isAnalog, isMouse, deviceCategory)
-    -- Nur Admins duerfen Helfer starten (Build 75)
-    if not self:getIsLocalAdmin() then
-        self:notifyAdminRequired()
-        return
-    end
-    if g_currentMission:getIsServer() then
-        -- SP oder Local-Host: direkt
-        self.feldSpawnBlockiert = false
-        local created = self:generateWorkMission(true)
-        if created then
-            print("NachbarFelder: Helfer manuell gestartet (Taste)")
-        else
-            if self.feldSpawnBlockiert then
-                print("NachbarFelder: Feld gefunden, aber der Haendler-Platz ist gerade belegt" ..
-                    " - in einer Minute nochmal versuchen")
-            else
-                print("NachbarFelder: Kein Helfer moeglich (Max. erreicht oder keine passenden Felder)")
-            end
-        end
-    else
-        -- Dedicated-MP: Event an Server schicken
-        if g_client ~= nil then
-            g_client:getServerConnection():sendEvent(NachbarFelderStartEvent.new())
-            print("NachbarFelder: Start-Event an Server gesendet")
-        end
-    end
 end
 
 -- ============================================================
@@ -1432,7 +1395,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
             print("NachbarFelder: [TRAFFIC] " .. art .. " - " .. grund)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
-                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL, "NachbarFelder: " .. art .. " " .. grund)
+                    FSBaseMission.INGAME_NOTIFICATION_CRITICAL, "Lebendige Straßen: " .. art .. " " .. grund)
             end
             return false, grund
         end
@@ -1449,7 +1412,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(op, x, z, ry))
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "NachbarFelder: " .. art .. " an Server gesendet (" ..
+            "Lebendige Straßen: " .. art .. " an Server gesendet (" ..
             tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz)
         return true
     end
@@ -1461,7 +1424,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            "NachbarFelder: " .. art .. " " .. tostring(#self.userTrafficWaypoints) ..
+            "Lebendige Straßen: " .. art .. " " .. tostring(#self.userTrafficWaypoints) ..
             " gesetzt (" .. tostring(x) .. " / " .. tostring(z) .. ", " .. richtungText .. ")" .. zusatz
         )
     end
@@ -1479,7 +1442,7 @@ function NachbarFelderManager:onInputManageWaypoints(actionName, inputValue, cal
         if g_currentMission ~= nil then
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "NachbarFelder: Keine Wegpunkte - setzen unter ESC > Einstellungen > Wegpunkte")
+                "Lebendige Straßen: Keine Wegpunkte - setzen unter ESC > Einstellungen > Wegpunkte")
         end
         return
     end
@@ -1516,7 +1479,7 @@ function NachbarFelderManager:_teleportToWp(wp)
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_OK,
-            string.format("NachbarFelder: Teleportiert zu x=%d z=%d", math.floor(x), math.floor(z)))
+            string.format("Lebendige Straßen: Teleportiert zu x=%d z=%d", math.floor(x), math.floor(z)))
     end
     print("NachbarFelder: [MGR] Teleport x=" .. math.floor(x) .. " z=" .. math.floor(z))
 end
@@ -1541,7 +1504,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
                 NachbarFelderWaypointEditEvent.OP_REMOVELAST))
             g_currentMission:addIngameNotification(
                 FSBaseMission.INGAME_NOTIFICATION_INFO,
-                "NachbarFelder: Wegpunkt-Löschung an Server gesendet")
+                "Lebendige Straßen: Wegpunkt-Löschung an Server gesendet")
         end
         return
     end
@@ -1553,7 +1516,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
     if g_currentMission ~= nil then
         g_currentMission:addIngameNotification(
             FSBaseMission.INGAME_NOTIFICATION_INFO,
-            "NachbarFelder: Wegpunkt entfernt. Verbleibend: " .. tostring(#self.userTrafficWaypoints)
+            "Lebendige Straßen: Wegpunkt entfernt. Verbleibend: " .. tostring(#self.userTrafficWaypoints)
         )
     end
 end
@@ -2280,33 +2243,8 @@ function NachbarFelderManager:update(dt)
             elseif g_time - k.NachbarFelderWorker.stuckAt > 90000 then
                 print("NachbarFelder: Status=9999 Timeout (5min) - Fahrzeug wird geloescht (Feld " ..
                     tostring(k.NachbarFelderWorker.fieldId) .. ")")
-                if k.NachbarFelderWorker.tempFarmland ~= nil then
-                    k.NachbarFelderWorker.tempFarmland.farmId  = k.NachbarFelderWorker.origFarmlandId
-                    k.NachbarFelderWorker.tempFarmland.isOwned = k.NachbarFelderWorker.origIsOwned
-                    k.NachbarFelderWorker.tempFarmland = nil
-                end
                 k.NachbarFelderWorker.status = 100
                 k.NachbarFelderWorker.needTimer = true
-            end
-        end
-    end
-
-    -- Mähdrescher-Korntank regelmäßig leeren, damit der Erntehelfer nicht
-    -- voll-stoppt. Ein KI-Mähdrescher ohne Abfahrer hält an, sobald der
-    -- Tank voll ist - und bliebe dann mitten im Feld stehen. Das geerntete
-    -- Korn ist für die reine Nachbar-Aktivität irrelevant.
-    -- 250ms-Takt reicht dicke: pro Takt kommen nur wenige Liter zusammen,
-    -- Tankgrößen liegen bei tausenden Litern. spec_combine sichert ab, dass
-    -- nur echte Mähdrescher-Tanks geleert werden; pcall fängt API-Abweichungen ab.
-    for _, k in pairs(self.vehicleType) do
-        local w = k.NachbarFelderWorker
-        if w ~= nil and w.status == 2 and w.mission ~= nil and w.mission.type ~= nil
-           and w.mission.type.name == "harvestMission" and w.vehiclesToLoad ~= nil then
-            for _, veh in ipairs(w.vehiclesToLoad) do
-                if veh ~= nil and veh.spec_combine ~= nil and self:getIsVehicleAlive(veh)
-                   and veh.getFillUnits ~= nil and veh.setFillUnitFillLevel ~= nil then
-                    pcall(nfEmptyCombineTank, veh)
-                end
             end
         end
     end
@@ -2388,39 +2326,6 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Bewegungs-Watchdog: Ein Helfer der bei der Feldarbeit (Status 2)
-    -- stehenbleibt (z.B. Pflug der nicht in den Boden greift) wird nach
-    -- ~100s Echtzeit ohne Bewegung aufgeräumt - statt ewig auf dem Feld zu
-    -- stehen. Ein ARBEITENDES Gerät fährt durchgehend (>2m/100s), löst also
-    -- nie aus. Feld kommt auf kurzen Cooldown, damit nicht sofort dasselbe
-    -- Problem-Feld erneut probiert wird.
-    -- Patrol-Fahrzeuge im Status 2 (geparkt) werden NICHT vom Watchdog erfasst.
-    for _, k in pairs(self.vehicleType) do
-        local w = k.NachbarFelderWorker
-        if w ~= nil and w.status == 2 and not w.isPatrol and w.vehiclesToLoad ~= nil then
-            local veh = w.vehiclesToLoad[1]
-            if self:getIsVehicleAlive(veh) then
-                local x, _, z = getWorldTranslation(veh.rootNode)
-                if w.wdLastX == nil then
-                    w.wdLastX, w.wdLastZ, w.wdSince = x, z, g_time
-                elseif MathUtil.vector2Length(x - w.wdLastX, z - w.wdLastZ) > 2 then
-                    w.wdLastX, w.wdLastZ, w.wdSince = x, z, g_time
-                elseif g_time - (w.wdSince or g_time) > 60000 then
-                    print("NachbarFelder: Helfer bewegt sich seit 100s nicht (Feld " ..
-                        tostring(w.fieldId) .. ", Feldarbeit) - wird aufgeraeumt")
-                    if w.tempFarmland ~= nil then
-                        w.tempFarmland.farmId  = w.origFarmlandId
-                        w.tempFarmland.isOwned = w.origIsOwned
-                        w.tempFarmland = nil
-                    end
-                    self.fieldCooldown[w.fieldId] = 30
-                    w.status = 100
-                    w.needTimer = true
-                end
-            end
-        end
-    end
-
     -- Bewegungs-Watchdog für Patrol-Fahrzeuge im GOTO (Status 1):
     -- Steht es 12 s still und ist schon am Ziel (< 15 m) → gilt als angekommen,
     --   parkt (Build 98). Sonst steckt es fest:
@@ -2460,51 +2365,30 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Build 121: Stillstand-Waechter fuer Feldhelfer auf der Anfahrt zum Feld.
+    -- Build 142: umgekipptes Gespann sofort erkennen statt 60 s Stillstand abzuwarten
+    -- (Log 01.10.: Helfer lag am Ladeplatz im Shop-Hof auf dem Dach).
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
-        if w ~= nil and not w.isPatrol and w.status == 1 and w.fieldGotoStartedAt ~= nil then
-            if w.feldWdJobStart ~= w.fieldGotoStartedAt then
-                w.feldWdJobStart = w.fieldGotoStartedAt
-                w.feldWdLastX    = nil
-            end
+        if w ~= nil and w.status ~= nil and w.status < 100 then
             local veh = w.vehiclesToLoad and w.vehiclesToLoad[1]
             if self:getIsVehicleAlive(veh) then
-                local x, _, z = getWorldTranslation(veh.rootNode)
-                if w.feldWdLastX == nil
-                   or MathUtil.vector2Length(x - w.feldWdLastX, z - w.feldWdLastZ) > 5 then
-                    w.feldWdLastX, w.feldWdLastZ, w.feldWdSince = x, z, g_time
-                elseif self:getFeldWdAusloesen(w, x, z, veh) then   -- Build 124
-                    local h = w.feldWdHindernis
-                    print(string.format("NachbarFelder: Feldhelfer %s steht %d s ohne Bewegung auf der Anfahrt" ..
-                        " zu Feld %s bei x=%d z=%d%s: %s", tostring(self:getWorkerName(w)), w.feldWdSekunden or 0,
-                        tostring(w.fieldId), math.floor(x), math.floor(z),
-                        h ~= nil and string.format(", %s steht %.0f m entfernt", tostring(h.name), h.d) or "",
-                        tostring(self:getVehicleAiDiag(veh))))
-                    self:merkeSpawnFehlschlag(w, x, z, "Stillstand")   -- Build 129
-                    self:stopAIJobSafely(veh)
-                    w.fieldGotoStartedAt = nil
-                    w.feldWdLastX        = nil
-                    if h ~= nil then
-                        -- Build 124: Fahrzeug im Weg - neue Planung umfaehrt es; kein Fehlschlag
-                        w.feldHindernisPlanungen = (w.feldHindernisPlanungen or 0) + 1
-                        print("NachbarFelder: Feldhelfer wartet hinter " .. tostring(h.name) ..
-                            " - neuer Weg wird geplant (" .. tostring(w.feldHindernisPlanungen) .. "/3)")
-                        w.status    = 1
-                        w.needTimer = true
-                    elseif not w.feldNeuplanung then
-                        w.feldNeuplanung = true
-                        print("NachbarFelder: Feldhelfer - Anfahrt gestoppt, neuer Anlauf von hier")
-                        w.status    = 1
-                        w.needTimer = true
-                    else
-                        local impl = w.vehiclesToLoad[2]
-                        self:sperreFeldGespann(veh.configFileName, impl ~= nil and impl.configFileName or nil)
-                        print("NachbarFelder: Feldhelfer - zweiter Stillstand, Gespann " ..
-                            tostring(self:getWorkerName(w)) .. " fuer diese Session gesperrt, Fahrzeug wird entfernt")
+                local _, upY, _ = localDirectionToWorld(veh.rootNode, 0, 1, 0)
+                if upY < NachbarFelderManager.KIPP_GRENZE then
+                    w.kippSeit = w.kippSeit or g_time
+                    if g_time - w.kippSeit > 3000 then
+                        local x, _, z = getWorldTranslation(veh.rootNode)
+                        print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
+                            "[TRAFFIC] Fahrzeug",
+                            tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
+                        -- Build 148: Platz sperren (zwei verschiedene Gespanne kippten auf demselben Platz)
+                        self:merkeSpawnFehlschlag(w, x, z, "umgekippt (Platz)")
+                        self:stopAIJobSafely(veh)
+                        w.kippSeit  = nil
                         w.status    = 100
                         w.needTimer = true
                     end
+                else
+                    w.kippSeit = nil
                 end
             end
         end
@@ -2696,21 +2580,12 @@ function NachbarFelderManager:update(dt)
                     local pendingInfo = self:attachObjects(vehicle, attached, vehIndex == 2)
                     -- Build 125: Feldhelfer UND Verkehr an die Kupplung setzen (Build 117:
                     -- k.NachbarFelderWorker ist hier schon der Worker)
-                    do
-                        -- Build 116: Feldhelfer-Geraet an die Kupplung setzen / wieder in die Physik
-                        if pendingInfo ~= nil then
-                            self:setzeGeraetAnKupplung(pendingInfo.attacherVehicle, pendingInfo.attacherVehicleJointDescIndex,
-                                pendingInfo.attachable, pendingInfo.attachableJointDescIndex)
-                        elseif attached ~= nil then
-                            pcall(function()
-                                if not attached.isAddedToPhysics then attached:addToPhysics() end
-                            end)
-                        end
-                    end
                     if pendingInfo ~= nil then
-                        pendingInfo.attacherVehicle:attachImplement(
-                            pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-                            pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
+                        self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
+                    elseif attached ~= nil then
+                        pcall(function()
+                            if not attached.isAddedToPhysics then attached:addToPhysics() end
+                        end)
                     end
                     if #k.NachbarFelderWorker.vehiclesToLoad >= 3 and vehIndex == 2 then
                         k.NachbarFelderWorker.status = 0.5
@@ -2833,20 +2708,16 @@ function NachbarFelderManager:update(dt)
                             nfW.needTimer = true
                         end
 
+                    elseif k.NachbarFelderWorker.isPatrol then
+                        -- Patrol: teleportVehicle ist im MP-Dedicated-Server asynchron (ein Frame Latenz).
+                        -- Status=1.5 gibt weitere 3s Settle-Zeit, damit das Fahrzeug physikalisch
+                        -- an der WP-Position ist bevor createAgent() den Navmesh-Startknoten sucht.
+                        k.NachbarFelderWorker.status    = 1.5
+                        k.NachbarFelderWorker.needTimer = true
                     else
-                        if k.NachbarFelderWorker.isPatrol then
-                            -- Patrol: teleportVehicle ist im MP-Dedicated-Server asynchron (ein Frame Latenz).
-                            -- Status=1.5 gibt weitere 3s Settle-Zeit, damit das Fahrzeug physikalisch
-                            -- an der WP-Position ist bevor createAgent() den Navmesh-Startknoten sucht.
-                            k.NachbarFelderWorker.status    = 1.5
-                            k.NachbarFelderWorker.needTimer = true
-                        else
-                            -- Zeitstempel merken – onAIJobFinished prüft ob GOTO realistisch lange fuhr
-                            k.NachbarFelderWorker.fieldGotoStartedAt = g_time
-                            -- Build 118: Zielpunkt am Feldrand zur Strasse + Ankunftsrichtung
-                            local fzx, fzz, fzw = self:getFeldZielpunkt(k.NachbarFelderWorker.fieldId, vehicle)
-                            self:driveToField(vehicle, k.NachbarFelderWorker.fieldId, fzx, 0, fzz, fzw)
-                        end
+                        -- Build 150: Feldhelfer gibt es nicht mehr - Eintrag ohne Patrol aufraeumen
+                        k.NachbarFelderWorker.status    = 100
+                        k.NachbarFelderWorker.needTimer = true
                     end
 
                 elseif s == 1.5 then
@@ -2910,32 +2781,6 @@ function NachbarFelderManager:update(dt)
                     self:driveToField(vehicle, nfW.fieldId,
                         nfW.patrolTargetX, 0, nfW.patrolTargetZ, targetRy)
 
-                elseif s == 2 then
-                    -- Patrol: kein setAIOnField – Park-Timer-Loop in update() übernimmt
-                    if not k.NachbarFelderWorker.isPatrol then
-                        self:setAIOnField(k.NachbarFelderWorker)
-                    end
-
-                elseif s == 3 then
-                    self:mountTrailer(
-                        k.NachbarFelderWorker.vehiclesToLoad[1],
-                        k.NachbarFelderWorker.vehiclesToLoad[2],
-                        k.NachbarFelderWorker.vehiclesToLoad[3])
-                    k.NachbarFelderWorker.status = 4
-                    k.NachbarFelderWorker.needTimer = true
-
-                elseif s == 33 then
-                    self:attachObjectToCar(
-                        k.NachbarFelderWorker.vehiclesToLoad[1],
-                        k.NachbarFelderWorker.vehiclesToLoad[3], true)
-                    k.NachbarFelderWorker.status = 3
-                    k.NachbarFelderWorker.needTimer = true
-
-                elseif s == 4 then
-                    self:driveToField(vehicle, k.NachbarFelderWorker.fieldId,
-                        k.NachbarFelderWorker.posX, k.NachbarFelderWorker.posY,
-                        k.NachbarFelderWorker.posZ, k.NachbarFelderWorker.angle)
-
                 elseif s == 60 then
                     -- Rückfahrt zum Spawn-Punkt
                     if k.NachbarFelderWorker.gotoStartedAt == nil then
@@ -2956,11 +2801,6 @@ function NachbarFelderManager:update(dt)
                     end
 
                 elseif s == 100 then
-                    if k.NachbarFelderWorker.tempFarmland ~= nil then
-                        k.NachbarFelderWorker.tempFarmland.farmId  = k.NachbarFelderWorker.origFarmlandId
-                        k.NachbarFelderWorker.tempFarmland.isOwned = k.NachbarFelderWorker.origIsOwned
-                        k.NachbarFelderWorker.tempFarmland = nil
-                    end
                     -- Patrol: in den Pool statt loeschen (Build 65). Klappt das
                     -- nicht (Pool voll/aus, noPool-Blacklist, kein freier WP),
                     -- wird wie bisher geloescht.
@@ -3094,15 +2934,6 @@ function NachbarFelderManager:onMinuteChanged(minute)
         end
     end
 
-    -- Feld-Cooldowns herunterzählen
-    for fieldId, remaining in pairs(self.fieldCooldown) do
-        if remaining <= 1 then
-            self.fieldCooldown[fieldId] = nil
-        else
-            self.fieldCooldown[fieldId] = remaining - 1
-        end
-    end
-
     local sleeping = g_sleepManager:getIsSleeping()
     if sleeping then return end
 
@@ -3114,8 +2945,8 @@ function NachbarFelderManager:onMinuteChanged(minute)
     -- Spawn-Tick fuer den KI-VERKEHR: gegen das Traffic-Limit pruefen,
     -- NICHT gegen "Anzahl Arbeiter" (Bug bis Build 71: cc zaehlte auch
     -- Patrol-Fahrzeuge - mit maxWorkers=2 blieb der Verkehr bei 2 stehen,
-    -- egal wie hoch trafficLimit stand). "Anzahl Arbeiter" begrenzt jetzt
-    -- nur noch Feldarbeits-Helfer (Check in generateWorkMission).
+    -- egal wie hoch trafficLimit stand). Seit Build 150 gibt es nur noch
+    -- den Verkehr.
     if self:countActivePatrols() < self:getEffectiveTrafficLimit() then
         self.timeToNextStart = self.timeToNextStart - 1
         if self.timeToNextStart <= 0 then
@@ -3154,72 +2985,6 @@ function NachbarFelderManager:onMinuteChanged(minute)
                                                    self.spawnIntervalMax or 5)
             else
                 self.timeToNextStart = math.max(1, math.floor(1 * timeScale))
-            end
-        end
-    end
-
-    -- Build 105: Feldarbeit wieder automatisch. generateWorkMission wurde nur
-    -- noch von der Admin-Taste (Shift+Alt+N) und dem Konsolenbefehl gerufen -
-    -- beim Umbau des Spawn-Takts auf den KI-Verkehr (Build 71) war der
-    -- automatische Aufruf verschwunden. Seitdem gab es nur noch Verkehr.
-    if (self.MAX_ASSISTANT_WORKERS or 0) > 0 then
-        self.timeToNextFieldWork = (self.timeToNextFieldWork or 2) - 1
-        if self.timeToNextFieldWork <= 0 then
-            self.feldSpawnBlockiert = false
-            local ok, created = pcall(function() return self:generateWorkMission() end)
-            if not ok then
-                print("NachbarFelder: Fehler in generateWorkMission: " .. tostring(created))
-                created = false
-            end
-            if created then
-                self.timeToNextFieldWork = math.random(math.max(3, self.spawnIntervalMin or 2),
-                                                       math.max(6, self.spawnIntervalMax or 5))
-            elseif self.feldSpawnBlockiert then
-                -- Build 110: Feld gefunden, nur der Haendler-Platz war belegt
-                -- (meist ein gerade gespawntes Verkehrsfahrzeug) - bald erneut.
-                self.timeToNextFieldWork = 2
-            else
-                self.timeToNextFieldWork = 15   -- kein passendes Feld: seltener suchen
-            end
-        end
-    end
-end
-
-function NachbarFelderManager:onMissionStarted(mission)
-    if not g_currentMission:getIsServer() then return end
-    if mission == nil or mission.getField == nil or mission:getField() == nil then return end
-    local missionFarmland = mission:getField().farmland
-    if missionFarmland == nil then return end
-
-    -- Helfer suchen, der auf einem Feld dieses Farmlands arbeitet.
-    -- WICHTIG: Über das Farmland-OBJEKT vergleichen - früher wurde
-    -- farmland.id als fieldId-Key missbraucht und löschte bei
-    -- Id-Kollisionen die Fahrzeuge eines FALSCHEN Helfers.
-    for fieldId, entry in pairs(self.vehicleType) do
-        -- Patrol-Einträge (negative IDs) haben kein echtes Feld → überspringen
-        if entry.NachbarFelderWorker == nil or not entry.NachbarFelderWorker.isPatrol then
-            local field = g_fieldManager:getFieldById(fieldId)
-            if field ~= nil and field.farmland == missionFarmland then
-                local worker = entry.NachbarFelderWorker
-                print("NachbarFelder: Spieler-Vertrag auf Feld " .. tostring(fieldId) ..
-                    " gestartet - Helfer wird entfernt")
-                -- Feldbesitz wiederherstellen (falls gerade Feldarbeit läuft)
-                if worker ~= nil and worker.tempFarmland ~= nil then
-                    worker.tempFarmland.farmId  = worker.origFarmlandId
-                    worker.tempFarmland.isOwned = worker.origIsOwned
-                    worker.tempFarmland = nil
-                end
-                for _, veh in ipairs(entry.vehicleType) do
-                    if self:getIsVehicleAlive(veh) then
-                        self:stopAIJobSafely(veh)
-                        veh:delete()
-                    end
-                end
-                -- Eintrag SOFORT entfernen - sonst greifen update()/onMinuteChanged
-                -- weiter auf die gelöschten Fahrzeuge zu (Lua-Fehler-Spam bis Neustart!)
-                self.vehicleType[fieldId] = nil
-                self.counter = self.counter - 1
-                break
             end
         end
     end
@@ -3308,15 +3073,6 @@ end
 -- ============================================================
 function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadingInfo)
     if vehicleLoadState == VehicleLoadingState.OK then
-
-        if loadingInfo.vehicleInfo ~= nil and loadingInfo.vehicleInfo.fileName ~= nil then
-            for _, vehicle in ipairs(vehicles) do
-                loadingInfo:callback(vehicle)
-                break
-            end
-            return
-        end
-
         for _, vehicle in ipairs(vehicles) do
             vehicle.isVehicleSaved = false
             self:applyServerDriverFigure(vehicle)   -- Build 95
@@ -3378,9 +3134,6 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         local zielX, zielZ = nil, nil
                         if istVerkehrS then
                             zielX, zielZ = nfWS.patrolTargetX, nfWS.patrolTargetZ
-                        else
-                            local field = g_fieldManager:getFieldById(loadingInfo.NachbarFelderWorker.fieldId)
-                            if field ~= nil then zielX, zielZ = field.posX, field.posZ end
                         end
                         -- Build 136: Spur in Richtung Ziel statt 180-Grad-Drehung (Einbahn-Splines)
                         local wdx, wdz = nil, nil
@@ -3396,14 +3149,8 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         local ry = rry or 0
                         g_currentMission:teleportVehicle(vehicle, rx, rz, ry)
                         aufStrasse = true
-                        if istVerkehrS then
-                            print(string.format("NachbarFelder: [TRAFFIC] %.0f m vom Shop-Platz auf die KI-Strasse" ..
-                                " gesetzt (weg von der Wand)", rdist or 0))
-                        else
-                            print(string.format("NachbarFelder: Feldhelfer %.0f m vom Shop-Platz auf die KI-Strasse" ..
-                                " gesetzt (weg von der Wand), Richtung Feld %s", rdist or 0,
-                                tostring(loadingInfo.NachbarFelderWorker.fieldId)))
-                        end
+                        print(string.format("NachbarFelder: [TRAFFIC] %.0f m vom Shop-Platz auf die KI-Strasse" ..
+                            " gesetzt (weg von der Wand)", rdist or 0))
                     end)
                 end
                 local lookAt = self:getSpawnLookAt()
@@ -3425,10 +3172,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                 self.vehicleType[loadingInfo.NachbarFelderWorker.fieldId].NachbarFelderWorker.angle = useAngle
             end
 
-            local cap = 100000
-            if loadingInfo.NachbarFelderWorker.mission.type.name ~= "harvestMission" then
-                self:setFillCapacity(vehicle, cap)
-            end
+            self:setFillCapacity(vehicle, 100000)
             if vehAdd then
                 table.insert(self.vehicleType[loadingInfo.NachbarFelderWorker.fieldId].NachbarFelderWorker.vehiclesToLoad, vehicle)
                 table.insert(loadingInfo.NachbarFelderWorker.vehicleType, vehicle)
@@ -3502,9 +3246,13 @@ end
 
 --- Geraet mit seinem Eingangs-Kupplungspunkt auf den Kupplungspunkt des
 --- Traktors setzen und wieder in die Physik nehmen (Build 116).
---- Genau so macht es das Spiel fuer Zusatzgeraete (AttacherJoints.lua:3076-3078
---- und 3141-3146): Position = localToWorld(jointTransform, jointOrigOffsetComponent),
---- Drehung aus der x-Achse des Kupplungspunkts, mindestens 5 cm ueber dem Boden.
+--- Build 156: auch die DREHUNG passend setzen - wie SupportVehicle:enableSupportVehicle:
+--- Position = localToWorld(jointTransform, jointOrigOffsetComponent), Drehung =
+--- localRotationToWorld(jointTransform, jointOrigRotOffsetComponent) (Attachable.lua:1957/1958).
+--- Bis Build 155 nur die Gierrichtung (wie AttacherJoints:additionalAttachmentLoaded); stand der
+--- Eingangspunkt des Geraets anders geneigt als die Kupplung, riss das sofortige Kuppeln den
+--- Traktor zur Seite (Test 01.10.: Lintrac 130 / Vario 500 kippten beim Ankuppeln).
+--- Mindestens 5 cm ueber dem Boden.
 function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex, implement, inputJointIndex)
     pcall(function()
         local aj = attacher:getAttacherJoints()[attacherJointIndex]
@@ -3512,10 +3260,16 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
         if aj ~= nil and aj.jointTransform ~= nil and ij ~= nil then
             local offset = ij.jointOrigOffsetComponent or { 0, 0, 0 }
             local x, y, z = localToWorld(aj.jointTransform, unpack(offset))
-            local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
-            local yRot = MathUtil.getYRotationFromDirection(dirX, dirZ)
+            local rx, ry, rz = nil, nil, nil
+            if ij.jointOrigRotOffsetComponent ~= nil then
+                rx, ry, rz = localRotationToWorld(aj.jointTransform, unpack(ij.jointOrigRotOffsetComponent))
+            end
+            if rx == nil or ry == nil or rz == nil then
+                local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
+                rx, ry, rz = 0, MathUtil.getYRotationFromDirection(dirX, dirZ), 0
+            end
             local terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
-            implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, 0, yRot, 0)
+            implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, rx, ry, rz)
         end
     end)
     pcall(function()
@@ -3523,13 +3277,17 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
     end)
 end
 
-function NachbarFelderManager:attachObjectToCar(vehicle, attachedVehicle, isBackSetting)
-    local pendingInfo = self:attachObjects(vehicle, attachedVehicle, isBackSetting)
-    if pendingInfo ~= nil then
-        pendingInfo.attacherVehicle:attachImplement(
-            pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-            pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
-    end
+--- Geraet ankuppeln (Build 156): an die Kupplung setzen, dann WEICH kuppeln wie ein Spieler
+--- (VehicleAttachEvent: noSmoothAttach = nil). Mit noSmoothAttach = true (bis Build 155,
+--- Spielstand-Laden) sind die Gelenkgrenzen sofort 0 (AttacherJoints:createAttachmentJoint) -
+--- jede Restabweichung wird in einem Physik-Schritt erzwungen, der Ruck kippte leichte Traktoren.
+--- Gesenkt wird nicht (startLowered = false).
+function NachbarFelderManager:kuppleGeraet(info)
+    if info == nil then return end
+    self:setzeGeraetAnKupplung(info.attacherVehicle, info.attacherVehicleJointDescIndex,
+        info.attachable, info.attachableJointDescIndex)
+    info.attacherVehicle:attachImplement(info.attachable, info.attachableJointDescIndex,
+        info.attacherVehicleJointDescIndex, true, nil, false, false, false)
 end
 
 function NachbarFelderManager:attachObjects(vehicle, attachedVehicle, isBackSetting)
@@ -3595,13 +3353,94 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
         end
         return
     end
-    self.spawnPlatzSperre = self.spawnPlatzSperre or {}
-    table.insert(self.spawnPlatzSperre, { sp.x, sp.z })
-    print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - fuer diese Session gesperrt (%d Plaetze gesperrt)",
-        math.floor(sp.x), math.floor(sp.z), tostring(grund), #self.spawnPlatzSperre))
+    self:ladeLadeplatzSperre()
+    table.insert(self.spawnPlatzSperre, { sp.x, sp.z, tostring(grund) })
+    self:speichereLadeplatzSperre()
+    self:hinweisSpawnpunkt(grund)   -- Build 148
+    print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
+        " (%d Plaetze gesperrt, Datei %s)", math.floor(sp.x), math.floor(sp.z), tostring(grund),
+        #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
+end
+
+--- Einmaliger Hinweis "Spawnpunkt setzen" (Build 148), wenn ein automatischer Ladeplatz
+--- scheitert und auf der Karte noch kein Spawnpunkt gesetzt ist. Ein Spawnpunkt hat immer
+--- Vorrang vor der automatischen Suche. Meldung nur, wo ein lokaler Spieler ist (SP / Host);
+--- auf dem Dedi steht der Hinweis im Log.
+function NachbarFelderManager:hinweisSpawnpunkt(grund)
+    if self.spawnHinweisGegeben or self:getHatSpawnpunkte() then return end
+    self.spawnHinweisGegeben = true
+    print("NachbarFelder: Hinweis - automatischer Ladeplatz gescheitert (" .. tostring(grund) ..
+        "). Zuverlaessiger: Spawnpunkt setzen (ESC > Einstellungen > Wegpunkte > Spawnpunkt hier setzen)")
+    if g_client ~= nil and g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        pcall(function()
+            g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
+                "Lebendige Straßen: " .. g_i18n:getText("NF_hinweisSpawnpunkt"))
+        end)
+    end
+end
+
+--- Datei der gesperrten Ladeplaetze fuer die geladene Karte (Build 142), nil ohne Kartenkennung.
+function NachbarFelderManager:getLadeplatzDatei()
+    local kennung = nfGetKartenKennung()
+    if kennung == nil then return nil end
+    return modSettingDirectory .. "NachbarFelderLadeplaetze_" .. kennung .. ".xml"
+end
+
+--- Gesperrte Ladeplaetze einmal je Sitzung aus der Kartendatei lesen (Build 142).
+--- Wieder freigeben: Datei loeschen (oder Eintrag entfernen) und neu laden.
+function NachbarFelderManager:ladeLadeplatzSperre()
+    if self.spawnPlatzSperre ~= nil then return end
+    self.spawnPlatzSperre = {}
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = self:getLadeplatzDatei()
+    if pfad == nil then return end
+    local verworfen = 0
+    pcall(function()
+        local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", pfad, lpXmlSchema)
+        if xmlFile == nil then return end
+        xmlFile:iterate(lpXmlKey .. ".platz", function(_, key)
+            local x = xmlFile:getValue(key .. "#x")
+            local z = xmlFile:getValue(key .. "#z")
+            local grund = xmlFile:getValue(key .. "#grund") or "?"
+            -- Build 145: "umgekippt" lag am Gespann, nicht am Platz (Builds 142-144 sperrten
+            -- trotzdem den Platz) -> solche Eintraege verwerfen
+            if grund == "umgekippt" then
+                verworfen = verworfen + 1
+            elseif x ~= nil and z ~= nil then
+                table.insert(self.spawnPlatzSperre, { x, z, grund })
+            end
+        end)
+        xmlFile:delete()
+    end)
+    if #self.spawnPlatzSperre > 0 then
+        print(string.format("NachbarFelder: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
+    end
+    if verworfen > 0 then
+        print(string.format("NachbarFelder: %d Ladeplatz-Sperren wegen 'umgekippt' aufgehoben (lag am Gespann)", verworfen))
+        self:speichereLadeplatzSperre()
+    end
+end
+
+function NachbarFelderManager:speichereLadeplatzSperre()
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = self:getLadeplatzDatei()
+    if pfad == nil then return end
+    pcall(function()
+        local xmlFile = XMLFile.create("NachbarFelderLadeplaetze", pfad, lpXmlKey, lpXmlSchema)
+        if xmlFile == nil then return end
+        for i, p in ipairs(self.spawnPlatzSperre or {}) do
+            local key = ("%s.platz(%d)"):format(lpXmlKey, i - 1)
+            xmlFile:setFloat(key .. "#x", p[1])
+            xmlFile:setFloat(key .. "#z", p[2])
+            xmlFile:setString(key .. "#grund", p[3] or "?")
+        end
+        xmlFile:save(false, false)
+        xmlFile:delete()
+    end)
 end
 
 function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
+    self:ladeLadeplatzSperre()
     for _, p in ipairs(self.spawnPlatzSperre or {}) do
         if MathUtil.vector2Length(x - p[1], z - p[2]) < 15 then return true end
     end
@@ -3637,16 +3476,33 @@ end
 --- Build 127 nahm die Hoehe der KI-Spline - liegt die ueber der Fahrbahn, fiel das Fahrzeug
 --- herunter und sprang in die Mauer (Server 14.09. 12:20). Strahl wie
 --- GuiTopDownCamera.lua:269 (RaycastUtil.raycastClosest liefert hit, x, y, z sofort).
+--- Build 148: Der Strahl trifft auch Baumkronen, Daecher und Schilder UEBER der Strasse.
+--- Mit Spline-Hoehe (Ladeplatz an der KI-Strasse): Treffer mehr als HOEHE_UEBERKOPF ueber
+--- der Bezugshoehe = Hindernis ueber der Fahrbahn -> Bezugshoehe zurueck, zweiter Wert true.
+--- Log 01.10.: Gespanne kippten immer wieder auf denselben Plaetzen nahe dem Shop, auch
+--- leichte (Vario 500 + Juwel 6) - abgesetzt in einer Baumkrone, dann heruntergefallen.
+--- Ohne Spline-Hoehe (Admin-Spawnpunkt, evtl. auf einer Bruecke) wie bisher.
+--- @return number Hoehe, boolean ueberkopf
 function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
     local gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
     local h = nil
     pcall(function()
         local oben = math.max(gelaende, splineH or gelaende) + 3
+        -- Build 154: TERRAIN_DELTA dazu (wie VehicleSystem.lua beim Paletten-Spawn). Ohne sie traf der
+        -- Strahl auf Strassen aus Gelaende-Deltas das tiefere Grundgelaende - das Fahrzeug wurde IN
+        -- der Fahrbahn geladen, von der Physik herausgedrueckt und huepfte.
         local maske = CollisionFlag.TERRAIN + CollisionFlag.ROAD + CollisionFlag.STATIC_OBJECT + CollisionFlag.BUILDING
+        if CollisionFlag.TERRAIN_DELTA ~= nil then maske = maske + CollisionFlag.TERRAIN_DELTA end
         local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
         if hit and hitY ~= nil then h = hitY end
     end)
-    return h or gelaende
+    if h ~= nil and splineH ~= nil then
+        local bezug = math.max(gelaende, splineH)
+        if h > bezug + NachbarFelderManager.HOEHE_UEBERKOPF then
+            return bezug, true
+        end
+    end
+    return h or gelaende, false
 end
 
 --- Ist die Flaeche fuer ein Gespann frei? (Build 128)
@@ -3788,39 +3644,39 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
             end
             local sx, sz = self:getShopPosition()
             if sx == nil then return end
-            local zielX, zielZ = nil, nil
-            if w.isPatrol then
-                zielX, zielZ = w.patrolTargetX, w.patrolTargetZ
-            else
-                local field = g_fieldManager:getFieldById(entry.fieldId)
-                if field ~= nil then zielX, zielZ = field.posX, field.posZ end
-            end
+            local zielX, zielZ = w.patrolTargetX, w.patrolTargetZ
             -- Build 128: Stuetzpunkte nach Entfernung pruefen, erster freier Platz gewinnt
             -- Build 136: KEINE 180-Grad-Drehung mehr - KI-Strassen sind Einbahn-Splines
             -- (siehe getRoadPointInRichtung). Durchgang 1 nur Punkte, deren Spur Richtung
             -- Ziel zeigt, Durchgang 2 die uebrigen mit ihrer eigenen Richtung. Dazu muss es
             -- voraus frei sein (6-26 m): Log 19.09. standen neue Fahrzeuge 7-9 m hinter
             -- einem schlafenden Pool-Gespann und kamen nie weg.
+            -- Build 143: Stufen. Auch Hoefe haben KI-Splines - an einer Hofecke passte der
+            -- 17x4-m-Kasten gerade noch, das Gespann kam nicht weg und kippte (Bergisch Land,
+            -- Shop-Hof x=-478 z=11). Zuerst nur "echte Strassenstuecke" (gerade, eben, 30x5 m
+            -- frei), erst nah, dann weiter draussen; erst danach die alte lockere Pruefung.
             local geprueft = 0
-            local kandidaten = self:getSpawnKandidaten(sx, sz, 40, 250)
             local mitZiel = zielX ~= nil and zielZ ~= nil
-            for durchgang = 1, (mitZiel and 2 or 1) do
-                for _, k in ipairs(kandidaten) do
-                    if geprueft >= 120 then break end
-                    local sp = k[1]
-                    local rx, rz = sp[1], sp[2]
-                    local zumZiel = (not mitZiel) or (zielX - rx) * sp[3] + (zielZ - rz) * sp[4] >= 0
-                    if (durchgang == 1 and zumZiel) or (durchgang == 2 and not zumZiel) then
-                        geprueft = geprueft + 1
-                        local ry = MathUtil.getYRotationFromDirection(sp[3], sp[4])
-                        local h = self:getFahrbahnHoehe(rx, rz, sp[5])
-                        local gx, gz = rx - sp[3] * 9, rz - sp[4] * 9
-                        if not self:getIstSpawnPlatzGesperrt(rx, rz)   -- Build 129
-                           and self:getNearestRoadPoint(gx, gz, 2.5, 0) ~= nil
-                           and not self:isSpotBlockedByAnyVehicle(rx + sp[3] * 16, rz + sp[4] * 16, 10, nil)
-                           and self:getIstSpawnFlaecheFrei(rx, h, rz, ry, 17, 4.0) then
-                            w.spawnStrasse = { x = rx, z = rz, ry = ry, h = h, dist = k[2], geprueft = geprueft }
-                            return
+            local stufen = NachbarFelderManager.LADEPLATZ_STUFEN
+            for stufe, st in ipairs(stufen) do
+                local kandidaten = self:getSpawnKandidaten(sx, sz, st.minD, st.maxD)
+                local inStufe = 0
+                for durchgang = 1, (mitZiel and 2 or 1) do
+                    for _, k in ipairs(kandidaten) do
+                        if inStufe >= NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN then break end
+                        local sp = k[1]
+                        local rx, rz = sp[1], sp[2]
+                        local zumZiel = (not mitZiel) or (zielX - rx) * sp[3] + (zielZ - rz) * sp[4] >= 0
+                        if (durchgang == 1 and zumZiel) or (durchgang == 2 and not zumZiel) then
+                            inStufe = inStufe + 1
+                            geprueft = geprueft + 1
+                            local ry = MathUtil.getYRotationFromDirection(sp[3], sp[4])
+                            local h = self:getFahrbahnHoehe(rx, rz, sp[5])
+                            if self:getIstLadeplatzGut(sp, rx, rz, ry, h, st.streng) then
+                                w.spawnStrasse = { x = rx, z = rz, ry = ry, h = h, dist = k[2],
+                                                   geprueft = geprueft, stufe = stufe }
+                                return
+                            end
                         end
                     end
                 end
@@ -3842,21 +3698,111 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
         -- Build 127: Fahrbahnhoehe statt Gelaendehoehe - Strassen liegen als Objekte
         -- ueber dem Gelaende; darin geladen rutschte das Fahrzeug seitlich heraus.
         -- Build 128: an der Ladestelle (Traktor bzw. Geraet dahinter) gemessene Fahrbahnhoehe
-        local y = self:getFahrbahnHoehe(x, z, sp.h) + 0.15
+        local y = self:getFahrbahnHoehe(x, z, sp.h) + NachbarFelderManager.SPAWN_HOEHE
+        -- Build 155: waagerecht laden, aber so hoch, dass keine Ecke in der Fahrbahn steckt.
+        -- Build 154 lud mit der Laengsneigung der Strasse; das Spiel addiert beim Laden aber
+        -- die Shop-Drehung des Modells (storeData.shopRotationOffset, VehicleLoadingData) auf
+        -- unsere Winkel - aus der Neigung wurde eine Schraeglage zur Seite (Test 01.10.: Vario
+        -- 500 lag mit einer Seite am Boden und kippte auf die Raeder). Jetzt: Fahrbahnhoehe
+        -- vorn/hinten/links/rechts messen, hoechsten Punkt nehmen (gedeckelt, falls der Strahl
+        -- ein Objekt am Rand trifft) - das Fahrzeug faellt hoechstens ein paar cm auf die Raeder.
+        local dx, dz = math.sin(sp.ry), math.cos(sp.ry)
+        local px, pz = dz, -dx
+        local hMitte = y - NachbarFelderManager.SPAWN_HOEHE
+        local hMax = hMitte
+        local la, sa = NachbarFelderManager.SPAWN_MESS_LAENGS, NachbarFelderManager.SPAWN_MESS_SEITE
+        local messpunkte = { { la, 0 }, { -la, 0 }, { 0, sa }, { 0, -sa } }
+        for _, o in ipairs(messpunkte) do
+            local hh = self:getFahrbahnHoehe(x + dx * o[1] + px * o[2], z + dz * o[1] + pz * o[2], sp.h)
+            if hh ~= nil and hh > hMax then hMax = hh end
+        end
+        hMax = math.min(hMax, hMitte + NachbarFelderManager.SPAWN_MAX_ANHEBEN)
+        y = hMax + NachbarFelderManager.SPAWN_HOEHE
         data:setPosition(x, y, z)
         data:setRotation(0, sp.ry + modellDrehung, 0)
+        -- Build 154: Anbaugeraete gar nicht erst in die Physik - setAttachment setzt sie an die
+        -- Kupplung und nimmt sie dann auf (vorher: geladen, einen Takt Physik, erst dann entfernt)
+        if index >= 2 and data.setAddToPhysics ~= nil then
+            data:setAddToPhysics(false)
+        end
     end)
     if ok and index == 1 then
         w.spawnAufStrasse = true
-        local wer = w.isPatrol and "[TRAFFIC] Fahrzeug" or ("Feldhelfer fuer Feld " .. tostring(entry.fieldId))
+        local wer = "[TRAFFIC] Fahrzeug"
         if sp.spawnpunktIdx ~= nil then
             print(string.format("NachbarFelder: %s wird am Spawnpunkt WP%d geladen", wer, sp.spawnpunktIdx))
         else
             print(string.format("NachbarFelder: %s wird direkt an der KI-Strasse geladen (%.0f m vom Shop-Platz," ..
-                " freier Platz, %d Stellen geprueft)", wer, sp.dist or 0, sp.geprueft or 0))
+                " freier Platz, Stufe %s, %d Stellen geprueft)", wer, sp.dist or 0, tostring(sp.stufe or "?"),
+                sp.geprueft or 0))
         end
     end
     return ok
+end
+
+-- Build 154/155: Ladehoehe ueber der hoechsten Fahrbahnstelle unter dem Fahrzeug
+NachbarFelderManager.SPAWN_HOEHE        = 0.10   -- m ueber der Fahrbahn (bis Build 153: 0,15)
+NachbarFelderManager.SPAWN_MESS_LAENGS  = 2.5    -- m vor und hinter dem Ladepunkt messen
+NachbarFelderManager.SPAWN_MESS_SEITE   = 1.2    -- m links und rechts messen
+NachbarFelderManager.SPAWN_MAX_ANHEBEN  = 0.5    -- m hoechstens anheben (mehr = Strahl traf ein Objekt)
+
+-- Build 143: Ladeplatz-Suche in Stufen (setzeLadepositionStrasse)
+-- streng = echtes Strassenstueck: gerade, eben, grosser freier Kasten
+NachbarFelderManager.LADEPLATZ_STUFEN = {
+    { minD = 40,  maxD = 250, streng = true  },
+    { minD = 250, maxD = 800, streng = true  },
+    { minD = 40,  maxD = 250, streng = false },   -- bisherige Pruefung (bis Build 142)
+}
+NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
+NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
+NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
+NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
+NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
+
+--- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
+--- Immer: nicht gesperrt, hinten noch Strasse, voraus kein Fahrzeug, Kasten 17 x 4 m frei.
+--- streng zusaetzlich: Strasse laeuft 20 m vor und hinter dem Punkt gerade weiter
+--- (keine Hofecke, keine Kurve), Fahrbahn eben, Kasten 30 x 5 m frei (Platz zum Losfahren).
+function NachbarFelderManager:getIstLadeplatzGut(sp, rx, rz, ry, h, streng)
+    if self:getIstSpawnPlatzGesperrt(rx, rz) then return false end   -- Build 129/142
+    local dx, dz = sp[3], sp[4]
+    -- Build 148: nichts ueber der Fahrbahn (Baumkrone, Dach) auf der Gespannlaenge -
+    -- dort landete das Fahrzeug beim Laden oben und stuerzte
+    for _, d in ipairs({ 3, 0, -5, -10, -15 }) do
+        local _, ueberkopf = self:getFahrbahnHoehe(rx + dx * d, rz + dz * d, sp[5])
+        if ueberkopf then return false end
+    end
+    if self:getNearestRoadPoint(rx - dx * 9, rz - dz * 9, 2.5, 0) == nil then return false end
+    if self:isSpotBlockedByAnyVehicle(rx + dx * 16, rz + dz * 16, 10, nil) then return false end
+    if not streng then
+        return self:getIstSpawnFlaecheFrei(rx, h, rz, ry, 17, 4.0)
+    end
+
+    -- gerade Strasse: Stuetzpunkte vor und hinter dem Punkt mit gleicher (oder Gegen-) Richtung
+    local abstaende = NachbarFelderManager.LADEPLATZ_GERADE_ABST
+    for _, d in ipairs(abstaende) do
+        local qx, _, qry = self:getNearestRoadPoint(rx + dx * d, rz + dz * d, 3, 0)
+        if qx == nil or qry == nil then return false end
+        if math.abs(math.sin(qry) * dx + math.cos(qry) * dz) < NachbarFelderManager.LADEPLATZ_GERADE_COS then
+            return false
+        end
+    end
+
+    -- eben: Fahrbahnhoehe vorn, hinten (Gespannende) und seitlich
+    local hMin, hMax = h, h
+    local px, pz = -dz, dx
+    local messpunkte = { { 3, 0 }, { -14, 0 }, { -5, 2 }, { -5, -2 } }
+    for _, p in ipairs(messpunkte) do
+        local hx = rx + dx * p[1] + px * p[2]
+        local hz = rz + dz * p[1] + pz * p[2]
+        local hh = self:getFahrbahnHoehe(hx, hz, sp[5])
+        hMin, hMax = math.min(hMin, hh), math.max(hMax, hh)
+    end
+    if hMax - hMin > NachbarFelderManager.LADEPLATZ_MAX_HOEHE then return false end
+
+    -- Platz: Gespann (17 m) plus Raum zum Losfahren, Kasten reicht 3 m vor den Punkt -> 13 m davor frei
+    if not self:getIstSpawnFlaecheFrei(rx + dx * 13, h, rz + dz * 13, ry, 30, 5.0) then return false end
+    return true
 end
 
 function NachbarFelderManager:loadVehicles(NachbarFelderWorker)
@@ -3899,26 +3845,10 @@ end
 function NachbarFelderManager:setAttachment(NachbarFelderWorker)
     local vehicle = NachbarFelderWorker.vehicleType[1]
 
-    local dynamicVeh = false
-    if #NachbarFelderWorker.vehicleType >= 3 then
-        dynamicVeh = string.sub(NachbarFelderWorker.vehicleType[3].typeName, 1, string.len("dynamic")) == "dynamic"
-    end
     self.vehicleType[NachbarFelderWorker.fieldId].NachbarFelderWorker.status = 1
     self.vehicleType[NachbarFelderWorker.fieldId].NachbarFelderWorker.needTimer = true
 
-    if NachbarFelderWorker.mission.type.name == "harvestMission" and
-       #NachbarFelderWorker.vehicleType >= 3 and dynamicVeh then
-        local x, y, z = getWorldTranslation(NachbarFelderWorker.vehicleType[3].rootNode)
-        local dirX, _, dirZ = localDirectionToWorld(NachbarFelderWorker.vehicleType[3].rootNode, 0, 0, 1)
-        g_currentMission:teleportVehicle(vehicle, x + dirX * 10, z + dirZ * 10, 0)
-        NachbarFelderWorker.vehicleType[3]:forceDynamicMountPendingObjects(false)
-        local pendingInfo = self:attachObjects(vehicle, NachbarFelderWorker.vehicleType[3], true)
-        if pendingInfo ~= nil then
-            pendingInfo.attacherVehicle:attachImplement(
-                pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-                pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
-        end
-    else
+    do
         -- Anbaugeräte kuppeln – fehlgeschlagene Kupplungen sind kein Abbruchgrund
         -- (Implement 3 hängt z.B. am Implement 2, nicht direkt am Traktor → fail ist normal)
         for v = 2, #NachbarFelderWorker.vehicleType do
@@ -3949,13 +3879,8 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
                     pendingInfo = self:attachObjects(vehicle, implement, false)
                 end
             end
-            if pendingInfo ~= nil then   -- Build 125: Feldhelfer und Verkehr gleich
-                -- Build 116: Feldhelfer - wie das Spiel an die Kupplung setzen, angehoben kuppeln
-                self:setzeGeraetAnKupplung(pendingInfo.attacherVehicle, pendingInfo.attacherVehicleJointDescIndex,
-                    pendingInfo.attachable, pendingInfo.attachableJointDescIndex)
-                pendingInfo.attacherVehicle:attachImplement(
-                    pendingInfo.attachable, pendingInfo.attachableJointDescIndex,
-                    pendingInfo.attacherVehicleJointDescIndex, true, nil, false, true, true)
+            if pendingInfo ~= nil then
+                self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
             elseif implement ~= nil then
                 pcall(function()
                     if not implement.isAddedToPhysics then implement:addToPhysics() end
@@ -4055,47 +3980,6 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
     end
 end
 
-function NachbarFelderManager:mountTrailer(vehicle, cutter, trailer)
-    local x, y, z = getWorldTranslation(trailer.rootNode)
-    local dirX, _, dirZ = localDirectionToWorld(trailer.rootNode, 0, 0, 1)
-    local angle = MathUtil.getYRotationFromDirection(dirX, dirZ)
-    g_currentMission:teleportVehicle(cutter, x + dirX * 1, z, angle)
-end
-
-function NachbarFelderManager:attachedCutterToTrailer(trailer)
-    local spec = trailer.spec_dynamicMountAttacher
-    local mountingIsAllowed = trailer:getAllowDynamicMountObjects()
-    if mountingIsAllowed ~= spec.lastMountingIsAllowed or not spec.dynamicMountAttacherStateChangeMount then
-        spec.lastMountingIsAllowed = mountingIsAllowed
-        if mountingIsAllowed then
-            for object, _ in pairs(spec.pendingDynamicMountObjects) do
-                if spec.dynamicMountedObjects[object] == nil then
-                    local doAttach = false
-                    local objectRoot
-                    if object.components ~= nil then
-                        if object.getCanBeMounted ~= nil then doAttach = object:getCanBeMounted() end
-                        objectRoot = object.components[1].node
-                    end
-                    if object.nodeId ~= nil then
-                        if object.getCanBeMounted ~= nil then doAttach = object:getCanBeMounted() end
-                        objectRoot = object.nodeId
-                    end
-                    local trigger = spec.dynamicMountAttacherTrigger
-                    local objectJoint = createTransformGroup("dynamicMountObjectJoint")
-                    link(trigger.jointNode, objectJoint)
-                    setWorldTranslation(objectJoint, getWorldTranslation(objectRoot))
-                    local couldMount = object:mountDynamic(trailer, trigger.rootNode, objectJoint,
-                        trigger.mountType, trigger.forceAcceleration)
-                    if couldMount then
-                        object.additionalDynamicMountJointNode = objectJoint
-                        trailer:addDynamicMountedObject(object)
-                    end
-                end
-            end
-        end
-    end
-end
-
 -- Klassennamen einer AIMessage ermitteln. Das Vehicle-Event onAIJobFinished
 -- bekommt die AIMessage NICHT übergeben - nur job:stop. Der Klassenname steuert
 -- die Fehlerbehandlung im Worker (NotReachable → neues Ziel, OutOfMoney →
@@ -4109,6 +3993,8 @@ local NF_AI_MSG_CLASSES = {
     "AIMessageErrorNoFieldFound", "AIMessageErrorNotReachable",
     "AIMessageErrorOutOfFill", "AIMessageErrorOutOfFuel",
     "AIMessageErrorIsFull", "AIMessageErrorWrongFillType",
+    -- Build 147: aus AIDriveStrategyFieldCourse (LUADOC)
+    "AIMessageErrorFieldNotReady", "AIMessageErrorVineyardNotSupported",
 }
 
 local function nfAIMessageName(msg)
@@ -4124,58 +4010,78 @@ local function nfAIMessageName(msg)
 end
 
 -- ============================================================
--- driveToField: GOTO-Job zum Feld oder zurück zum Shop
+-- Spielverkehr (Build 152)
+-- Die Autos des Spielverkehrs (Engine, g_currentMission.trafficSystem) bremsen
+-- nur fuer angemeldete Objekte. Das Spiel meldet einen Spieler zu Fuss an
+-- (Player.lua: addTrafficSystemPlayer mit graphicsRootNode) und ein Fahrzeug,
+-- in das ein Spieler einsteigt (Enterable.lua:1724, components[1].node; beim
+-- Aussteigen removeTrafficSystemPlayer, Zeile 1808). Fahrzeuge ohne Fahrer -
+-- also auch unsere - kennt der Spielverkehr nicht und faehrt in sie hinein.
+-- Deshalb melden wir Traktor und Geraete beim Losfahren genauso an und beim
+-- Einschlafen im Pool, Loeschen und Spielende wieder ab.
+-- Abschaltbar: <spielverkehrAnmelden>false</...> in der Server-Konfig.
+-- ============================================================
+function NachbarFelderManager:getSpielverkehrId()
+    local ts = g_currentMission ~= nil and g_currentMission.trafficSystem or nil
+    if ts == nil or ts.trafficSystemId == nil or ts.trafficSystemId == 0 then return nil end
+    return ts.trafficSystemId
+end
+
+function NachbarFelderManager:meldeBeimSpielverkehrAn(vehicle)
+    if self.spielverkehrAnmelden == false or self.isShuttingDown then return end
+    if not self:getIsVehicleAlive(vehicle) or vehicle.nf_spielverkehrNode ~= nil then return end
+    if addTrafficSystemPlayer == nil then return end
+    local id = self:getSpielverkehrId()
+    if id == nil then return end
+    local node = vehicle.components ~= nil and vehicle.components[1] ~= nil and vehicle.components[1].node or nil
+    if node == nil then return end
+    local ok, err = pcall(addTrafficSystemPlayer, id, node)
+    if ok then
+        vehicle.nf_spielverkehrNode = node
+        if not self.spielverkehrGemeldet then
+            self.spielverkehrGemeldet = true
+            print("NachbarFelder: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
+        end
+    elseif not self.spielverkehrFehler then
+        self.spielverkehrFehler = true
+        print("NachbarFelder: [TRAFFIC] Anmeldung beim Spielverkehr fehlgeschlagen: " .. tostring(err))
+    end
+end
+
+function NachbarFelderManager:meldeGespannBeimSpielverkehrAn(vehicle)
+    if self.spielverkehrAnmelden == false or vehicle == nil then return end
+    self:meldeBeimSpielverkehrAn(vehicle)
+    pcall(function()
+        if vehicle.getChildVehicles == nil then return end
+        for _, v in ipairs(vehicle:getChildVehicles()) do
+            if v ~= vehicle then self:meldeBeimSpielverkehrAn(v) end
+        end
+    end)
+end
+
+function NachbarFelderManager:meldeBeimSpielverkehrAb(vehicle)
+    local node = vehicle ~= nil and vehicle.nf_spielverkehrNode or nil
+    if node == nil then return end
+    vehicle.nf_spielverkehrNode = nil
+    if removeTrafficSystemPlayer == nil then return end
+    local id = self:getSpielverkehrId()
+    if id == nil then return end
+    pcall(removeTrafficSystemPlayer, id, node)
+end
+
+-- ============================================================
+-- driveToField: GOTO-Job zum naechsten Ziel oder zurück zum Ladeplatz
+-- (Name historisch - seit Build 150 nur noch Verkehr)
 -- WICHTIG: farmId darf NICHT 0 (Spectator) sein – der Engine
 -- lehnt solche Jobs sofort ab → onAIJobFinished nach 5ms!
 -- ============================================================
 function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
-    local field = g_fieldManager:getFieldById(fieldId)
-    if x == nil then
-        x = field.posX
-        z = field.posZ
-    end
+    if x == nil or z == nil then return end
 
-    -- Patrol-GOTO (fieldId < 0) = Straßennavigation zwischen WPs.
-    -- Für Patrol wird KEIN createAgent/Feldarbeit-Setup ausgeführt:
-    -- Vanilla "Freie Fahrt" macht das auch nicht. AIJobGoTo ruft
-    -- createAgent intern auf – ein vorheriger Aufruf korrumpiert den Agent-State.
-    local isPatrolGoto = fieldId ~= nil and fieldId < 0
-
-    local helper = g_helperManager:getRandomHelper()
-
-    if not isPatrolGoto then
-        if vehicle.createAgent ~= nil then
-            vehicle:createAgent(helper.index)
-        end
-        if vehicle.updateAIAgentAttachments ~= nil then
-            vehicle:updateAIAgentAttachments()
-        end
-
-        local chainAttachments = vehicle.spec_aiDrivable ~= nil and vehicle.spec_aiDrivable.attachmentChains ~= nil
-                                 and vehicle.spec_aiDrivable.attachmentChains[1]
-        if chainAttachments then
-            for i = 1, #chainAttachments do
-                chainAttachments[i].hasCollision = false
-            end
-        end
-        if vehicle.updateAIAgentAttachmentOffsetData ~= nil then
-            vehicle:updateAIAgentAttachmentOffsetData()
-        end
-
-        local dynamicVeh = false
-        if self.vehicleType[fieldId] ~= nil and
-           #self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad >= 3 then
-            dynamicVeh = string.sub(
-                self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad[3].typeName,
-                1, string.len("dynamic")) == "dynamic"
-        end
-        if dynamicVeh and vehicle.spec_aiDrivable ~= nil then
-            vehicle.spec_aiDrivable.attachmentsMaxWidth = 2
-            vehicle.spec_aiDrivable.agentInfo.length = math.min(1, vehicle.spec_aiDrivable.agentInfo.length / 4)
-        end
-    end
-
-    -- prepareForAIDriving für alle (Patrol+Feldarbeit), aber OHNE createAgent für Patrol.
+    -- Build 150: nur noch Verkehr (fieldId < 0 = Patrol-Schluessel). Kein createAgent:
+    -- Vanilla "Freie Fahrt" macht das auch nicht. AIJobGoTo ruft createAgent intern
+    -- auf - ein vorheriger Aufruf korrumpiert den Agent-State.
+    -- prepareForAIDriving, aber OHNE createAgent.
     if vehicle.prepareForAIDriving ~= nil then
         vehicle:prepareForAIDriving()
     end
@@ -4307,45 +4213,14 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
 
     g_currentMission.aiSystem:startJob(job, self.farmId)
 
+    -- Build 152: Gespann beim Spielverkehr anmelden, damit die Autos bremsen
+    self:meldeGespannBeimSpielverkehrAn(vehicle)
+
     -- Build 100: Zustand direkt NACH dem Start. Nur so ist zu sehen, warum ein
     -- Auftrag ohne Fehlermeldung anlaeuft und das Fahrzeug trotzdem steht.
     if nfW ~= nil and nfW.isPatrol then
         print("NachbarFelder: [TRAFFIC][DIAG] nach Start: " .. self:getVehicleAiDiag(vehicle))
     end
-end
-
--- ============================================================
--- Feldarbeit starten
--- ============================================================
---- Zielpunkt fuer die Anfahrt eines Feldhelfers (Build 118).
----
---- Bisher: Feldmitte (field.posX/posZ) mit Winkel 0. AIJobGoTo:setValues macht
---- aus dem Winkel die geforderte ENDAUSRICHTUNG (AIJobGoTo.lua:154-156,
---- AIParameterPositionAngle:setAngle in Radiant) - der Helfer sollte also in der
---- Feldmitte genau nach Norden zeigen. Ohne Rueckwaertsfahren ist das oft nicht
---- planbar; Feld 69 scheiterte dreimal nach 7-19 s Wegsuche.
----
---- Jetzt: von der KI-Strasse, die der Feldmitte am naechsten liegt, in 4-m-Schritten
---- Richtung Mitte gehen bis zum ersten Punkt auf dem Feld (FieldState gueltig,
---- gleiches Farmland), dann 12 m weiter hinein. Ankunftsrichtung = Strasse -> Mitte,
---- also so, wie ein Fahrzeug von der Strasse aufs Feld faehrt.
---- Ohne Strasse/Feldpunkt: Feldmitte mit Richtung Fahrzeug -> Mitte.
---- @return number x, number z, number winkel (rad)
---- Soll der Stillstand-Waechter eines Feldhelfers eingreifen? (Build 124)
---- Nach 25 s, wenn ein anderes Fahrzeug naeher als 15 m steht (max. 3x je Helfer,
---- setzt w.feldWdHindernis), sonst nach 60 s.
-function NachbarFelderManager:getFeldWdAusloesen(w, x, z, veh)
-    local stehtMs = g_time - (w.feldWdSince or g_time)
-    w.feldWdHindernis = nil
-    w.feldWdSekunden  = math.floor(stehtMs / 1000)
-    if stehtMs > 25000 and (w.feldHindernisPlanungen or 0) < 3 then
-        local d, name = self:getNaechstesFremdfahrzeug(x, z, veh)
-        if d ~= nil and d < 15 then
-            w.feldWdHindernis = { d = d, name = name or "?" }
-            return true
-        end
-    end
-    return stehtMs > 60000
 end
 
 --- Ist ein Geraet eingeklappt? (Build 122) nil = hat keine Klappteile.
@@ -4367,568 +4242,6 @@ function NachbarFelderManager:getKlappText(impl)
         string.match(f, "[^/\\]+$") or f, sf.foldAnimTime or -1, tostring(sf.turnOnFoldDirection),
         tostring(sf.foldMoveDirection), tostring(sf.foldMiddleAnimTime), tostring(sf.allowUnfoldingByAI),
         tostring(sf.isFoldAllowed))
-end
-
-function NachbarFelderManager:getFeldZielpunkt(fieldId, vehicle)
-    local field = g_fieldManager:getFieldById(fieldId)
-    if field == nil or field.posX == nil then return nil, nil, nil end
-    local cx, cz = field.posX, field.posZ
-    local zx, zz, zw = cx, cz, nil
-    local quelle = "Feldmitte"
-
-    pcall(function()
-        if vehicle ~= nil and vehicle.rootNode ~= nil then
-            local vx, _, vz = getWorldTranslation(vehicle.rootNode)
-            if MathUtil.vector2Length(cx - vx, cz - vz) > 1 then
-                zw = MathUtil.getYRotationFromDirection(cx - vx, cz - vz)
-            end
-        end
-    end)
-
-    -- Build 141: Feldrand mit dem kuerzesten FREIEN Weg von einer KI-Strasse.
-    -- Die KI faehrt uebers Strassennetz bis zum naechsten Punkt am Ziel und von
-    -- dort gerade hin. Bisher: Strassenpunkt naechst der FELDMITTE, gerade Linie
-    -- zur Mitte - dazwischen lagen oft fremde Felder oder Weiden (Feld 47:
-    -- 124 m querfeldein). Jetzt wird der Feldumriss abgetastet; gewonnen hat
-    -- die Randstelle mit der naechsten Strasse, deren Weg dorthin weder ein
-    -- fremdes Feld noch eine Weide kreuzt. Ohne Umriss: alte Logik unten.
-    local gefunden = false
-    pcall(function()
-        local rx, rz, rw, weg, frei = self:getFeldZugang(field)
-        if rx == nil then return end
-        zx, zz, zw = rx, rz, rw
-        quelle = string.format("Feldrand nahe KI-Strasse (%.0f m von der Strasse, %s)", weg,
-            frei and "Weg frei" or "kein freier Weg - Weg kreuzt fremdes Feld/Weide")
-        gefunden = true
-    end)
-
-    pcall(function()
-        if gefunden then return end
-        if self.getNearestRoadPoint == nil or FieldState == nil or FieldState.new == nil then return end
-        local rx, rz = self:getNearestRoadPoint(cx, cz, 500, 0)
-        if rx == nil then return end
-        local dx, dz = cx - rx, cz - rz
-        local len = math.sqrt(dx * dx + dz * dz)
-        if len < 8 then return end
-        dx, dz = dx / len, dz / len
-        local farmlandId = field.farmland ~= nil and field.farmland.id or nil
-        local function aufFeld(px, pz)
-            local probe = FieldState.new()
-            probe:update(px, pz)
-            return probe.isValid and (farmlandId == nil or probe.farmlandId == farmlandId)
-        end
-        for d = 0, len, 4 do
-            local px, pz = rx + dx * d, rz + dz * d
-            if aufFeld(px, pz) then
-                local tief = math.min(12, math.max(len - d, 0))
-                local tx, tz = px + dx * tief, pz + dz * tief
-                if not aufFeld(tx, tz) then tx, tz = px, pz end
-                zx, zz = tx, tz
-                zw = MathUtil.getYRotationFromDirection(dx, dz)
-                quelle = string.format("Feldrand zur Strasse (%.0f m von der Strasse)", d + tief)
-                return
-            end
-        end
-    end)
-
-    print(string.format("NachbarFelder: Anfahrt Feld %s -> %s x=%.0f z=%.0f Richtung %.0f Grad",
-        tostring(fieldId), quelle, zx, zz, math.deg(zw or 0)))
-    return zx, zz, zw
-end
-
--- Build 141: Zugang zum Feld von der KI-Strasse
-NachbarFelderManager.ZUGANG_RAND_SCHRITT  = 8      -- m, Abstand der Pruefstellen am Feldrand
-NachbarFelderManager.ZUGANG_MAX_STRASSE   = 250    -- m, so weit darf die Strasse hoechstens weg sein
-NachbarFelderManager.ZUGANG_KANDIDATEN    = 120    -- so viele naechste Randstellen auf freien Weg pruefen
-NachbarFelderManager.ZUGANG_TIEFE         = 10     -- m, Ziel so weit hinter dem Rand im Feld
-
---- Randstelle eines Felds, die von einer KI-Strasse aus auf kuerzestem Weg
---- erreichbar ist, ohne fremde Felder oder Weiden zu kreuzen (Build 141).
---- @return number|nil zx, number zz Ziel (ZUGANG_TIEFE im Feld), number zw Ankunftsrichtung,
----         number weg Abstand Strasse -> Feldrand, boolean frei Weg kreuzt nichts Fremdes
-function NachbarFelderManager:getFeldZugang(field)
-    local poly = self:getFeldPolygon(field)
-    if poly == nil or poly.n < 3 or self.getNearestRoadPoint == nil then
-        return nil
-    end
-    local inPoly, randAbst = self.nfPunktInPolygon, self.nfRandAbstand
-    local farmlandId = field.farmland ~= nil and field.farmland.id or nil
-
-    -- fremdes Feld (anderes Farmland) oder Weide an diesem Punkt?
-    local function fremd(px, pz)
-        if self:isPunktInWeide(px, pz) then
-            return true
-        end
-        if FieldState == nil or FieldState.new == nil then
-            return false
-        end
-        local probe = FieldState.new()
-        probe:update(px, pz)
-        return probe.isValid and farmlandId ~= nil and probe.farmlandId ~= farmlandId
-    end
-    local function wegFrei(rx, rz, px, pz)
-        local len = MathUtil.vector2Length(px - rx, pz - rz)
-        for d = 2, len - 2, 4 do
-            local t = d / len
-            if fremd(rx + (px - rx) * t, rz + (pz - rz) * t) then
-                return false
-            end
-        end
-        return true
-    end
-
-    -- Feldrand abtasten, je Stelle die naechste KI-Strasse
-    local kandidaten = {}
-    local schritt = NachbarFelderManager.ZUGANG_RAND_SCHRITT
-    local j = poly.n
-    for i = 1, poly.n do
-        local ax, az, bx, bz = poly.x[j], poly.z[j], poly.x[i], poly.z[i]
-        local len = MathUtil.vector2Length(bx - ax, bz - az)
-        local n = math.max(1, math.floor(len / schritt))
-        for k = 0, n - 1 do
-            local px, pz = ax + (bx - ax) * k / n, az + (bz - az) * k / n
-            local rx, rz, _, d = self:getNearestRoadPoint(px, pz, NachbarFelderManager.ZUGANG_MAX_STRASSE, 0)
-            if rx ~= nil then
-                table.insert(kandidaten, { px = px, pz = pz, rx = rx, rz = rz, d = d or 0 })
-            end
-        end
-        j = i
-    end
-    if #kandidaten == 0 then
-        return nil
-    end
-    table.sort(kandidaten, function(a, b) return a.d < b.d end)
-
-    -- Ankunftsrichtung und Ziel ein Stueck im Feld, damit die KI nicht auf der
-    -- Grenze haelt. nil, wenn es an dieser Stelle nicht ins Feld geht (Ecke, Spitze).
-    local tiefen = { NachbarFelderManager.ZUGANG_TIEFE, 6, 3 }
-    local function zielAn(c)
-        local dx, dz = c.px - c.rx, c.pz - c.rz
-        local len = math.sqrt(dx * dx + dz * dz)
-        if len < 1 and field.posX ~= nil then
-            -- Strasse beruehrt den Rand: Richtung Feldmitte
-            dx, dz = field.posX - c.px, field.posZ - c.pz
-            len = math.sqrt(dx * dx + dz * dz)
-        end
-        if len < 0.01 then
-            return nil
-        end
-        dx, dz = dx / len, dz / len
-        for _, tief in ipairs(tiefen) do
-            local tx, tz = c.px + dx * tief, c.pz + dz * tief
-            if inPoly(tx, tz, poly) and randAbst(tx, tz, poly) >= 2 then
-                return tx, tz, dx, dz
-            end
-        end
-        return nil
-    end
-
-    -- naechste Randstelle mit freiem Weg und Ziel im Feld; sonst die naechste mit Ziel
-    local notX, notZ, notDx, notDz, notC = nil, nil, nil, nil, nil
-    local anzahl = math.min(#kandidaten, NachbarFelderManager.ZUGANG_KANDIDATEN)
-    for idx = 1, anzahl do
-        local c = kandidaten[idx]
-        local tx, tz, dx, dz = zielAn(c)
-        if tx ~= nil then
-            if wegFrei(c.rx, c.rz, c.px, c.pz) then
-                return tx, tz, MathUtil.getYRotationFromDirection(dx, dz), c.d, true
-            end
-            if notX == nil then
-                notX, notZ, notDx, notDz, notC = tx, tz, dx, dz, c
-            end
-        end
-    end
-    if notX == nil then
-        return nil
-    end
-    return notX, notZ, MathUtil.getYRotationFromDirection(notDx, notDz), notC.d, false
-end
-
-function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
-    if NachbarFelderWorker.isPatrol then return end  -- Patrol hat keine Feldarbeit
-
-    -- Fahrzeug aus vehiclesToLoad[1] holen (wie in update() auch)
-    local vehicle = NachbarFelderWorker.vehiclesToLoad and NachbarFelderWorker.vehiclesToLoad[1]
-    if vehicle == nil then
-        vehicle = NachbarFelderWorker.vehicleType and NachbarFelderWorker.vehicleType[1]
-    end
-    if vehicle == nil then
-        local vtLen = NachbarFelderWorker.vehicleType and #NachbarFelderWorker.vehicleType or "nil"
-        local vlLen = NachbarFelderWorker.vehiclesToLoad and #NachbarFelderWorker.vehiclesToLoad or "nil"
-        print("NachbarFelder: FEHLER setAIOnField - kein Fahrzeug! vehicleType#=" ..
-            tostring(vtLen) .. " vehiclesToLoad#=" .. tostring(vlLen))
-        return
-    end
-    local fieldId = NachbarFelderWorker.fieldId
-    -- Feld-Zustand loggen, damit klar ist ob Feldarbeit überhaupt sinnvoll ist
-    local dbgField = g_fieldManager:getFieldById(fieldId)
-    local dbgFruitName = "?"
-    local dbgPlowLevel = "?"
-    local dbgGroundType = "?"
-    local dbgWeedState = "?"
-    local dbgSprayLevel = "?"
-    local dbgGrowState = "?"
-    if dbgField ~= nil then
-        local dbgState = dbgField:getFieldState()
-        if dbgState ~= nil then
-            local dbgFruit = g_fruitTypeManager:getFruitTypeByIndex(dbgState.fruitTypeIndex)
-            dbgFruitName  = dbgFruit ~= nil and dbgFruit.name or "leer"
-            dbgPlowLevel  = tostring(dbgState.plowLevel  or "?")
-            dbgGroundType = self:getBodenName(dbgState.groundType)   -- Build 111
-            dbgWeedState  = tostring(dbgState.weedState  or "?")
-            dbgSprayLevel = tostring(dbgState.sprayLevel or "?")
-            dbgGrowState  = tostring(dbgState.growthState or "?")
-        end
-    end
-    -- Feldgröße (field.areaHa, verifiziert) zur Info im Start-Log.
-    local dbgArea = "?"
-    pcall(function()
-        if dbgField ~= nil and type(dbgField.areaHa) == "number" then
-            dbgArea = string.format("%.2fha", dbgField.areaHa)
-        end
-    end)
-    print("NachbarFelder: Feldarbeit Start " .. tostring(NachbarFelderWorker.mission.type.name) ..
-        " Feld " .. tostring(fieldId) ..
-        " | Groesse=" .. dbgArea ..
-        " Frucht=" .. dbgFruitName ..
-        " Wachstum=" .. dbgGrowState ..
-        " Pflug=" .. dbgPlowLevel ..
-        " Boden=" .. dbgGroundType ..
-        " Unkraut=" .. dbgWeedState ..
-        " Duenger=" .. dbgSprayLevel)
-
-    -- Fülltyp je nach Mission bestimmen
-    local forceFill = nil
-    local missionTypeName = NachbarFelderWorker.mission and NachbarFelderWorker.mission.type and NachbarFelderWorker.mission.type.name
-    if missionTypeName == "herbicideMission" then
-        forceFill = "HERBICIDE"
-    elseif missionTypeName == "fertilizeMission" then
-        forceFill = "LIQUIDFERTILIZER"
-    elseif missionTypeName == "sowMission" then
-        forceFill = "SEEDS"
-    end
-
-    local vehs = vehicle:getChildVehicles()
-    for _, veh in pairs(vehs) do
-        self:setFillCapacity(veh, 100000, forceFill)
-        if veh.changeSeedIndex ~= nil and veh.spec_sowingMachine ~= nil then
-            -- Fruchtfolge-Saatwahl (Build 68): bewertet statt gewuerfelt
-            self:chooseBestSeed(veh, fieldId)
-        end
-        if veh.setIsTurnedOn ~= nil then
-            veh:setIsTurnedOn(true)
-        end
-    end
-
-    local dynamicVeh = false
-    if #self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad >= 3 then
-        dynamicVeh = string.sub(
-            self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad[3].typeName,
-            1, string.len("dynamic")) == "dynamic"
-    end
-    if dynamicVeh then
-        self:removeAttacher(self.vehicleType[fieldId].NachbarFelderWorker)
-    end
-
-    -- ---------------------------------------------------------------
-    -- Implement-Kompatibilitätsprüfung VOR dem Job-Start
-    -- Verhindert 17ms-Scheitern durch inkompatible Fahrzeug-Kombination.
-    -- Spec-Mapping: welche spec wird für welchen Missionstyp benötigt?
-    -- ---------------------------------------------------------------
-    local implSpecRequired = nil
-    if missionTypeName == "plowMission" then
-        implSpecRequired = "spec_plow"
-    elseif missionTypeName == "cultivateMission" then
-        implSpecRequired = "spec_cultivator"
-    elseif missionTypeName == "sowMission" then
-        implSpecRequired = "spec_sowingMachine"
-    elseif missionTypeName == "herbicideMission" or missionTypeName == "fertilizeMission" then
-        implSpecRequired = "spec_sprayer"
-    end
-
-    if implSpecRequired ~= nil then
-        local specFound = false
-        local allVehs = vehicle:getChildVehicles()
-        table.insert(allVehs, vehicle)
-        for _, v in ipairs(allVehs) do
-            if v[implSpecRequired] ~= nil then
-                specFound = true
-                break
-            end
-        end
-        if not specFound then
-            print("NachbarFelder: INKOMPATIBLES FAHRZEUG fuer " .. tostring(missionTypeName) ..
-                " - brauche " .. tostring(implSpecRequired) .. " (Feld " .. tostring(fieldId) ..
-                ") - Fahrzeug faehrt zurueck, kein Feldcooldown")
-            -- Kein Feldcooldown (Feld ist ok, nur das Fahrzeug passt nicht)
-            -- Direkt Rückfahrt ohne Feld zu bestrafen
-            if NachbarFelderWorker.tempFarmland ~= nil then
-                NachbarFelderWorker.tempFarmland.farmId  = NachbarFelderWorker.origFarmlandId
-                NachbarFelderWorker.tempFarmland.isOwned = NachbarFelderWorker.origIsOwned
-                NachbarFelderWorker.tempFarmland = nil
-            end
-            NachbarFelderWorker.status = 60
-            NachbarFelderWorker.needTimer = true
-            NachbarFelderWorker.gotoStartedAt = nil
-            return
-        end
-    end
-
-    -- fertilize: NUR flächige Ausbringer (Gülle/Flüssigdünger/Mist/Gärrest)
-    -- zulassen. Mineralische Festdünger-Streuer behandelt Precision Farming
-    -- mit variabler Rate (bedarfsgesteuert) → kaum Ausbringung → 15s-
-    -- Kurzeinsatz (wie Herbizid). User-Entscheidung: solche aussortieren.
-    if missionTypeName == "fertilizeMission" then
-        local flaechig = false
-        pcall(function()
-            local okTypes = {"LIQUIDFERTILIZER", "LIQUIDMANURE", "MANURE", "DIGESTATE"}
-            local checkVehs = vehicle:getChildVehicles()
-            table.insert(checkVehs, vehicle)
-            for _, v in ipairs(checkVehs) do
-                if v.getFillUnits ~= nil then
-                    for _, fu in ipairs(v:getFillUnits()) do
-                        if fu.supportedFillTypes ~= nil then
-                            for _, ftName in ipairs(okTypes) do
-                                local idx = g_fillTypeManager:getFillTypeIndexByName(ftName)
-                                if idx ~= nil and fu.supportedFillTypes[idx] then
-                                    flaechig = true
-                                    return
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-        if not flaechig then
-            print("NachbarFelder: Festduenger-Streuer fuer fertilize aussortiert " ..
-                "(Precision Farming = variable Rate, nur Kurzeinsatz) - faehrt zurueck (Feld " ..
-                tostring(fieldId) .. ")")
-            -- Implement fuer fertilize sperren → kuenftig nur noch Guelle/Fluessig
-            local implVeh = NachbarFelderWorker.vehiclesToLoad and NachbarFelderWorker.vehiclesToLoad[2]
-            local implFile = implVeh ~= nil and (implVeh.configFileName or implVeh.typeName) or nil
-            if implFile ~= nil then
-                self.vehicleImplBlacklist["fertilizeMission"] = self.vehicleImplBlacklist["fertilizeMission"] or {}
-                self.vehicleImplBlacklist["fertilizeMission"][implFile] =
-                    (self.vehicleImplBlacklist["fertilizeMission"][implFile] or 0) + 1
-            end
-            if NachbarFelderWorker.tempFarmland ~= nil then
-                NachbarFelderWorker.tempFarmland.farmId  = NachbarFelderWorker.origFarmlandId
-                NachbarFelderWorker.tempFarmland.isOwned = NachbarFelderWorker.origIsOwned
-                NachbarFelderWorker.tempFarmland = nil
-            end
-            NachbarFelderWorker.status = 60
-            NachbarFelderWorker.needTimer = true
-            NachbarFelderWorker.gotoStartedAt = nil
-            return
-        end
-    end
-
-    self.vehicleType[fieldId].NachbarFelderWorker.status = 2
-    local field = g_fieldManager:getFieldById(fieldId)
-
-    -- Fahrzeug-Besitzer auf echte Farm setzen (nicht Spectator 0!)
-    -- Damit vehicle:getAIJobFarmId() die richtige ID zurückgibt.
-    vehicle:setOwnerFarmId(self.farmId)
-
-    -- KRITISCH: Feldbesitz VOR generateSteeringFieldCourse setzen!
-    -- generateSteeringFieldCourse sucht intern das Feld per findClosestField.
-    -- findClosestField prüft farmland.isOwned → schlägt fehl wenn noch false.
-    -- Deshalb Besitz zuerst setzen, damit der Course korrekt generiert wird.
-    local farmland = field ~= nil and field.farmland or nil
-    local origFarmlandId = farmland ~= nil and farmland.farmId or nil
-    local origIsOwned    = farmland ~= nil and farmland.isOwned or nil
-    if farmland ~= nil then
-        farmland.farmId  = self.farmId
-        farmland.isOwned = true
-    end
-
-    vehicle:setAIModeSelection(AIModeSelection.MODE.WORKER)
-    self.fieldCourseSettings, self.implementData = FieldCourseSettings.generate(vehicle)
-    -- generateSteeringFieldCourse wieder aktiv (Test widerlegt: Entfernung
-    -- machte die Arbeit nicht laenger, eher kuerzer → war nicht die Ursache).
-    -- Zurueck zum referenz-konformen Zustand (FarmerWorkingAssistant).
-    vehicle:generateSteeringFieldCourse(field.posX, field.posZ, FieldCourseSettings.generate(vehicle))
-
-    local vehsFill = self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad
-    for _, workVehicle in ipairs(vehsFill) do
-        self:setFillCapacity(workVehicle, 100000, forceFill)
-    end
-
-    -- KRITISCH: Feld für die AI-Lenkung ERKENNEN.
-    -- FieldCourse.findClosestField registriert das Feld intern in der FieldCourse-
-    -- Steuerung (Seiteneffekt!). Ohne diesen Aufruf hat der FIELDWORK-Job kein Feld
-    -- und endet sofort nach ~17ms. Der Aufruf respektiert den getIsMissionWorkAllowed-
-    -- Hook → akzeptiert auch fremde Felder (farmId 2).
-    -- Verifiziert in der funktionierenden Referenz-Mod FarmerWorkingAssistant
-    -- (MissionInfo:setAIOnField). NICHT wieder durch "direktes Setzen" ersetzen –
-    -- genau das war der Grund für die 17ms-Sofortabbrüche.
-    self.fieldDetectionX, self.fieldDetectionZ = nil, nil
-    pcall(function()
-        self.fieldDetectionX, self.fieldDetectionZ = FieldCourse.findClosestField(
-            nil, nil, nil, nil, vehicle:getAIJobFarmId(), vehicle, 2, self.fieldCourseSettings)
-    end)
-    if self.fieldDetectionX == nil then
-        self.fieldDetectionX = field.posX
-        self.fieldDetectionZ = field.posZ
-        print("NachbarFelder: WARNUNG - findClosestField nil, nutze Feldmitte (Feld " ..
-            tostring(fieldId) .. ")")
-    end
-    -- HINWEIS: setAIAutomaticSteeringEnabled() wurde ENTFERNT.
-    -- Das aktiviert den GPS-Spurführungs-Modus (eine gerade Bahn, kein
-    -- automatisches Abfahren des Feldes in Reihen) und überschrieb den
-    -- FIELDWORK-Worker-Modus → Helfer fuhr nur ein kurzes Stück und war
-    -- "fertig" (Spritze: ausklappen/kurz fahren/einklappen; Pflug: stand).
-    -- Der reine FIELDWORK-Job (AIDriveStrategyFieldCourse) fährt das ganze
-    -- Feld selbst ab. Falls der Helfer danach gar nicht losfährt, ist
-    -- generateSteeringFieldCourse der nächste Verdächtige.
-
-    -- Precision Farming: Ganzfeldbehandlung erzwingen
-    -- Bekannte PF-Specs (aus Diagnose): spec_FS25_precisionFarming.weedSpotSpray
-    --   → nur einzelne Unkrautflecken spritzen statt ganzes Feld → muss deaktiviert werden
-    -- spec_FS25_precisionFarming.extendedSprayer
-    --   → variable Ausbringungsrate nach Bodenanalyse → muss deaktiviert werden
-    local pfVehicles = vehicle:getChildVehicles()
-    table.insert(pfVehicles, vehicle)
-    for _, pfVeh in pairs(pfVehicles) do
-        pcall(function()
-            local weedSpec = pfVeh["spec_FS25_precisionFarming.weedSpotSpray"]
-            if weedSpec ~= nil then
-                if weedSpec.isActive           ~= nil then weedSpec.isActive           = false end
-                if weedSpec.isEnabled          ~= nil then weedSpec.isEnabled          = false end
-                if weedSpec.enabled            ~= nil then weedSpec.enabled            = false end
-                if weedSpec.active             ~= nil then weedSpec.active             = false end
-                if weedSpec.isSpotSprayActive  ~= nil then weedSpec.isSpotSprayActive  = false end
-                if weedSpec.spotSprayActive    ~= nil then weedSpec.spotSprayActive    = false end
-                if weedSpec.activated          ~= nil then weedSpec.activated          = false end
-                if weedSpec.setIsActive        ~= nil then weedSpec:setIsActive(false)         end
-                if weedSpec.setEnabled         ~= nil then weedSpec:setEnabled(false)          end
-                if weedSpec.setActive          ~= nil then weedSpec:setActive(false)           end
-                if weedSpec.setIsSpotSprayActive ~= nil then weedSpec:setIsSpotSprayActive(false) end
-            end
-        end)
-        pcall(function()
-            local extSpray = pfVeh["spec_FS25_precisionFarming.extendedSprayer"]
-            if extSpray ~= nil then
-                if extSpray.sprayAmountAutoMode ~= nil then extSpray.sprayAmountAutoMode = false end
-                if extSpray.setSprayAmountAutoMode ~= nil then
-                    pcall(function() extSpray:setSprayAmountAutoMode(false, true) end)
-                end
-                if extSpray.sprayAmountManual ~= nil and extSpray.sprayAmountManualMax ~= nil then
-                    extSpray.sprayAmountManual = extSpray.sprayAmountManualMax
-                end
-                if extSpray.setSprayAmountManual ~= nil then
-                    pcall(function() extSpray:setSprayAmountManual(extSpray.sprayAmountManualMax or 45, true) end)
-                end
-                if extSpray.isDoingMissionWork ~= nil then extSpray.isDoingMissionWork = true end
-                if extSpray.setIsDoingMissionWork ~= nil then
-                    pcall(function() extSpray:setIsDoingMissionWork(true, true) end)
-                end
-                if extSpray.spotSprayEnabled  ~= nil then extSpray.spotSprayEnabled  = false end
-                if extSpray.isSpotSprayActive ~= nil then extSpray.isSpotSprayActive = false end
-                if extSpray.spotSprayIsActive ~= nil then extSpray.spotSprayIsActive = false end
-                if extSpray.setSpotSprayEnabled ~= nil then
-                    pcall(function() extSpray:setSpotSprayEnabled(false, true) end)
-                end
-            end
-        end)
-    end
-
-    local helper = g_helperManager:getRandomHelper()
-    if vehicle.createAgent ~= nil then
-        vehicle:createAgent(helper.index)
-    end
-
-    if not vehicle:getIsAIActive() then
-        vehicle:toggleAIVehicle()
-    end
-
-    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
-    -- Kostenneutral (Build 91) - siehe Begruendung bei AIJobType.GOTO.
-    if job ~= nil then
-        job.getPricePerMs = function() return 0 end
-    end
-    if job == nil then
-        print("NachbarFelder: FEHLER - AIJobType.FIELDWORK konnte nicht erstellt werden!")
-        -- Feldbesitz wiederherstellen
-        if farmland ~= nil then
-            farmland.farmId  = origFarmlandId
-            farmland.isOwned = origIsOwned
-        end
-        return
-    end
-    -- Job-Setup exakt wie in der funktionierenden Referenz (FarmerWorkingAssistant:
-    -- setAIOnField): KEIN manuelles setPosition. applyCurrentState + setValues
-    -- ermitteln die Feldposition aus dem zuvor per findClosestField erkannten Feld.
-    -- Das frühere manuelle Forcen der Position kollidierte mit dieser internen
-    -- Erkennung und war Teil des Sofortabbruch-Problems.
-    job.positionAngleParameter:setAngle(0)
-    if job.applyCurrentState ~= nil then
-        job:applyCurrentState(vehicle, g_currentMission, self.farmId, true)
-    end
-    job.vehicleParameter:setVehicle(vehicle)
-    job:setValues()
-
-    -- ALLE Geräte als Helfer markieren BEVOR der Job startet, damit der
-    -- erste getIsMissionWorkAllowed-Aufruf der Spritze/des Pflugs durchgeht.
-    self:markVehiclesAsHelper(vehicle)
-
-    self.vehicleType[fieldId].NachbarFelderWorker.fieldWorkStartedAt = g_time
-
-    -- Build 141: Abbruchgrund der Feldarbeit merken (wie beim GOTO in driveToField) -
-    -- nur job:stop sieht die AIMessage. Feld 47 endete nach 0 s ohne erkennbaren Grund.
-    local nfWFeld = self.vehicleType[fieldId].NachbarFelderWorker
-    nfWFeld.lastFieldStopMsg = nil
-    if job.stop ~= nil then
-        local origStop = job.stop
-        job.stop = function(jSelf, aiMessage)
-            nfWFeld.lastFieldStopMsg = nfAIMessageName(aiMessage)
-            return origStop(jSelf, aiMessage)
-        end
-    end
-    -- Wo steht das Gespann beim Start, und wo hat findClosestField das Feld erkannt?
-    local startInfo = ""
-    pcall(function()
-        local vx, _, vz = getWorldTranslation(vehicle.rootNode)
-        local poly = self:getFeldPolygon(field)
-        local imFeld = "?"
-        if poly ~= nil then
-            imFeld = self.nfPunktInPolygon(vx, vz, poly) and "ja" or
-                string.format("nein, %.0f m vom Rand", self.nfRandAbstand(vx, vz, poly))
-        end
-        startInfo = string.format(" | Gespann x=%.0f z=%.0f im Feld: %s | Felderkennung x=%.0f z=%.0f",
-            vx, vz, imFeld, self.fieldDetectionX or 0, self.fieldDetectionZ or 0)
-    end)
-
-    g_currentMission.aiSystem:startJob(job, self.farmId)
-    print("NachbarFelder: FIELDWORK Feld=" .. tostring(fieldId) .. " (" .. tostring(missionTypeName) .. ")" .. startInfo)
-
-    -- Feldbesitz NICHT sofort zurücksetzen!
-    -- Die KI prüft während der Arbeit wiederholt FieldCourse.findClosestField →
-    -- würde das Feld sonst nicht mehr finden und nach ~30s stoppen.
-    -- Originalwerte im Worker speichern, werden in onAIFieldWorkerEnd wiederhergestellt.
-    if farmland ~= nil then
-        self.vehicleType[fieldId].NachbarFelderWorker.origFarmlandId  = origFarmlandId
-        self.vehicleType[fieldId].NachbarFelderWorker.origIsOwned     = origIsOwned
-        self.vehicleType[fieldId].NachbarFelderWorker.tempFarmland    = farmland
-    end
-
-    self:markVehiclesAsHelper(vehicle)
-end
-
-function NachbarFelderManager:removeAttacher(tt)
-    local trailer = tt.vehiclesToLoad[3]
-    trailer:forceUnmountDynamicMountedObjects()
-    tt.removeVehicleInfo.fileName = trailer.configFileName
-    tt.removeVehicleInfo.configurations = trailer.configurations
-    tt.removeVehicleInfo.fieldId = tt.fieldId
-    trailer:delete()
-
-    local x, y, z = getWorldTranslation(tt.vehiclesToLoad[1].rootNode)
-    local dirX, dirY, dirZ = localDirectionToWorld(tt.vehiclesToLoad[1].rootNode, 0, 0, 1)
-    local angle = MathUtil.getYRotationFromDirection(dirX, dirZ)
-    g_currentMission:teleportVehicle(tt.vehiclesToLoad[2], x + dirX * 9, z + dirZ * 9, angle)
-    self:attachObjectToCar(tt.vehiclesToLoad[1], tt.vehiclesToLoad[2])
 end
 
 function NachbarFelderManager:setFillCapacity(vehicle, cap, forceFillTypeName)
@@ -4983,609 +4296,8 @@ function NachbarFelderManager:setFillCapacity(vehicle, cap, forceFillTypeName)
     end
 end
 
--- ============================================================
--- Feldauswahl
--- ============================================================
-
---- Felder, auf denen wirklich etwas steht (Build 137).
----
---- Manche Karten stellen Weiden, Stallgebaeude oder Hallen auf Flaechen, die
---- noch zum Verkauf stehen. Fuer den FieldManager ist das weiterhin ein
---- unbewirtschaftetes Feld, also schickt die Mod einen Helfer hin - der dann
---- mitten im Gebaeude landet.
----
---- Bis Build 136 galt dafuer ein ganzes Farmland als bebaut, sobald
---- IRGENDEIN Placeable mit seinem rootNode darauf stand. Bergisch Land hat
---- 968 Karten-Placeables (456 Laub-/Naesse-Effekte, 217 Deko, 36 Zaeune ...)
---- an den Feldraendern: 119 Farmlands und 83 von 138 Feldern fielen weg, die
---- Feldarbeit fand kein einziges Feld. Offline gegen die Feldumrisse der
---- map.i3d gerechnet (Bergisch Land, Beuren, Krebach): kein rootNode liegt in
---- einem Feld, die tiefste Grundflaeche (Schweinestall) ragt 0,5 m hinein.
----
---- Jetzt zaehlt ein Feld nur noch als bebaut, wenn ein Hindernis-Punkt
---- mindestens BEBAUT_MIN_TIEFE Meter innerhalb des Feldumrisses liegt. Die
---- Punkte je Placeable liefert getPlaceableHindernis: rootNode, Raster ueber
---- jede Grundflaeche (placement.testAreas) und bei Zaeunen, Hecken und
---- Weiden die Zaunlinie. Placeables ohne Kollision (Effekte, Decals) zaehlen
---- nicht, ebenso das Schienennetz.
----
---- Verifiziert:
----   field.polygonPoints = Knoten des Feldumrisses (Field.lua:36/82)
----   spec_placement.testAreas[i].startNode/endNode, endNode ist direktes Kind
----     von startNode (PlaceablePlacement.lua:145-165)
----   placeable.pickObjects = alle Knoten mit RigidBody (Placeable.lua:246,
----     gefuellt in finalizePlacement Zeile 742 ueber collectPickObjects)
----   spec_newFence / spec_fence / spec_trainSystem (PlaceableNewFence.lua:88,
----     PlaceableFence.lua:151, PlaceableTrainSystem.lua:119); getFence() bei
----     newFence und husbandryFence (PlaceableNewFence.lua:30,
----     PlaceableHusbandryFence.lua:34), beide Fence.new -> getSegments()
----   localToLocal / localToWorld (PlaceablePlacement.lua:168, DebugUtil.lua:172)
----   placeable:getName() (Placeable.lua:1219), configFileNameClean (Zeile 258)
-NachbarFelderManager.BEBAUT_MIN_TIEFE = 1.0   -- m, so weit muss ein Hindernis ins Feld ragen
--- Build 139: Messpunkte fuer den Feldzustand (getFeldAktion) muessen so weit
--- im Feldumriss liegen - am Rand liegen Vorgewende, Grasnarbe, Nachbarflaechen.
-NachbarFelderManager.MESSPUNKT_RANDABSTAND = 2.0
-NachbarFelderManager.BEBAUT_RASTER    = 8.0   -- m, max. Punktabstand auf Grundflaechen/Zaeunen
-NachbarFelderManager.BEBAUT_ZELLE     = 50    -- m, Kantenlaenge des Suchrasters
-
---- Punkt im Polygon {x={}, z={}, n=} (Ray-Casting wie isPunktInWeide).
-local function nfPunktInPolygon(x, z, poly)
-    local px, pz, n = poly.x, poly.z, poly.n
-    local drin = false
-    local j = n
-    for i = 1, n do
-        if (pz[i] > z) ~= (pz[j] > z) then
-            local schnittX = px[i] + (z - pz[i]) / (pz[j] - pz[i]) * (px[j] - px[i])
-            if x < schnittX then
-                drin = not drin
-            end
-        end
-        j = i
-    end
-    return drin
-end
-
---- Kleinster Abstand eines Punktes zum Rand des Polygons (m).
-local function nfRandAbstand(x, z, poly)
-    local px, pz, n = poly.x, poly.z, poly.n
-    local best = math.huge
-    local j = n
-    for i = 1, n do
-        local ax, az = px[j], pz[j]
-        local dx, dz = px[i] - ax, pz[i] - az
-        local l2 = dx * dx + dz * dz
-        local t = 0
-        if l2 > 0 then
-            t = ((x - ax) * dx + (z - az) * dz) / l2
-            if t < 0 then
-                t = 0
-            elseif t > 1 then
-                t = 1
-            end
-        end
-        local ex, ez = x - (ax + t * dx), z - (az + t * dz)
-        local d = ex * ex + ez * ez
-        if d < best then
-            best = d
-        end
-        j = i
-    end
-    return math.sqrt(best)
-end
-
--- Build 139: fuer NachbarFelderAuftrag.lua (Feld an der Spielerposition).
--- Als Tabellenfelder, damit sie auch nach dem zweiten Laden dieser Datei
--- (addSpecialization) ueber die Manager-Instanz erreichbar sind.
-NachbarFelderManager.nfPunktInPolygon = nfPunktInPolygon
-NachbarFelderManager.nfRandAbstand    = nfRandAbstand
-
---- Feldumriss als Polygon (Build 137). Felder bewegen sich nicht, also
---- einmal je Feld gelesen.
---- @return table|nil {x={}, z={}, n=, minX=, maxX=, minZ=, maxZ=}
-function NachbarFelderManager:getFeldPolygon(field)
-    if field == nil then
-        return nil
-    end
-    self.feldPolygone = self.feldPolygone or {}
-    local poly = self.feldPolygone[field]
-    if poly == nil then
-        poly = false
-        pcall(function()
-            local knoten = field.polygonPoints
-            if type(knoten) ~= "table" or #knoten < 3 then
-                return
-            end
-            local px, pz = {}, {}
-            local minX, maxX = math.huge, -math.huge
-            local minZ, maxZ = math.huge, -math.huge
-            for i, node in ipairs(knoten) do
-                local x, _, z = getWorldTranslation(node)
-                px[i], pz[i] = x, z
-                minX = math.min(minX, x)
-                maxX = math.max(maxX, x)
-                minZ = math.min(minZ, z)
-                maxZ = math.max(maxZ, z)
-            end
-            poly = { x = px, z = pz, n = #px, minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
-        end)
-        self.feldPolygone[field] = poly
-    end
-    if poly == false then
-        return nil
-    end
-    return poly
-end
-
---- Hindernis-Punkte eines Placeables in Weltkoordinaten (Build 137).
---- Placeables bewegen sich nicht, die Punkte werden je Objekt gemerkt
---- (schwache Schluessel: verkaufte Placeables fallen von selbst heraus).
---- @return table|nil {x={}, z={}, n=, name=} oder nil = kein Hindernis
-function NachbarFelderManager:getPlaceableHindernis(p)
-    if p == nil or p.rootNode == nil then
-        return nil
-    end
-    if self.hindernisCache == nil then
-        self.hindernisCache = setmetatable({}, { __mode = "k" })
-    end
-    local h = self.hindernisCache[p]
-    if h ~= nil then
-        if h == false then
-            return nil
-        end
-        return h
-    end
-
-    h = false
-    pcall(function()
-        -- Schienennetz: rootNode im Ursprung, die Strecke laeuft ueber die
-        -- ganze Karte und kreuzt Felder nicht
-        if p.spec_trainSystem ~= nil then
-            return
-        end
-
-        local raster = NachbarFelderManager.BEBAUT_RASTER or 8.0
-        local px, pz = {}, {}
-        local function add(x, z)
-            if x ~= nil and z ~= nil then
-                px[#px + 1] = x
-                pz[#pz + 1] = z
-            end
-        end
-
-        -- Zaeune, Hecken, Weiden: die Zaunlinie selbst. Deren rootNode liegt
-        -- oft im Kartenursprung (Krebach: Zaeune und Hecken auf Feld 49).
-        local istZaun = p.spec_newFence ~= nil or p.spec_fence ~= nil
-        if p.getFence ~= nil and (istZaun or p.spec_husbandryFence ~= nil) then
-            pcall(function()
-                local fence = p:getFence()
-                if fence == nil or fence.getSegments == nil then
-                    return
-                end
-                for _, seg in ipairs(fence:getSegments() or {}) do
-                    if seg.startPosX ~= nil and seg.startPosZ ~= nil
-                            and seg.endPosX ~= nil and seg.endPosZ ~= nil then
-                        local dx, dz = seg.endPosX - seg.startPosX, seg.endPosZ - seg.startPosZ
-                        local schritte = math.max(1, math.ceil(math.sqrt(dx * dx + dz * dz) / raster))
-                        for k = 0, schritte do
-                            add(seg.startPosX + dx * k / schritte, seg.startPosZ + dz * k / schritte)
-                        end
-                    end
-                end
-            end)
-        end
-
-        -- Ohne Kollision kein Hindernis: Laub, Pfuetzen, Decals ...
-        local hatKollision = not (type(p.pickObjects) == "table" and next(p.pickObjects) == nil)
-
-        if not istZaun and hatKollision then
-            local x, _, z = getWorldTranslation(p.rootNode)
-            if math.abs(x) > 1 or math.abs(z) > 1 then
-                add(x, z)
-            end
-
-            -- Grundflaeche: Raster mit hoechstens BEBAUT_RASTER m Abstand,
-            -- Ecken und Kanten immer dabei
-            local sp = p.spec_placement
-            if sp ~= nil and type(sp.testAreas) == "table" then
-                for _, area in ipairs(sp.testAreas) do
-                    if area.startNode ~= nil and area.endNode ~= nil then
-                        pcall(function()
-                            local ox, _, oz = localToLocal(area.endNode, area.startNode, 0, 0, 0)
-                            local nx = math.min(6, math.max(1, math.ceil(math.abs(ox) / raster)))
-                            local nz = math.min(6, math.max(1, math.ceil(math.abs(oz) / raster)))
-                            for i = 0, nx do
-                                for j = 0, nz do
-                                    local wx, _, wz = localToWorld(area.startNode, ox * i / nx, 0, oz * j / nz)
-                                    add(wx, wz)
-                                end
-                            end
-                        end)
-                    end
-                end
-            end
-        end
-
-        if #px == 0 then
-            return
-        end
-
-        local name = nil
-        pcall(function()
-            name = p:getName()
-        end)
-        if name == nil or name == "" then
-            name = p.configFileNameClean or p.typeName or "?"
-        end
-        h = { x = px, z = pz, n = #px, name = tostring(name) }
-    end)
-
-    self.hindernisCache[p] = h
-    if h == false then
-        return nil
-    end
-    return h
-end
-
---- Welche Felder sind bebaut? (Build 137, ersetzt getBebauteFarmlands)
---- @return table field -> Name des Hindernisses (nur bebaute Felder)
-function NachbarFelderManager:getBebauteFelder()
-    local jetzt = g_currentMission ~= nil and g_currentMission.time or 0
-
-    -- Alle 5 Spielminuten neu einlesen: der Spieler kann jederzeit bauen.
-    if self.bebauteFelder ~= nil
-            and self.bebauteFelderZeit ~= nil
-            and jetzt - self.bebauteFelderZeit < 300000 then
-        return self.bebauteFelder
-    end
-
-    local treffer   = {}
-    local liste     = {}
-    local anzahl    = 0
-    local hindernis = 0
-    local ohne      = 0
-    local minTiefe  = NachbarFelderManager.BEBAUT_MIN_TIEFE or 1.0
-    local zelle     = NachbarFelderManager.BEBAUT_ZELLE or 50
-
-    pcall(function()
-        local ps = g_currentMission and g_currentMission.placeableSystem
-        if ps == nil or g_fieldManager == nil or g_fieldManager.getFields == nil then
-            return
-        end
-
-        -- Alle Hindernis-Punkte in ein 50-m-Raster, damit jedes Feld nur die
-        -- Punkte in seiner Naehe prueft.
-        local raster = {}
-        for _, p in ipairs(ps.placeables or {}) do
-            local h = self:getPlaceableHindernis(p)
-            if h ~= nil then
-                hindernis = hindernis + 1
-                for k = 1, h.n do
-                    local key = math.floor(h.x[k] / zelle) .. ":" .. math.floor(h.z[k] / zelle)
-                    local c = raster[key]
-                    if c == nil then
-                        c = {}
-                        raster[key] = c
-                    end
-                    c[#c + 1] = { h.x[k], h.z[k], h }
-                end
-            else
-                ohne = ohne + 1
-            end
-        end
-
-        for id, field in pairs(g_fieldManager:getFields() or {}) do
-            pcall(function()
-                local poly = self:getFeldPolygon(field)
-                if poly == nil then
-                    return
-                end
-                local fund = nil
-                local cx1, cx2 = math.floor(poly.minX / zelle), math.floor(poly.maxX / zelle)
-                local cz1, cz2 = math.floor(poly.minZ / zelle), math.floor(poly.maxZ / zelle)
-                for cx = cx1, cx2 do
-                    for cz = cz1, cz2 do
-                        local c = raster[cx .. ":" .. cz]
-                        if c ~= nil then
-                            for _, pt in ipairs(c) do
-                                local x, z = pt[1], pt[2]
-                                if x >= poly.minX and x <= poly.maxX and z >= poly.minZ and z <= poly.maxZ
-                                        and nfPunktInPolygon(x, z, poly)
-                                        and nfRandAbstand(x, z, poly) >= minTiefe then
-                                    fund = pt[3].name
-                                    break
-                                end
-                            end
-                        end
-                        if fund ~= nil then
-                            break
-                        end
-                    end
-                    if fund ~= nil then
-                        break
-                    end
-                end
-                if fund ~= nil then
-                    treffer[field] = fund
-                    anzahl = anzahl + 1
-                    if #liste < 12 then
-                        table.insert(liste, "Feld " .. tostring(self:getFeldNummer(field, id)) .. " (" .. fund .. ")")
-                    end
-                end
-            end)
-        end
-    end)
-
-    self.bebauteFelder     = treffer
-    self.bebauteFelderZeit = jetzt
-
-    -- Beim ersten Mal und wenn sich die Zahl aendert (Spieler baut/verkauft)
-    if self.bebauteGemeldet ~= anzahl then
-        self.bebauteGemeldet = anzahl
-        print(string.format("NachbarFelder: %d Felder bebaut (Hindernis mind. %.0f m im Feld) - werden ausgelassen%s" ..
-              " [%d Placeables mit Hindernis-Punkten, %d ohne Kollision/uebersprungen]",
-              anzahl, minTiefe, (#liste > 0 and (": " .. table.concat(liste, ", ")) or ""), hindernis, ohne))
-    end
-
-    return treffer
-end
-
---- Eingezaeunte Weiden als Polygone (Build 82).
----
---- Bis Build 136 pruefte getBebauteFarmlands() nur den rootNode eines
---- Placeables, also die Mitte des Stallgebaeudes. Der Weidezaun eines
---- Kuhstalls reicht aber viel weiter als das Gebaeude und laeuft regelmaessig
---- auf ein Nachbar-Farmland hinueber. Fuer den FieldManager ist das dortige
---- Feld frei, der rootNode liegt aber auf einer anderen Flaeche - also griff
---- der Farmland-Filter nicht und der Helfer landete mitten in der Kuhweide.
----
---- Diese Liste sammelt die Zaunverlaeufe selbst ein, damit der Punkt-Test in
---- isPunktInWeide() unabhaengig von Farmland-Grenzen arbeitet. Seit Build 137
---- faengt getBebauteFelder() Zaunlinien, die ins Feld laufen; dieser Test
---- bleibt fuer Felder, die ganz innerhalb einer Weide liegen.
----
---- Verifiziert: PlaceableHusbandryFence:getFence() liefert das Fence-Objekt
---- (PlaceableHusbandryFence.lua:655), fence:getSegments() die Segmentliste
---- (dort Zeile 252/258/279 verwendet), FenceSegment traegt die Weltkoordinaten
---- startPosX/Y/Z und endPosX/Y/Z (FenceSegment.lua:362, readStream ab 383).
---- @return table Liste von {minX=,maxX=,minZ=,maxZ=,punkte={{x=,z=},...}}
-function NachbarFelderManager:getWeideBereiche()
-    local jetzt = g_currentMission ~= nil and g_currentMission.time or 0
-
-    -- Alle 5 Spielminuten neu einlesen: der Spieler kann jederzeit bauen.
-    if self.weideBereiche ~= nil
-            and self.weideBereicheZeit ~= nil
-            and jetzt - self.weideBereicheZeit < 300000 then
-        return self.weideBereiche
-    end
-
-    local bereiche = {}
-
-    pcall(function()
-        local ps = g_currentMission and g_currentMission.placeableSystem
-        if ps == nil then
-            return
-        end
-
-        for _, p in ipairs(ps.placeables or {}) do
-            -- NUR Tierweiden, nicht jeder Zaun! getFence() registrieren
-            -- sowohl PlaceableHusbandryFence (Zeile 34) als auch
-            -- PlaceableNewFence (Zeile 30) - ohne die Spec-Pruefung gilt
-            -- jede umzaeunte Flaeche als Weide und alle Felder darin werden
-            -- gesperrt (Build 82 hatte genau diesen Fehler: die Helfer
-            -- bekamen kein Feld mehr und standen).
-            if p ~= nil and p.spec_husbandryFence ~= nil and p.getFence ~= nil then
-                pcall(function()
-                    local fence = p:getFence()
-                    if fence == nil or fence.getSegments == nil then
-                        return
-                    end
-
-                    local punkte = {}
-                    local minX, maxX = math.huge, -math.huge
-                    local minZ, maxZ = math.huge, -math.huge
-
-                    for _, seg in ipairs(fence:getSegments() or {}) do
-                        -- Die Segmente sind verkettet (start = end des
-                        -- Vorgaengers), die Endpunkte ergeben also den
-                        -- Umlauf der Weide.
-                        if seg.endPosX ~= nil and seg.endPosZ ~= nil then
-                            if #punkte == 0 and seg.startPosX ~= nil then
-                                table.insert(punkte, {x = seg.startPosX, z = seg.startPosZ})
-                            end
-                            table.insert(punkte, {x = seg.endPosX, z = seg.endPosZ})
-                        end
-                    end
-
-                    if #punkte < 3 then
-                        return
-                    end
-
-                    for _, pt in ipairs(punkte) do
-                        minX = math.min(minX, pt.x)
-                        maxX = math.max(maxX, pt.x)
-                        minZ = math.min(minZ, pt.z)
-                        maxZ = math.max(maxZ, pt.z)
-                    end
-
-                    table.insert(bereiche, {
-                        minX = minX, maxX = maxX,
-                        minZ = minZ, maxZ = maxZ,
-                        punkte = punkte,
-                    })
-                end)
-            end
-        end
-    end)
-
-    self.weideBereiche     = bereiche
-    self.weideBereicheZeit = jetzt
-
-    if self.weideGemeldet ~= true then
-        self.weideGemeldet = true
-        print("NachbarFelder: " .. tostring(#bereiche) ..
-              " eingezaeunte Weiden erkannt - dort wird nicht gearbeitet")
-    end
-
-    return bereiche
-end
-
---- Liegt der Punkt in einer eingezaeunten Weide? (Build 82)
---- Bounding-Box als schneller Vorfilter, danach Punkt-in-Polygon
---- (Ray-Casting nach Westen).
---- @param number x Weltkoordinate
---- @param number z Weltkoordinate
---- @return boolean
-function NachbarFelderManager:isPunktInWeide(x, z)
-    if x == nil or z == nil then
-        return false
-    end
-
-    for _, w in ipairs(self:getWeideBereiche()) do
-        if x >= w.minX and x <= w.maxX and z >= w.minZ and z <= w.maxZ then
-            local drin = false
-            local n = #w.punkte
-            local j = n
-            for i = 1, n do
-                local pi, pj = w.punkte[i], w.punkte[j]
-                if (pi.z > z) ~= (pj.z > z) then
-                    local schnittX = pi.x + (z - pi.z) / (pj.z - pi.z) * (pj.x - pi.x)
-                    if x < schnittX then
-                        drin = not drin
-                    end
-                end
-                j = i
-            end
-            if drin then
-                return true
-            end
-        end
-    end
-
-    return false
-end
-
---- Feld dauerhaft aussperren (Konsole: nachbarFelderSperre <Nr>).
---- Notausgang fuer Faelle, die die automatische Erkennung nicht abdeckt.
-function NachbarFelderManager:sperreFeld(fieldId, an)
-    self.feldSperre = self.feldSperre or {}
-    if an == false then
-        self.feldSperre[fieldId] = nil
-        return false
-    end
-    self.feldSperre[fieldId] = true
-    return true
-end
-
--- ============================================================
--- Feldnummer (Build 139)
--- Es gibt nur EINE Feldnummer: field:getId(). Das ist die Nummer auf der
--- Karte und in den Vertragsmeldungen, und genau sie erwartet getFieldById -
--- das Spiel speichert Felder mit getId() und laedt sie mit getFieldById
--- (FieldManager:saveToXMLFile/loadFromXMLFile, AbstractFieldMission).
--- Der Listenplatz in getFields() ist KEINE Feldnummer: Die Nummern folgen
--- den Farmlands und koennen Luecken haben. Alle Schluessel der Mod
--- (vehicleType, feldSperre, fieldCooldown, Spielstand) sind diese Nummer.
--- ============================================================
---- Feldnummer eines Feld-Objekts: field:getId(), sonst field.fieldId/field.id,
---- zuletzt der Listenplatz (nur falls getId in einer anderen Spielversion fehlt).
---- @param listIndex optional, Schluessel aus pairs(getFields())
---- @return number|nil
-function NachbarFelderManager:getFeldNummer(field, listIndex)
-    if field == nil then return nil end
-    local nr = nil
-    if field.getId ~= nil then
-        pcall(function()
-            nr = field:getId()
-        end)
-    end
-    if type(nr) ~= "number" then
-        nr = field.fieldId or field.id or listIndex
-    end
-    return nr
-end
-
---- Nummern aller Felder aus der echten Feldliste - Grundlage der Zufallswahl.
---- Bewusst NICHT math.random(1, #getFields()): das waere ein Listenplatz.
-function NachbarFelderManager:getFeldNummern()
-    local liste = {}
-    for idx, field in pairs(g_fieldManager:getFields() or {}) do
-        local nr = self:getFeldNummer(field, idx)
-        if nr ~= nil then
-            table.insert(liste, nr)
-        end
-    end
-    return liste
-end
-
-function NachbarFelderManager:isFieldUseful(fieldId)
-    -- Manuell gesperrt?
-    if self.feldSperre ~= nil and self.feldSperre[fieldId] then return nil end
-    if self.vehicleType[fieldId] ~= nil then return nil end
-    -- Cooldown: Feld hat kürzlich gescheitert → überspringen
-    if self.fieldCooldown[fieldId] ~= nil and self.fieldCooldown[fieldId] > 0 then return nil end
-    local field = g_fieldManager:getFieldById(fieldId)
-    if field == nil or field.farmland == nil or field.farmland.isOwned then return nil end
-    -- Build 106: nur das Feld ueberspringen, auf dem wirklich ein Vertrag
-    -- liegt. Bisher wurde "farmland.id == fieldId" verglichen - eine
-    -- Farmland-Nummer mit einer Feld-Nummer - und dazu JEDES Feld gesperrt,
-    -- sobald irgendein Vertragsfeld einen Besitzer hatte.
-    for v = 1, #g_missionManager.missions do
-        local mission = g_missionManager.missions[v]
-        if type(mission.getField) == "function" and self:getIstVertragAktiv(mission) then
-            local mf = mission:getField()
-            if mf ~= nil and (mf == field or (mf.farmland ~= nil and mf.farmland == field.farmland)) then
-                return nil
-            end
-        end
-    end
-
-    -- Ragt ein Stall, eine Halle oder ein Zaun ins Feld? Dann ist das Feld
-    -- zwar formal frei, praktisch aber bebaut - der Helfer wuerde mitten
-    -- hineinfahren. Build 137: je Feld nach Umriss statt je Farmland.
-    local bebaut = self:getBebauteFelder()
-    if bebaut ~= nil and bebaut[field] ~= nil then
-        return nil
-    end
-
-    -- Liegt das Feld in einer eingezaeunten Weide? Der Farmland-Test oben
-    -- greift nur, wenn der Stall-rootNode auf derselben Flaeche steht - eine
-    -- Weide, die auf ein Nachbar-Farmland hinueberreicht, rutscht durch.
-    if self:isPunktInWeide(field.posX, field.posZ) then
-        if self.weideSkip == nil then self.weideSkip = {} end
-        if self.weideSkip[fieldId] == nil then
-            self.weideSkip[fieldId] = true
-            print("NachbarFelder: Feld " .. tostring(fieldId) ..
-                  " liegt in einer eingezaeunten Weide - wird ausgelassen")
-        end
-        return nil
-    end
-
-    -- Winzige Felder ueberspringen: < 0.3 ha (3000 m²). Dort ist der
-    -- generierte Field Course zu klein/leer → der fieldWorkTask scheitert
-    -- sofort (~446ms, belegt bei Feld 54 = 0.14ha) statt zu arbeiten, und
-    -- das Implement landet faelschlich auf der Sperrliste. Verifiziert:
-    -- field.areaHa (Krebach: 0.14-1.22ha). Bodengeraete (plow/sow) arbeiten
-    -- auf >=0.9ha-Feldern nachweislich das ganze Feld ab.
-    if field.areaHa ~= nil and field.areaHa < 0.3 then
-        return nil
-    end
-
-    -- Build 105/107/111: nur fremde Felder, die abgeerntet, verdorrt oder als
-    -- Stoppel leer sind, und nur Pfluegen oder Grubbern. Die Entscheidung
-    -- trifft getFeldAktion (mehrere Messpunkte, siehe dort).
-    if field.grassMissionOnly then return nil end
-    local aktion, grund, info = self:getFeldAktion(field)
-    if aktion == 3 and not (self.missionHelper[3] ~= nil and self.missionHelper[3].active) then
-        aktion = 4
-    end
-    if aktion == 4 and not (self.missionHelper[4] ~= nil and self.missionHelper[4].active) then
-        return nil
-    end
-    if aktion ~= nil then
-        self.letzteFeldWahl = { fieldId = fieldId, grund = grund, info = info }
-    end
-    return aktion
-end
+-- Build 142: Hochachse des Traktors zeigt weniger als so weit nach oben (cos ~72 Grad) = umgekippt
+NachbarFelderManager.KIPP_GRENZE = 0.3
 
 -- ============================================================
 -- generateTraffic: Fahrzeug fährt zu einem Feld-Zielpunkt, parkt
@@ -5940,114 +4652,6 @@ function NachbarFelderManager:buildTrafficTrailerList()
 end
 
 -- ============================================================
--- Fruchtfolge-Saatwahl (Build 68)
--- Statt Zufallsfrucht (mit Gras-Risiko wie bei der Konkurrenz)
--- waehlt der Saeh-Helfer fruchtfolge-plausibel: Vorfrucht des
--- Feldes merken (fieldLastFruit, im Savegame persistiert) und
--- die Saatgutliste der Maschine danach bewerten. Gras und
--- Zwischenfruechte nur als letzte Wahl.
--- ============================================================
-
--- Fruchtfolge-Familien (Namen aus FruitTypeDesc.name, map-uebliche Namen
--- abgedeckt; unbekannte Fruechte zaehlen als eigene Familie "OTHER")
-local NF_FRUIT_CATEGORY = {
-    -- Getreide
-    WHEAT = "CEREAL", WINTERWHEAT = "CEREAL", BARLEY = "CEREAL", OAT = "CEREAL",
-    RYE = "CEREAL", TRITICALE = "CEREAL", SPELT = "CEREAL", SORGHUM = "CEREAL",
-    RICE = "CEREAL", RICELONGGRAIN = "CEREAL",
-    -- Mais (eigene Familie: Getreide->Mais gilt als echter Wechsel)
-    MAIZE = "MAIZE",
-    -- Oelfruechte
-    CANOLA = "OILSEED", SUNFLOWER = "OILSEED",
-    -- Leguminosen
-    SOYBEAN = "LEGUME", PEA = "LEGUME", GREENBEAN = "LEGUME",
-    CHICKPEA = "LEGUME", LENTIL = "LEGUME",
-    -- Hack-/Wurzelfruechte und Gemuese
-    POTATO = "ROOT", SUGARBEET = "ROOT", BEETROOT = "ROOT", CARROT = "ROOT",
-    PARSNIP = "ROOT", ONION = "ROOT", SPINACH = "ROOT", CABBAGE = "ROOT",
-    REDCABBAGE = "ROOT",
-    -- Gras & Zwischenfruechte: fuer KI-Nachbarn unattraktiv (Anti-Gras-Bias)
-    GRASS = "GRASS", MEADOW = "GRASS", OILSEEDRADISH = "GRASS",
-}
-
--- Bewertung einer Saat-Kandidatin gegen die Vorfrucht.
--- Hoeherer Score = bessere Wahl. Basis 10, Abzuege/Boni:
---   Gras/Zwischenfrucht -8 (nur waehlen wenn sonst nichts geht)
---   gleiche Frucht wie Vorfrucht -4 (Monokultur vermeiden)
---   gleiche Familie -1 | echter Familienwechsel +3
---   Leguminose nach Getreide/Mais +1 (klassische Fruchtfolge)
-function NachbarFelderManager:scoreSeedChoice(fruitName, prevFruitName)
-    local score = 10
-    local cat = NF_FRUIT_CATEGORY[fruitName or "?"] or "OTHER"
-    if cat == "GRASS" then
-        score = score - 8
-    end
-    if prevFruitName ~= nil then
-        local prevCat = NF_FRUIT_CATEGORY[prevFruitName] or "OTHER"
-        if fruitName == prevFruitName then
-            score = score - 4
-        elseif cat == prevCat then
-            score = score - 1
-        else
-            score = score + 3
-        end
-        if cat == "LEGUME" and (prevCat == "CEREAL" or prevCat == "MAIZE") then
-            score = score + 1
-        end
-    end
-    return score
-end
-
--- Beste pflanzbare Frucht fuer die Saemaschine waehlen.
--- Ersetzt die alte Zufallsschleife (inkl. des hartcodierten Index-25-
--- Ausschlusses - der ist jetzt der GRASS-Malus per Namens-Check).
--- Bei mehreren gleich guten Kandidaten entscheidet der Zufall (Vielfalt).
-function NachbarFelderManager:chooseBestSeed(veh, fieldId)
-    local spec  = veh.spec_sowingMachine
-    local seeds = spec ~= nil and spec.seeds or nil
-    if seeds == nil or #seeds == 0 then return end
-
-    local prevFruit = self.fieldLastFruit ~= nil and self.fieldLastFruit[fieldId] or nil
-    local best, bestScore = {}, nil
-    for idx = 1, #seeds do
-        local fruitDesc = g_fruitTypeManager:getFruitTypeByIndex(seeds[idx])
-        if fruitDesc ~= nil then
-            local plantable = false
-            pcall(function()
-                plantable = fruitDesc:getIsPlantableInPeriod(
-                    g_currentMission.missionInfo.growthMode,
-                    g_currentMission.environment.currentPeriod)
-            end)
-            if plantable then
-                local sc = self:scoreSeedChoice(fruitDesc.name, prevFruit)
-                if bestScore == nil or sc > bestScore then
-                    bestScore = sc
-                    best = { idx }
-                elseif sc == bestScore then
-                    table.insert(best, idx)
-                end
-            end
-        end
-    end
-
-    if bestScore == nil then
-        -- Nichts pflanzbar (sollte isFieldUseful nie durchlassen):
-        -- Zufall wie frueher, damit der Ablauf nicht haengt.
-        veh:changeSeedIndex(math.random(1, #seeds))
-        return
-    end
-
-    local chosenIdx = best[math.random(#best)]
-    veh:changeSeedIndex(chosenIdx)
-    local fd = g_fruitTypeManager:getFruitTypeByIndex(seeds[spec.currentSeed or chosenIdx])
-    print("NachbarFelder: [SAAT] Feld " .. tostring(fieldId) ..
-        ": Vorfrucht=" .. tostring(prevFruit or "unbekannt") ..
-        " -> gesaet=" .. tostring(fd ~= nil and fd.name or "?") ..
-        " (Score " .. tostring(bestScore) .. ", " ..
-        tostring(#best) .. " Kandidat(en))")
-end
-
--- ============================================================
 -- Tagesrhythmus (Build 68)
 -- Die Verkehrs-Obergrenze folgt der Uhrzeit: Hochbetrieb morgens
 -- und nachmittags, weniger mittags/abends, nachts schlaeft alles
@@ -6346,6 +4950,7 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     -- aiSystem behalten (sonst Frame-Fehler wie bei geloeschten Vehicles)
     for _, veh in ipairs(vehs) do
         self:stopAIJobSafely(veh)
+        self:meldeBeimSpielverkehrAb(veh)   -- Build 152: schlafend wie ein abgestelltes Fahrzeug
     end
 
     -- Build 103: nicht zu mehreren am selben Fleck einschlafen. Am 12.09.
@@ -6768,7 +5373,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     self.countWorkers = self.countWorkers + 1
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
     print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
-        (trailerAdded and " + Anbaugeraet" or "") ..
+        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")) or "") ..
         " | Ziel: WP" .. tostring(destIdx) ..
         " | " .. tostring(worker.hopsLeft) .. " Hops" ..
         " | Aktiv: " .. tostring(activePatrol + 1) .. "/" .. tostring(effLimit) ..
@@ -6779,323 +5384,6 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
         tostring((self.gespannSpawns or 0) + (self.soloSpawns or 0)) ..
         " (Ziel " .. tostring(self.trailerChance or 40) .. "%)")
     return true
-end
-
-function NachbarFelderManager:generateWorkMission(manuell)
-    -- Nur auf Server ausführen
-    if not g_currentMission:getIsServer() then
-        print("NachbarFelder: generateWorkMission ignoriert (kein Server)")
-        return false
-    end
-
-    -- "Anzahl Arbeiter" (Settings): begrenzt Feldarbeits-Helfer.
-    -- Patrol-/Verkehrsfahrzeuge zaehlen hier NICHT (eigenes trafficLimit).
-    local fieldWorkers = 0
-    for _, k in pairs(self.vehicleType) do
-        local w = k.NachbarFelderWorker
-        if w ~= nil and not w.isPatrol and w.status ~= 100 and w.status ~= 9999 then
-            fieldWorkers = fieldWorkers + 1
-        end
-    end
-    if fieldWorkers >= (self.MAX_ASSISTANT_WORKERS or 12) then
-        print("NachbarFelder: Max. Arbeiter erreicht (" .. tostring(fieldWorkers) ..
-            "/" .. tostring(self.MAX_ASSISTANT_WORKERS) .. ") - kein neuer Feldarbeits-Helfer")
-        return false
-    end
-
-    -- Build 132: Spawnpunkte vorhanden, aber alle belegt -> diesen Takt auslassen
-    if self:getHatSpawnpunkte() and self:waehleSpawnpunkt(true) == nil then
-        return false
-    end
-
-    print("NF: generateWorkMission")
-    self.counter = self.counter + 1
-
-    if #self.loadVehiclesFromXML > 0 then
-        local eintrag = self.loadVehiclesFromXML[1]
-        local created, verworfen
-        local feldDa = false
-        pcall(function()
-            feldDa = eintrag.fieldId ~= nil and g_fieldManager:getFieldById(eintrag.fieldId) ~= nil
-        end)
-        if not feldDa then
-            -- Build 139: Nummer trifft kein Feld (alter Spielstand, andere Karte) -> verwerfen
-            print("NachbarFelder: Gespeicherter Auftrag verworfen - Feld " .. tostring(eintrag.fieldId) ..
-                " gibt es auf dieser Karte nicht")
-            created, verworfen = false, true
-        elseif eintrag.auftrag and NachbarFelderAuftrag ~= nil then
-            -- Build 139: Auftrag eines Spielers - eigenes Feld ist erlaubt,
-            -- isFieldUseful wuerde es als "gehoert einer Farm" verwerfen
-            created, verworfen = NachbarFelderAuftrag.starteGespeichert(self, eintrag)
-        else
-            created, verworfen = self:startSavedMission(eintrag.fieldId, eintrag.missionType)
-        end
-        -- Build 126: auch verworfene Auftraege entfernen, sonst Endlosschleife
-        if created or verworfen then table.remove(self.loadVehiclesFromXML, 1) end
-        return created
-    end
-
-    -- Build 139: zufaelliger Eintrag der echten Feldliste und dessen Nummer
-    -- (getFeldNummer). Frueher math.random(1, #getFields()) - ein Listenplatz:
-    -- Felder mit hoeherer Nummer als die Anzahl der Felder kamen nie dran,
-    -- Nummern ohne Feld waren Fehlversuche.
-    local feldNummern = self:getFeldNummern()
-    if #feldNummern == 0 then
-        print("NachbarFelder: keine Felder auf der Karte gefunden")
-        return false
-    end
-    local randomFieldId = feldNummern[math.random(#feldNummern)]
-    local actionOnField = self:isFieldUseful(randomFieldId)
-    local missionHelper
-    if actionOnField ~= nil then
-        missionHelper = self.missionHelper[actionOnField]
-        if missionHelper == nil or not missionHelper.active then actionOnField = nil end
-    end
-
-    local count = math.max(50, #feldNummern * 3)
-    while actionOnField == nil do
-        if count <= 0 then
-            print("NF: no useful field found")
-            self:logFeldStatistik(manuell)
-            return false
-        end
-        randomFieldId = feldNummern[math.random(#feldNummern)]
-        actionOnField = self:isFieldUseful(randomFieldId)
-        if actionOnField ~= nil then
-            missionHelper = self.missionHelper[actionOnField]
-            if missionHelper == nil or not missionHelper.active then actionOnField = nil end
-        end
-        count = count - 1
-    end
-    if actionOnField == nil then
-        print("NF: no action on field")
-        return false
-    end
-
-    -- Build 111: Grund der Feldwahl ins Log
-    local fw = self.letzteFeldWahl
-    local bodenName = "?"
-    pcall(function()
-        local fsx = g_fieldManager:getFieldById(randomFieldId):getFieldState()
-        bodenName = self:getBodenName(fsx.groundType)
-    end)
-    local fwGrund, fwInfo = "?", ""
-    if fw ~= nil and fw.fieldId == randomFieldId then
-        fwGrund, fwInfo = tostring(fw.grund), tostring(fw.info or "")
-    end
-    print(string.format("NachbarFelder: Feld %d gewaehlt fuer %s - Grund: %s, Boden Mitte %s | %s",
-        randomFieldId, tostring(self.missionHelper[actionOnField] and self.missionHelper[actionOnField].name),
-        fwGrund, bodenName, fwInfo))
-    return self:createMission(randomFieldId, self.missionHelper[actionOnField])
-end
-
---- Name eines Bodentyps fuer das Log (Build 111). FieldGroundType ist in der
---- Engine definiert, die Zuordnung Zahl -> Name steht in keiner Datei.
-function NachbarFelderManager:getBodenName(gt)
-    if gt == nil then return "?" end
-    local name = nil
-    pcall(function()
-        for k, v in pairs(FieldGroundType or {}) do
-            if v == gt and type(k) == "string" and k == string.upper(k) then
-                name = k
-                break
-            end
-        end
-    end)
-    return name ~= nil and (name .. "(" .. tostring(gt) .. ")") or tostring(gt)
-end
-
---- Fruchtzustand an einem Messpunkt (Build 111):
---- "leer", "abgeerntet", "verdorrt", "erntereif" oder "waechst".
---- Nutzt die in FruitTypeDesc.lua sichtbaren Felder (cutStates/cutState :306-308,
---- witheredState :315, min/maxHarvestingGrowthState :291-295) statt der im
---- Spielcode nicht einsehbaren getIsCut/getIsWithered.
-function NachbarFelderManager:getFruchtZustand(fs)
-    if fs == nil or fs.fruitTypeIndex == nil or fs.fruitTypeIndex == FruitType.UNKNOWN then
-        return "leer"
-    end
-    local fruit = g_fruitTypeManager:getFruitTypeByIndex(fs.fruitTypeIndex)
-    local gs = fs.growthState or 0
-    if fruit == nil or gs == 0 then return "leer" end
-    if (fruit.cutStates ~= nil and fruit.cutStates[gs]) or gs == fruit.cutState then
-        return "abgeerntet"
-    end
-    if fruit.witheredState ~= nil and gs == fruit.witheredState then
-        return "verdorrt"
-    end
-    if (fruit.minHarvestingGrowthState or 0) > 0 and gs >= fruit.minHarvestingGrowthState
-       and gs <= (fruit.maxHarvestingGrowthState or fruit.minHarvestingGrowthState) then
-        return "erntereif"
-    end
-    return "waechst"
-end
-
---- Was soll auf diesem fremden Feld passieren? (Build 111, verschaerft in Build 112)
---- @return integer|nil 3 = pfluegen, 4 = grubbern, nil = nichts
---- @return string Grund ("abgeerntet", "verdorrt", "stoppel", "frucht", "bearbeitet", "unklar", "ungueltig")
---- @return string Messwerte fuers Log
---- @return string|nil Frucht und Zustand am Messpunkt mit Frucht, z.B. "GRASS waechst" (Build 139)
----
---- Build 111 entschied nach einem einzelnen "abgeerntet"-Punkt. Am 13.09. 13:54
---- wurden so Feld 69 (Boden Mitte HARVEST_READY) und Feld 64 (Boden Mitte SOWN)
---- gewaehlt. Feld 64 war laut User aber WIRKLICH abgeerntet - der Bodentyp bleibt
---- nach der Ernte auf dem Wert der Aussaat stehen. Der Bodentyp kann erntereif
---- und abgeerntet also NICHT unterscheiden, nur die Frucht selbst. Deshalb:
----   * Mitte + 16 Punkte auf zwei Ringen (zweiter um 22,5 Grad versetzt; eine
----     Fahrgasse ohne Frucht trifft so nicht alle Punkte - Feld 53),
----   * JEDER Punkt mit wachsender oder erntereifer Frucht macht das Feld tabu,
----   * freigegeben wird nur, wenn mindestens die HAELFTE der gueltigen Punkte
----     abgeerntet/verdorrt ist oder leer mit Stoppelboden (mindestens 3 Punkte);
----     ein einzelner abgeernteter Punkt auf einer Nachbarflaeche reicht nicht,
----   * "leer auf Frucht-Bodentyp" (Fahrgasse u. ae.) zaehlt weder dafuer noch
----     dagegen und steht nur im Log.
----
---- Build 139: Die Ringpunkte zaehlen nur, wenn sie im Feldumriss liegen und
---- mindestens MESSPUNKT_RANDABSTAND vom Rand entfernt sind. Vorher genuegte
---- "gleiches Farmland" - bei langen, schmalen oder verwinkelten Feldern lagen
---- Punkte auf Wiesen-/Grasstreifen neben dem Feld, Gras zaehlt als wachsende
---- Frucht -> Feld galt faelschlich als "Frucht steht" (Auftrag Feld 54).
-function NachbarFelderManager:getFeldAktion(field)
-    local fs = field ~= nil and field:getFieldState() or nil
-    if fs == nil or not fs.isValid then return nil, "ungueltig", "" end
-
-    if self.fruchtBoeden == nil then
-        self.fruchtBoeden = {}
-        local bodenNamen = { "SOWN", "DIRECT_SOWN", "PLANTED", "HARVEST_READY",
-                             "HARVEST_READY_OTHER", "GRASS", "GRASS_CUT", "ROLLER_LINES" }
-        for _, name in ipairs(bodenNamen) do
-            local v = FieldGroundType ~= nil and FieldGroundType[name] or nil
-            if v ~= nil then
-                self.fruchtBoeden[v] = true
-            end
-        end
-    end
-
-    local punkte = {}   -- je Punkt: { Fruchtzustand, Bodentyp, Fruchtname }
-    local function hatFrucht(pt)
-        return pt[1] == "waechst" or pt[1] == "erntereif"
-    end
-    -- Name der Frucht an einem Messpunkt (fuers Log und die Auftrags-Meldung)
-    local function fruchtName(state)
-        local name = "?"
-        pcall(function()
-            local ft = g_fruitTypeManager:getFruitTypeByIndex(state.fruitTypeIndex)
-            if ft ~= nil and ft.name ~= nil then
-                name = ft.name
-            end
-        end)
-        return name
-    end
-
-    punkte[1] = { self:getFruchtZustand(fs), fs.groundType, fruchtName(fs) }
-    if hatFrucht(punkte[1]) then
-        return nil, "frucht", "Mitte " .. punkte[1][1] .. "/" .. self:getBodenName(punkte[1][2]) ..
-            " (" .. punkte[1][3] .. ")", punkte[1][3] .. " " .. punkte[1][1]
-    end
-
-    -- Build 139: Feldumriss fuer die Ringpunkte (nil = kein Umriss -> wie bisher nur Farmland)
-    local poly = self:getFeldPolygon(field)
-    local randMin = NachbarFelderManager.MESSPUNKT_RANDABSTAND
-    local ausserhalb = 0
-
-    local fruchtPunkt = nil
-    pcall(function()
-        if FieldState == nil or FieldState.new == nil or field.posX == nil then return end
-        local seite = math.sqrt(math.max(field.areaHa or 0.3, 0.1) * 10000)
-        local farmlandId = field.farmland ~= nil and field.farmland.id or nil
-        for ring, anteil in ipairs({ 0.2, 0.42 }) do
-            local r = seite * anteil
-            for n = 0, 7 do
-                local a = (n + (ring - 1) * 0.5) * math.pi / 4
-                local px, pz = field.posX + math.cos(a) * r, field.posZ + math.sin(a) * r
-                local imFeld = poly == nil or (nfPunktInPolygon(px, pz, poly) and nfRandAbstand(px, pz, poly) >= randMin)
-                if not imFeld then
-                    ausserhalb = ausserhalb + 1
-                end
-                local probe = FieldState.new()
-                if imFeld then
-                    probe:update(px, pz)
-                end
-                if imFeld and probe.isValid and (farmlandId == nil or probe.farmlandId == farmlandId) then
-                    local pt = { self:getFruchtZustand(probe), probe.groundType, fruchtName(probe) }
-                    punkte[#punkte + 1] = pt
-                    if hatFrucht(pt) then
-                        fruchtPunkt = pt
-                        return
-                    end
-                end
-            end
-        end
-    end)
-
-    local nAbgeerntet, nVerdorrt, nStoppel, nLeerFruchtboden = 0, 0, 0, 0
-    local stoppelTyp = FieldGroundType ~= nil and FieldGroundType.STUBBLE_TILLAGE or nil
-    for _, pt in ipairs(punkte) do
-        if pt[1] == "abgeerntet" then
-            nAbgeerntet = nAbgeerntet + 1
-        elseif pt[1] == "verdorrt" then
-            nVerdorrt = nVerdorrt + 1
-        elseif stoppelTyp ~= nil and pt[2] == stoppelTyp then
-            nStoppel = nStoppel + 1
-        elseif pt[2] ~= nil and self.fruchtBoeden[pt[2]] then
-            nLeerFruchtboden = nLeerFruchtboden + 1   -- Fahrgasse o. ae.: nur Info
-        end
-    end
-    local info = string.format("%d Messpunkte: abgeerntet %d, verdorrt %d, Stoppel %d, leer auf Fruchtboden %d" ..
-        " (%d ausserhalb des Feldumrisses verworfen)",
-        #punkte, nAbgeerntet, nVerdorrt, nStoppel, nLeerFruchtboden, ausserhalb)
-
-    if fruchtPunkt ~= nil then
-        return nil, "frucht", info .. ", Frucht an Messpunkt (" .. fruchtPunkt[1] .. "/" ..
-            self:getBodenName(fruchtPunkt[2]) .. ", " .. fruchtPunkt[3] .. ")", fruchtPunkt[3] .. " " .. fruchtPunkt[1]
-    end
-    if #punkte < 3 then
-        return nil, "unklar", info
-    end
-    if (nAbgeerntet + nVerdorrt + nStoppel) * 2 < #punkte then
-        return nil, "bearbeitet", info
-    end
-
-    local grund
-    if nAbgeerntet > 0 and nAbgeerntet >= nVerdorrt and nAbgeerntet >= nStoppel then
-        grund = "abgeerntet"
-    elseif nVerdorrt > 0 and nVerdorrt >= nStoppel then
-        grund = "verdorrt"
-    else
-        grund = "stoppel"
-    end
-
-    if grund ~= "stoppel" then
-        local maxPlow = nil
-        pcall(function()
-            maxPlow = g_currentMission.fieldGroundSystem:getMaxValue(FieldDensityMap.PLOW_LEVEL)
-        end)
-        if maxPlow ~= nil and (fs.plowLevel or 0) < maxPlow then
-            return 3, grund, info
-        end
-    end
-    return 4, grund, info
-end
-
---- Laeuft dieser Vertrag gerade, oder wird er nur angeboten? (Build 109)
----
---- g_missionManager.missions enthaelt auch die nur ANGEBOTENEN Vertraege
---- (MissionStatus.CREATED, MissionManager.lua:327). Bisher sperrte jeder davon
---- sein Feld - nach der Ernte bietet das Spiel aber gerade auf den abgeernteten
---- Feldern Pflug- und Grubbervertraege an (Statistik 13.09.: 19-21 Felder "mit
---- Vertrag"). Gesperrt wird jetzt nur, was ein Spieler angenommen hat:
---- AbstractMission:getIsInProgress() = PREPARING oder RUNNING (AbstractMission.lua:790).
-function NachbarFelderManager:getIstVertragAktiv(mission)
-    if mission == nil then return false end
-    local aktiv = true
-    pcall(function()
-        if mission.getIsInProgress ~= nil then
-            aktiv = mission:getIsInProgress() == true
-        elseif MissionStatus ~= nil and mission.status ~= nil then
-            aktiv = mission.status == MissionStatus.PREPARING or mission.status == MissionStatus.RUNNING
-        end
-    end)
-    return aktiv
 end
 
 --- Position und Name des Zugfahrzeugs eines Workers (Build 109).
@@ -7114,638 +5402,6 @@ function NachbarFelderManager:getWorkerName(w)
     local veh = w ~= nil and w.vehiclesToLoad ~= nil and w.vehiclesToLoad[1] or nil
     local f = veh ~= nil and veh.configFileName or ""
     return string.match(f, "[^/\\]+$") or "?"
-end
-
---- Warum findet die Feldarbeit nichts? (Build 106)
---- Zaehlt alle Felder nach dem ersten Grund, aus dem sie ausscheiden - in
---- derselben Reihenfolge wie isFieldUseful. Hoechstens alle 30 Minuten.
-function NachbarFelderManager:logFeldStatistik(sofort)
-    -- Build 109: bei manueller Suche (Shift+Alt+N / Konsole) immer ausgeben
-    if not sofort and self.feldStatistikAt ~= nil
-       and g_time - self.feldStatistikAt < 30 * 60 * 1000 then
-        return
-    end
-    self.feldStatistikAt = g_time
-
-    local z = { gesamt = 0, belegt = 0, besitzer = 0, vertrag = 0, bebaut = 0, weide = 0,
-                klein = 0, gruenland = 0, ungueltig = 0, waechst = 0, bearbeitet = 0,
-                geeignet = 0, verdorrt = 0, angeboten = 0 }
-    local bebaut = self:getBebauteFelder() or {}
-    local vertragsFlaechen = {}
-    pcall(function()
-        for _, m in ipairs(g_missionManager.missions or {}) do
-            if type(m.getField) == "function" then
-                local mf = m:getField()
-                if mf ~= nil and mf.farmland ~= nil then
-                    -- Build 109: true = Vertrag laeuft, false = nur angeboten
-                    if self:getIstVertragAktiv(m) then
-                        vertragsFlaechen[mf.farmland] = true
-                    elseif vertragsFlaechen[mf.farmland] == nil then
-                        vertragsFlaechen[mf.farmland] = false
-                    end
-                end
-            end
-        end
-    end)
-    local maxPlow = nil
-    pcall(function()
-        maxPlow = g_currentMission.fieldGroundSystem:getMaxValue(FieldDensityMap.PLOW_LEVEL)
-    end)
-
-    for id, field in pairs(g_fieldManager:getFields() or {}) do
-        z.gesamt = z.gesamt + 1
-        pcall(function()
-            local fid = self:getFeldNummer(field, id)   -- Build 139: nicht der Listenplatz
-            if self.vehicleType[fid] ~= nil
-               or (self.feldSperre ~= nil and self.feldSperre[fid])
-               or ((self.fieldCooldown[fid] or 0) > 0) then
-                z.belegt = z.belegt + 1; return
-            end
-            if field.farmland == nil or field.farmland.isOwned then z.besitzer = z.besitzer + 1; return end
-            if vertragsFlaechen[field.farmland] == true then z.vertrag = z.vertrag + 1; return end
-            if vertragsFlaechen[field.farmland] == false then z.angeboten = z.angeboten + 1 end
-            if bebaut[field] ~= nil then z.bebaut = z.bebaut + 1; return end
-            if self:isPunktInWeide(field.posX, field.posZ) then z.weide = z.weide + 1; return end
-            if field.areaHa ~= nil and field.areaHa < 0.3 then z.klein = z.klein + 1; return end
-            local fs = field:getFieldState()
-            -- Build 107: Gruenland getrennt zaehlen - am 13.09. waren 42 von 95
-            -- Feldern "ungueltig", ohne dass zu sehen war, warum.
-            if field.grassMissionOnly then z.gruenland = z.gruenland + 1; return end
-            if fs == nil or not fs.isValid then
-                z.ungueltig = z.ungueltig + 1; return
-            end
-            -- Build 111: dieselbe Entscheidung wie die Feldwahl
-            local aktion, grund = self:getFeldAktion(field)
-            if aktion ~= nil then
-                z.geeignet = z.geeignet + 1
-                if grund == "verdorrt" then z.verdorrt = z.verdorrt + 1 end
-            elseif grund == "frucht" or grund == "waechst" or grund == "erntereif" then
-                z.waechst = z.waechst + 1
-            else
-                z.bearbeitet = z.bearbeitet + 1
-            end
-        end)
-    end
-
-    print(string.format("NachbarFelder: Feldarbeit-Statistik - %d Felder: %d belegt/gesperrt," ..
-        " %d gehoeren einer Farm, %d mit laufendem Vertrag, %d bebaut, %d Weide, %d unter 0,3 ha," ..
-        " %d Gruenland, %d Zustand ungueltig, %d mit stehender Frucht, %d schon bearbeitet/kein Stoppel," ..
-        " %d geeignet (davon %d verdorrt) - Vertrag nur angeboten (zaehlt mit): %d",
-        z.gesamt, z.belegt, z.besitzer, z.vertrag, z.bebaut, z.weide, z.klein,
-        z.gruenland, z.ungueltig, z.waechst, z.bearbeitet, z.geeignet, z.verdorrt, z.angeboten))
-end
-
-function NachbarFelderManager:startSavedMission(fieldId, missionHelperName)
-    -- Build 126: gespeicherte Auftraege muessen dieselbe Pruefung bestehen wie die
-    -- Feldsuche (Frucht, Vertrag, Besitzer, Weide ...). Server 14.09.: Feld 72 mit
-    -- Karotten (Wachstum 7, HARVEST_READY_OTHER) wurde aus einem alten Auftrag gepfluegt.
-    -- Die Arbeitsart kommt aus der aktuellen Pruefung, nicht aus dem Spielstand.
-    local aktion = self:isFieldUseful(fieldId)
-    if aktion == nil or self.missionHelper[aktion] == nil or not self.missionHelper[aktion].active then
-        print("NachbarFelder: Gespeicherter Auftrag " .. tostring(missionHelperName) .. " auf Feld " ..
-            tostring(fieldId) .. " verworfen - Feld ist nicht (mehr) geeignet")
-        return false, true
-    end
-    return self:createMission(fieldId, self.missionHelper[aktion]), false
-end
-
-function NachbarFelderManager:createMission(fieldId, missionHelper)
-    -- hoe/weed bleiben gesperrt (deaktivierte Missionstypen). harvest ist
-    -- jetzt freigegeben - der Mähdrescher-Ablauf (Schneidwerk mounten,
-    -- Korntank leeren) ist vollständig implementiert.
-    -- herbicide vorerst deaktiviert: macht mit Precision Farming nur Spot-Spray
-    -- (einzelne Unkrautflecken statt Flaeche) → unschoene ~30s-Kurzeinsaetze.
-    -- Pfluegen/Saeen/Duengen/Ernten/Grubbern laufen sauber.
-    -- Build 125: nur noch Pfluegen und Grubbern - auch gespeicherte Auftraege aelterer
-    -- Builds (Saeen, Duengen, Ernten ...) werden nicht mehr gestartet.
-    if missionHelper == nil or
-       NachbarFelderManager.FELD_GERAETE_KATEGORIEN[missionHelper.name] == nil or
-       missionHelper.name == "hoeMission" or missionHelper.name == "weedMission" or
-       missionHelper.name == "herbicideMission" then
-        print("NachbarFelder: Auftrag wird uebersprungen " ..
-            tostring(missionHelper ~= nil and missionHelper.name or "nil"))
-        return false
-    end
-
-    -- Farm-ID sicherstellen: NIEMALS Spectator-Farm (0) verwenden!
-    -- AI-Jobs mit farmId=0 werden von der Engine sofort abgewiesen.
-    self:getEffectiveFarmId()
-    print("NachbarFelder: Verwende Farm-ID " .. tostring(self.farmId) .. " fuer Feld " .. tostring(fieldId))
-
-    local missionGame = g_currentMission
-    local tx, tz = self:getShopPosition()   -- Build 94: Original-Shop
-
-    for v, k in pairs(self.vehicleType) do
-        -- Steckengebliebene oder bereits zu löschende Fahrzeuge nicht als Blocker zählen.
-        -- ws=60 = rückkehrendes Fahrzeug: fährt vom Feld zum Shop → kein Blocker für neuen Spawn.
-        local ws = k.NachbarFelderWorker and k.NachbarFelderWorker.status or 0
-        if ws ~= 9999 and ws ~= 100 and ws ~= 60 then
-            for _, veh in ipairs(k.vehicleType) do
-                if self:getIsVehicleAlive(veh) then
-                    local x, _, z = getWorldTranslation(veh.rootNode)
-                    if MathUtil.vector2Length(x - tx, z - tz) < 50 then
-                        print("NachbarFelder: Spawn blockiert durch Fahrzeug auf Feld " .. tostring(v) ..
-                            " (Status=" .. tostring(ws) ..
-                            " Pos=" .. tostring(math.floor(x)) .. "/" .. tostring(math.floor(z)) .. ")")
-                        self.feldSpawnBlockiert = true   -- Build 110
-                        return false
-                    end
-                end
-            end
-        end
-    end
-
-    print("Start Mission on Field " .. fieldId)
-    local field = g_fieldManager:getFieldById(fieldId)
-
-    -- Vorfrucht-Gedaechtnis (Build 68): steht (noch) eine Frucht auf dem
-    -- Feld, jetzt merken - Grundlage fuer die Fruchtfolge-Wahl beim Saeen.
-    pcall(function()
-        local fs = field ~= nil and field:getFieldState() or nil
-        local fruit = fs ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fs.fruitTypeIndex) or nil
-        if fruit ~= nil and fruit.name ~= nil then
-            self.fieldLastFruit[fieldId] = fruit.name
-        end
-    end)
-
-    local mission = missionHelper.class.new(true, g_client ~= nil)
-    local missionType = g_missionManager.missionTypes[missionHelper.id]
-    mission:setField(field)
-    mission.type = missionType
-    mission.vehiclesToLoad, mission.vehicleGroupIdentifier = self:getRandomVehicles(mission)
-    if mission.vehiclesToLoad == nil or #mission.vehiclesToLoad == 0 then
-        print("NF: no vehicles available for mission on field " .. fieldId)
-        return false
-    end
-
-    if not mission:isSpawnSpaceAvailable() then
-        print("NF: spawn space blocked for field " .. fieldId)
-        self.feldSpawnBlockiert = true   -- Build 110
-        return false
-    end
-
-    -- Zusaetzlich zur Engine-Pruefung: steht noch ein eigener Helfer am
-    -- Haendler? Auf engen Karten ist das der haeufigere Fall - die Engine sieht
-    -- den Platz als frei an, physisch steht dort aber noch das vorige Gespann.
-    if self:istSpawnBereichBelegt() then
-        print("NF: Spawn-Bereich noch belegt (Feld " .. fieldId ..
-              ") - naechster Versuch spaeter")
-        self.feldSpawnBlockiert = true   -- Build 110
-        return false
-    end
-
-    self.vehicleType[fieldId] = {}
-    self.vehicleType[fieldId].vehiclesToLoad = mission.vehiclesToLoad
-    self.vehicleType[fieldId].saveVehicleToLoad = mission.vehiclesToLoad
-    self.vehicleType[fieldId].mission = mission
-    self.vehicleType[fieldId].status = 1
-    self.vehicleType[fieldId].fieldId = fieldId
-    self.vehicleType[fieldId].vehicleType = {}
-    self.vehicleType[fieldId].NachbarFelderWorker = NachbarFelderWorker.new({}, mission, status, fieldId)
-    self:loadVehicles(self.vehicleType[fieldId])
-    self.countWorkers = self.countWorkers + 1
-    return true
-end
-
-function NachbarFelderManager:getVariant(mission)
-    if mission.type.name == "harvestMission" then
-        local fruitTypeIndex = mission.field:getFieldState().fruitTypeIndex
-        local fruit = g_fruitTypeManager:getFruitTypeByIndex(fruitTypeIndex)
-        for k, v in pairs(self.vehicleHarvestVariant) do
-            for _, b in ipairs(v) do
-                if fruit.name == b then return k end
-            end
-        end
-        return "GRAIN"
-    end
-    return mission:getVehicleVariant()
-end
-
---- Ist ein Anbaugeraet starr (ohne Klappteile) und breiter als eine Fahrspur? (Build 113)
----
---- Build 112 klappt Geraete vor der Fahrt ein - das hilft nur Geraeten, die
---- klappen KOENNEN. Die Amazone Cenio 4000 hat keine foldingParts und ist
---- 4,05 m breit (vehicle.base.size#width, Vehicle.lua:367); ihre Transport-
---- stellung sieht aus wie ausgeklappt, und sie bleibt auf Dorfstrassen haengen.
---- Grenze 3,05 m: laesst 3-m-Geraete durch, sperrt Cenio 4000 (4,05),
---- ecoCultivator300 (3,2), Crossmax 300 (3,65), Kredo (3,15), K-Force 400 (4,0).
---- Ergebnis je Datei gecacht; nicht lesbare Dateien gelten als unkritisch.
-NachbarFelderManager.STARR_MAX_BREITE = 3.05   -- Feld statt local: Hauptchunk hat viele locals
-
-function NachbarFelderManager:getIstStarrUndBreit(filename)
-    if filename == nil then return false end
-    self.starrBreitCache = self.starrBreitCache or {}
-    local c = self.starrBreitCache[filename]
-    if c ~= nil then return c end
-    local starrBreit, breite, klappt, agent = false, nil, nil, nil
-    pcall(function()
-        local xml = loadXMLFile("nfBreite", filename)
-        if xml == nil or xml == 0 then return end
-        breite = getXMLFloat(xml, "vehicle.base.size#width")
-        klappt = hasXMLProperty(xml, "vehicle.foldable.foldingConfigurations.foldingConfiguration(0).foldingParts.foldingPart(0)")
-              or hasXMLProperty(xml, "vehicle.foldable.foldingParts.foldingPart(0)")
-        -- Build 123: Breite, mit der die KI-Wegsuche plant (bei klappbaren Geraeten
-        -- die Transportbreite). JD Cultivator 980: foldingParts bewegen nur die Achse,
-        -- agentAttachment width=4.45 - er klappt nicht.
-        local aw = getXMLFloat(xml, "vehicle.ai.agentAttachment#width")
-        if aw ~= nil then
-            agent = aw
-        elseif getXMLBool(xml, "vehicle.ai.agentAttachment#useSize") == true then
-            agent = breite
-        end
-        delete(xml)
-    end)
-    if agent ~= nil then
-        if agent > NachbarFelderManager.STARR_MAX_BREITE then
-            starrBreit = true
-            print(string.format("NachbarFelder: Anbaugeraet [%s] faehrt %.2f m breit (KI-Planungsbreite)" ..
-                " - nicht fuer Feldhelfer", tostring(filename), agent))
-        end
-    elseif breite ~= nil and klappt == false and breite > NachbarFelderManager.STARR_MAX_BREITE then
-        starrBreit = true
-        print(string.format("NachbarFelder: Anbaugeraet [%s] ist starr und %.2f m breit - nicht fuer Feldhelfer",
-            tostring(filename), breite))
-    end
-    self.starrBreitCache[filename] = starrBreit
-    return starrBreit
-end
-
---- Kupplungsarten eines Fahrzeugs aus seiner XML (Build 115).
---- eingang=false: attacherJoints des Traktors; fehlt jointType, gilt "implement"
----   (AttacherJoints.lua:128). Pfad auch in attacherJointConfigurations
----   (AttacherJoints.lua:4469), dort nur die erste Konfiguration.
---- eingang=true: inputAttacherJoints des Geraets (<attachable>, Attachable.lua:264).
---- @return table { [jointType] = true }, gecacht
-function NachbarFelderManager:getXmlKupplungen(filename, eingang)
-    self.kupplungCache = self.kupplungCache or {}
-    local key = (eingang and "E|" or "A|") .. tostring(filename)
-    if self.kupplungCache[key] ~= nil then return self.kupplungCache[key] end
-    local typen = {}
-    pcall(function()
-        local xml = loadXMLFile("nfKupplung", filename)
-        if xml == nil or xml == 0 then return end
-        local basen
-        if eingang then
-            basen = { "vehicle.attachable.inputAttacherJoints.inputAttacherJoint",
-                      "vehicle.attachable.inputAttacherJointConfigurations.inputAttacherJointConfiguration(0).inputAttacherJoints.inputAttacherJoint",
-                      "vehicle.attachable.inputAttacherJointConfigurations.inputAttacherJointConfiguration(0).inputAttacherJoint" }
-        else
-            basen = { "vehicle.attacherJoints.attacherJoint",
-                      "vehicle.attacherJoints.attacherJointConfigurations.attacherJointConfiguration(0).attacherJoint" }
-        end
-        for _, b in ipairs(basen) do
-            for i = 0, 19 do
-                local k = string.format("%s(%d)", b, i)
-                if not hasXMLProperty(xml, k) then break end
-                local jt = getXMLString(xml, k .. "#jointType")
-                if jt == nil and not eingang then jt = "implement" end
-                if jt ~= nil then typen[jt] = true end
-            end
-        end
-        delete(xml)
-    end)
-    self.kupplungCache[key] = typen
-    return typen
-end
-
---- Passt ein Feldgeraet zum Kleintraktor? (Build 123)
---- Wie getPasstGeraetZuTraktor, aber der Leistungsbedarf darf bis 130 % der
---- Motorleistung betragen. Ohne Toleranz bleibt fuer Kleintraktoren bis 7 t kein
---- schmal klappbarer Grubber (Smaragd 180 PS, Prolander 190 PS, Ares XL 150 PS ...).
-NachbarFelderManager.FELD_LEISTUNG_TOLERANZ = 1.05   -- Build 124: 1.3 war zu viel (Crystal 150 PS + Smaragd 180 PS kroch)
-
-function NachbarFelderManager:getPasstFeldGeraetZuTraktor(traktor, geraet)
-    if traktor == nil or geraet == nil then return false end
-    local ps, bedarf = traktor.leistung, geraet.bedarf
-    if ps ~= nil and bedarf ~= nil then
-        if bedarf > ps * NachbarFelderManager.FELD_LEISTUNG_TOLERANZ then return false end
-    elseif bedarf ~= nil then
-        if bedarf > 80 then return false end
-    elseif (geraet.gewichtKg or 0) > 1500 then
-        return false
-    end
-    if traktor.gewichtKg ~= nil and geraet.gewichtKg ~= nil
-       and geraet.gewichtKg > traktor.gewichtKg * 0.5 then
-        return false
-    end
-    return true
-end
-
---- Feldhelfer-Gespann (Traktor + Geraet) fuer die Session sperren (Build 120).
-function NachbarFelderManager:sperreFeldGespann(traktorFile, geraetFile)
-    if traktorFile == nil then return end
-    self.feldGespannSperre = self.feldGespannSperre or {}
-    self.feldGespannSperre[string.lower(tostring(traktorFile)) .. "|" .. string.lower(tostring(geraetFile or ""))] = true
-end
-
-function NachbarFelderManager:getIstFeldGespannGesperrt(traktorFile, geraetFile)
-    if self.feldGespannSperre == nil or traktorFile == nil then return false end
-    return self.feldGespannSperre[string.lower(tostring(traktorFile)) .. "|" .. string.lower(tostring(geraetFile or ""))] == true
-end
-
-NachbarFelderManager.FELD_MIN_ARBEITSBREITE = 2.0   -- Build 121, Meter
-
-NachbarFelderManager.FELD_GERAETE_KATEGORIEN = {
-    plowMission      = { PLOWS = true },
-    cultivateMission = { CULTIVATORS = true, DISCHARROWS = true },
-}
-
---- Eigenes Feldgespann: Kleintraktor + passendes Geraet (Build 115).
----
---- Die Vertragslisten des Spiels haben fuer Grubbern auch in "small" nur
---- schwere Zugmaschinen (Log 13.09. 14:55: T8000, Fastrac, Puma 7,3 t, MT655).
---- Wunsch des Users: keine mittleren/grossen Maschinen, Geraet passend zum
---- Traktor. Deshalb hier selbst kombinieren:
----   * Traktor aus der Verkehrsliste (TRACTORSS bis 7 t, buildTrafficVehicleList),
----   * Geraet aus dem Shop in der Kategorie des Auftrags, freigeschaltet, nicht
----     gesperrt, nicht starr-und-breit (getIstStarrUndBreit),
----   * Leistung/Gewicht passend (getPasstGeraetZuTraktor),
----   * gemeinsame Kupplungsart laut XML (getXmlKupplungen).
---- Erst wird das Geraet gleichverteilt gewaehlt, dann ein Traktor dazu - sonst
---- gewaennen Kleinstgeraete, die an jeden Traktor passen.
---- @return table|nil Fahrzeugliste im Format von getRandomVehicleGroup
-function NachbarFelderManager:getEigenesFeldGespann(missionTypeName)
-    local kats = NachbarFelderManager.FELD_GERAETE_KATEGORIEN[missionTypeName]
-    if kats == nil then return nil end
-    if self.trafficVehicleList == nil then self:buildTrafficVehicleList() end
-    local traktoren = self.trafficVehicleList or {}
-    if #traktoren == 0 then return nil end
-
-    local sperre = (self.vehicleImplBlacklist ~= nil and self.vehicleImplBlacklist[missionTypeName]) or {}
-    local allItems = {}
-    pcall(function() allItems = g_storeManager:getItems() end)
-
-    local geraete = {}
-    for _, item in pairs(allItems) do
-        if item ~= nil and item.xmlFilename ~= nil and kats[item.categoryName]
-           and (sperre[item.xmlFilename] or 0) < 1 then
-            local frei = true
-            pcall(function() frei = g_storeManager:getIsItemUnlocked(item) end)
-            if frei and not self:getIstStarrUndBreit(item.xmlFilename) then
-                local bedarf = nfGetItemNeededPower(item)
-                local gewicht = nfGetItemWeight(item)
-                -- Build 121: Mindest-Arbeitsbreite (specs.workingWidth = {width, minWidth})
-                local breite = nil
-                pcall(function()
-                    local ww = item.specs ~= nil and item.specs.workingWidth or nil
-                    if type(ww) == "table" then
-                        breite = tonumber(ww.width)
-                    else
-                        breite = tonumber(ww)
-                    end
-                end)
-                if breite ~= nil and breite < NachbarFelderManager.FELD_MIN_ARBEITSBREITE then
-                    self.schmalGemeldet = self.schmalGemeldet or {}
-                    if not self.schmalGemeldet[item.xmlFilename] then
-                        self.schmalGemeldet[item.xmlFilename] = true
-                        print(string.format("NachbarFelder: Anbaugeraet [%s] arbeitet nur %.1f m breit" ..
-                            " - nicht fuer Feldhelfer", tostring(item.xmlFilename), breite))
-                    end
-                elseif bedarf == nil then
-                    -- Build 127: ohne Leistungsangabe ist "passt zum Traktor" nicht pruefbar
-                    -- (LIZARD MT, 13 m, landete am TK4.80 mit 75 PS)
-                    self.ohnePsGemeldet = self.ohnePsGemeldet or {}
-                    if not self.ohnePsGemeldet[item.xmlFilename] then
-                        self.ohnePsGemeldet[item.xmlFilename] = true
-                        print("NachbarFelder: Anbaugeraet [" .. tostring(item.xmlFilename) ..
-                            "] hat keine Leistungsangabe - nicht fuer Feldhelfer")
-                    end
-                else
-                    geraete[#geraete + 1] = { filename = item.xmlFilename, bedarf = bedarf, gewichtKg = gewicht }
-                end
-            end
-        end
-    end
-
-    local proGeraet, geraeteMitPartner, nPaare = {}, {}, 0
-    for _, g in ipairs(geraete) do
-        local ein = self:getXmlKupplungen(g.filename, true)
-        for _, t in ipairs(traktoren) do
-            if self:getPasstFeldGeraetZuTraktor(t, g)   -- Build 123: 130 % Leistung
-               and not self:getIstFeldGespannGesperrt(t.filename, g.filename) then   -- Build 120
-                local aus = self:getXmlKupplungen(t.filename, false)
-                for jt, _ in pairs(ein) do
-                    if aus[jt] then
-                        if proGeraet[g] == nil then
-                            proGeraet[g] = {}
-                            geraeteMitPartner[#geraeteMitPartner + 1] = g
-                        end
-                        table.insert(proGeraet[g], t)
-                        nPaare = nPaare + 1
-                        break
-                    end
-                end
-            end
-        end
-    end
-
-    local function kurz(f) return string.match(tostring(f), "[^/\\]+$") or tostring(f) end
-    if #geraeteMitPartner == 0 then
-        print(string.format("NachbarFelder: Kein eigenes Feldgespann fuer %s - %d Kleintraktoren, %d Geraete," ..
-            " keine Kombination passt (Leistung/Gewicht/Kupplung)", tostring(missionTypeName), #traktoren, #geraete))
-        return nil
-    end
-    local g = geraeteMitPartner[math.random(#geraeteMitPartner)]
-    local t = proGeraet[g][math.random(#proGeraet[g])]
-    print(string.format("NachbarFelder: Eigenes Feldgespann fuer %s: %s (%s PS, %s t) + %s (Bedarf %s PS)" ..
-        " - Auswahl aus %d Geraeten, %d Kombinationen",
-        tostring(missionTypeName), kurz(t.filename), tostring(t.leistung or "?"),
-        t.gewichtKg ~= nil and string.format("%.1f", t.gewichtKg / 1000) or "?",
-        kurz(g.filename), tostring(g.bedarf or "?"), #geraeteMitPartner, nPaare))
-    return { { filename = t.filename }, { filename = g.filename } }
-end
-
---- Ist die Zugmaschine einer Vertrags-Fahrzeuggruppe zu gross? (Build 114)
----
---- Der Verkehr faehrt seit Build 105 nur Kleintraktoren bis 7 t. Die Feldhelfer
---- nehmen ihre Gespanne aber aus den Vertragslisten des Spiels
---- (MissionManager:getRandomVehicleGroup, MissionManager.lua:925), und dort steht
---- auch in der Gruppe "small" z.B. ein New Holland T8000 (Highlands-DLC) mit
---- 5,5-m-Grubber. Auf dem engen Shop-Platz verkeilte sich das beim Ausrichten.
---- Gleiche Grenze wie beim Verkehr: Leergewicht hoechstens 7 t, nie TRACTORSL.
---- Unbekanntes Store-Item oder Gewicht: nur die Kategorie entscheidet.
-function NachbarFelderManager:getIstZugmaschineZuGross(filename)
-    if filename == nil then return false end
-    self.zugmaschineCache = self.zugmaschineCache or {}
-    local c = self.zugmaschineCache[filename]
-    if c ~= nil then return c end
-    local zuGross, gewicht, kat = false, nil, nil
-    pcall(function()
-        local item = g_storeManager:getItemByXMLFilename(filename)
-        if item == nil then return end
-        kat = item.categoryName
-        gewicht = nfGetItemWeight(item)
-    end)
-    if kat == "TRACTORSL" or (gewicht ~= nil and gewicht > NF_KLEIN_MAX_VEH_WEIGHT_KG) then
-        zuGross = true
-        print(string.format("NachbarFelder: Zugmaschine [%s] (%s, %s) zu gross - nicht fuer Feldhelfer",
-            tostring(filename), tostring(kat or "?"),
-            gewicht ~= nil and string.format("%.1f t", gewicht / 1000) or "Gewicht ?"))
-    end
-    self.zugmaschineCache[filename] = zuGross
-    return zuGross
-end
-
-function NachbarFelderManager:isVehicleGroupBlacklisted(veh, missionTypeName)
-    -- Build 114: nur kleine Zugmaschinen
-    if veh ~= nil and veh[1] ~= nil and self:getIstZugmaschineZuGross(veh[1].filename) then
-        return true
-    end
-    -- Build 113: starre, breite Geraete in der Gruppe -> Gruppe verwerfen
-    for i = 2, #(veh or {}) do
-        if veh[i] ~= nil and self:getIstStarrUndBreit(veh[i].filename) then
-            return true
-        end
-    end
-    -- Prüft ob das Implement (veh[2]) für diesen Missionstyp gesperrt ist
-    if self.vehicleImplBlacklist == nil then return false end
-    local blacklist = self.vehicleImplBlacklist[missionTypeName]
-    if blacklist == nil then return false end
-    -- veh[2] ist das Anbaugerät (Index 2 = erster Anhänger hinter dem Traktor)
-    if veh[2] ~= nil and veh[2].filename ~= nil then
-        local fails = blacklist[veh[2].filename] or 0
-        if fails >= 1 then
-            print("NachbarFelder: Implement [" .. tostring(veh[2].filename) .. "] fuer " ..
-                tostring(missionTypeName) .. " gesperrt (" .. fails .. "x) - neue Gruppe wird gesucht")
-            return true
-        end
-    end
-    return false
-end
-
---- Fahrzeuggroesse der Mission, auf engen Karten gedeckelt.
----
---- AbstractFieldMission:getVehicleSize() (AbstractFieldMission.lua:519) leitet
---- "small"/"medium"/"large" allein aus der Feldflaeche ab. Auf einer engen
---- Karte nuetzt das nichts: auch ein grosses Feld liegt dort hinter schmalen
---- Wegen, und das Gespann bleibt auf dem Weg dorthin haengen.
----
---- Mit engeMap bekommt jede Mission die KLEINSTE Gruppe. Nicht wegen der Wege -
---- mittelgrosse Gespanne kommen dort durch -, sondern wegen des Haendlers: auf
---- der Beuren teilen sich zwei Spawn-Plaetze 35 laufende Meter, und ein
---- Gespann aus Mitteltraktor und Anbaugeraet belegt davon die Haelfte. Zwei
---- davon gleichzeitig, und die Fahrzeuge stehen ineinander.
---- Kleine Gruppen sind kurze Gruppen - Kleintraktor mit Wender oder Schwader.
-function NachbarFelderManager:getMissionVehicleSize(mission)
-    local size = "small"
-    pcall(function()
-        if mission ~= nil and mission.getVehicleSize ~= nil then
-            size = mission:getVehicleSize() or "small"
-        end
-    end)
-    -- Build 105: auf jeder Karte nur die kleine Gruppe. Die Missions-Fahrzeug-
-    -- listen des Spiels paaren Traktor und Geraet selbst - die passen zueinander.
-    return "small"
-end
-
---- Steht noch ein eigenes Fahrzeug am Haendler?
----
---- isSpawnSpaceAvailable() fragt die Engine nach freien Shop-Plaetzen, aber die
---- Belegung (usedStorePlaces) wird nach dem Laden wieder aufgehoben. Ein
---- Helfer, der noch auf seinen Job wartet, steht also physisch im Weg, ohne
---- dass die Engine den Platz als belegt kennt - genau daraus entsteht das
---- Ineinanderstehen. Diese Pruefung schaut deshalb selbst nach, ob im Umkreis
---- des Spawn-Platzes noch etwas von uns herumsteht.
---- @return boolean true = belegt, jetzt nicht spawnen
-function NachbarFelderManager:istSpawnBereichBelegt()
-    local radius = self.spawnBereichRadius or 25
-    local sx, sz = self:getShopPosition()
-    if sx == 0 and sz == 0 then
-        return false        -- kein Spawn-Platz bekannt: nicht blockieren
-    end
-
-    local belegt = false
-
-    for _, eintrag in pairs(self.vehicleType or {}) do
-        if belegt then break end
-        local fahrzeuge = eintrag ~= nil and eintrag.vehicleType or nil
-        for _, veh in ipairs(fahrzeuge or {}) do
-            pcall(function()
-                if veh ~= nil and veh.rootNode ~= nil and entityExists(veh.rootNode) then
-                    local x, _, z = getWorldTranslation(veh.rootNode)
-                    if MathUtil.vector2Length(x - sx, z - sz) < radius then
-                        belegt = true
-                    end
-                end
-            end)
-            if belegt then break end
-        end
-    end
-
-    return belegt
-end
-
-function NachbarFelderManager:getRandomVehicles(mission)
-    -- Build 125: Pfluegen/Grubbern NUR mit eigenen Gespannen (Kleintraktor bis 7 t,
-    -- Leistung max. 5 % drueber, Arbeitsbreite ab 2 m, Planungsbreite bis 3,05 m).
-    -- Die Vertragslisten des Spiels lieferten TK4.80 (75 PS) + Servo 25 (85 PS, 1,2 m)
-    -- und einen MB Trac mit langem Pflug, der am Start in die Luft flog.
-    if mission ~= nil and mission.type ~= nil
-       and NachbarFelderManager.FELD_GERAETE_KATEGORIEN[mission.type.name] ~= nil then
-        local eigen = self:getEigenesFeldGespann(mission.type.name)
-        if eigen ~= nil then
-            return eigen, 1
-        end
-        print("NachbarFelder: Kein passendes Kleintraktor-Gespann fuer " .. tostring(mission.type.name) ..
-            " - kein Helfer")
-        return {}, 1
-    end
-    local variant = self:getVariant(mission)
-    -- Bis zu 10 Versuche, eine nicht-gesperrte Fahrzeuggruppe zu finden
-    local veh, iden
-
-    -- EINMAL bestimmen und ueberall verwenden. Wuerde der Fallback unten
-    -- wieder mission:getVehicleSize() fragen, griffe er auf die Ersatzliste
-    -- einer anderen Groessenklasse zu als die Abfrage oben - das Gespann waere
-    -- dann doch wieder gross.
-    local groesse = self:getMissionVehicleSize(mission)
-
-    for attempt = 1, 25 do   -- Build 113: mehr Versuche, weil starre breite Geraete wegfallen
-        veh, iden = g_missionManager:getRandomVehicleGroup(mission.type.name, groesse, variant)
-        veh = veh or {}   -- Build 114: das Spiel liefert nil, wenn es keine Gruppe gibt
-        if #veh > 0 and not self:isVehicleGroupBlacklisted(veh, mission.type.name) then
-            break  -- Gute Kombination gefunden
-        end
-        if #veh == 0 then break end  -- Kein Fahrzeug verfügbar
-        veh = {}  -- Gesperrte Gruppe verwerfen, nächster Versuch
-    end
-
-    -- Build 115: keine passende Spielgruppe -> eigenes Kleintraktor-Gespann
-    if #veh == 0 then
-        local eigen = self:getEigenesFeldGespann(mission.type.name)
-        if eigen ~= nil then
-            return eigen, 1
-        end
-    end
-
-    if #veh == 0 then
-        -- Ersatzliste aus frueheren Laeufen. Sie ist beim ersten Mal noch leer
-        -- (vehicleMission wird nur im else-Zweig gefuellt), und mit gedeckelter
-        -- Groesse kann auch eine andere Klasse gefuellt sein als die gesuchte -
-        -- deshalb hier pruefen statt blind indizieren.
-        local proTyp = vehicleMission[mission.type.name]
-        local liste  = proTyp ~= nil and proTyp[groesse] or nil
-        if liste == nil or #liste == 0 then
-            print("NachbarFelder: Keine Fahrzeuggruppe (" .. tostring(mission.type.name) ..
-                ", Groesse " .. tostring(groesse) .. ") verfuegbar")
-            return {}, iden
-        end
-        local randomInt = math.random(1, #liste)
-        veh = liste[randomInt]
-        table.remove(liste, randomInt)
-        local obj = {}
-        for k, v in ipairs(veh) do obj[k] = v end
-        table.insert(liste, obj)
-    else
-        if vehicleMission[mission.type.name] == nil then vehicleMission[mission.type.name] = {} end
-        if vehicleMission[mission.type.name][groesse] == nil then
-            vehicleMission[mission.type.name][groesse] = {}
-        end
-        local obj = {}
-        for k, v in ipairs(veh) do obj[k] = v end
-        table.insert(vehicleMission[mission.type.name][groesse], obj)
-    end
-    return veh, iden
 end
 
 -- ============================================================
@@ -7796,115 +5452,10 @@ function NachbarFelderManager:deleteAllVehicles(quit)
 end
 
 function NachbarFelderManager:deleteMission(fieldId, status)
-    -- Patrol-Einträge haben keine Feldarbeit, keinen Feld-Zustand und keine sowMission-Logik
-    local w = self.vehicleType[fieldId] and self.vehicleType[fieldId].NachbarFelderWorker
-    if w ~= nil and w.isPatrol then
-        self.vehicleType[fieldId] = nil
-        self.counter = self.counter - 1
-        return
-    end
-
-    self:finishFieldState(fieldId, status)
-
-    if self.vehicleType[fieldId].NachbarFelderWorker.mission.type.name == "sowMission" then
-        local veh = self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad[2]
-        if veh ~= nil and veh.spec_sowingMachine ~= nil then
-            local field = g_fieldManager:getFieldById(fieldId)
-            local seedsFruitType = veh.spec_sowingMachine.seeds[veh.spec_sowingMachine.currentSeed]
-            -- Gesaete Frucht als neue Vorfrucht merken (Build 68)
-            pcall(function()
-                local fd = g_fruitTypeManager:getFruitTypeByIndex(seedsFruitType)
-                if fd ~= nil and fd.name ~= nil then
-                    self.fieldLastFruit[fieldId] = fd.name
-                end
-            end)
-            local fieldUpdateTask = FieldUpdateTask.new()
-            fieldUpdateTask:setField(field)
-            fieldUpdateTask:setArea(field:getDensityMapPolygon())
-            fieldUpdateTask:setFruit(seedsFruitType, 1)
-            fieldUpdateTask:setGroundAngle(field:getAngle())
-            fieldUpdateTask:setRollerLevel(1)
-            fieldUpdateTask:enqueue(true)
-        end
-    end
+    -- Build 150: nur noch Verkehr - Eintrag entfernen, keine Feldarbeit nachzutragen
+    if self.vehicleType[fieldId] == nil then return end
     self.vehicleType[fieldId] = nil
     self.counter = self.counter - 1
-end
-
-function NachbarFelderManager:finishFieldState(fieldId, status)
-    -- Nur bei abgeschlossener Feldarbeit (Status 2) den Feldstatus aktualisieren
-    if status ~= 2 then return end
-    -- Patrol-Einträge haben negative fieldId und kein echtes Feld
-    if fieldId == nil or fieldId < 0 then return end
-    local field = g_fieldManager:getFieldById(fieldId)
-    if field == nil then return end
-    local fieldUpdateTask = FieldUpdateTask.new()
-    fieldUpdateTask:setField(field)
-    fieldUpdateTask:setArea(field:getDensityMapPolygon())
-    fieldUpdateTask:setGroundAngle(field:getAngle())
-
-    local missionName = self.vehicleType[fieldId].NachbarFelderWorker.mission.type.name
-    local fieldState = field:getFieldState()
-
-    -- Build 111: Pfluegen/Grubbern setzt unten das GANZE Feld auf den Zielzustand.
-    -- Steht dort noch Frucht (Feld 53 am 13.09.: reifer Raps), wird nichts
-    -- ueberschrieben - sonst waere eine Fehlentscheidung auf dem ganzen Feld wirksam.
-    if missionName == "plowMission" or missionName == "cultivateMission" then
-        local _, grund, info = self:getFeldAktion(field)
-        if grund == "frucht" or grund == "waechst" or grund == "erntereif" then
-            print("NachbarFelder: Feld " .. tostring(fieldId) .. " - nach der Arbeit steht dort noch Frucht (" ..
-                tostring(info) .. "), Feldzustand wird NICHT ueberschrieben")
-            return
-        end
-    end
-
-    if missionName == "sowMission" then
-        local veh = self.vehicleType[fieldId].NachbarFelderWorker.vehiclesToLoad[2]
-        if veh ~= nil and veh.spec_sowingMachine ~= nil then
-            local seedsFruitType = veh.spec_sowingMachine.seeds[veh.spec_sowingMachine.currentSeed]
-            fieldUpdateTask:setFruit(seedsFruitType, 1)
-            fieldUpdateTask:setGroundType(FieldGroundType.SOWN)
-            fieldUpdateTask:setRollerLevel(1)
-            -- Gesaete Frucht als neue Vorfrucht merken (Build 68)
-            pcall(function()
-                local fd = g_fruitTypeManager:getFruitTypeByIndex(seedsFruitType)
-                if fd ~= nil and fd.name ~= nil then
-                    self.fieldLastFruit[fieldId] = fd.name
-                end
-            end)
-        end
-    elseif missionName == "plowMission" then
-        fieldUpdateTask:setGroundType(FieldGroundType.PLOWED)
-        fieldUpdateTask:setWeedState(0)
-        fieldUpdateTask:setFruit(FruitType.UNKNOWN, 1)
-        fieldUpdateTask:setRollerLevel(0)
-    elseif missionName == "cultivateMission" then
-        fieldUpdateTask:setGroundType(FieldGroundType.CULTIVATED)
-        fieldUpdateTask:setFruit(FruitType.UNKNOWN, 1)
-        fieldUpdateTask:setRollerLevel(0)
-    elseif missionName == "harvestMission" then
-        local fruit = g_fruitTypeManager:getFruitTypeByIndex(fieldState.fruitTypeIndex)
-        for k, v in pairs(fruit.growthStateToName) do
-            if v == "harvested" then
-                fieldUpdateTask:setFruit(fieldState.fruitTypeIndex, k)
-            end
-        end
-        fieldUpdateTask:setGroundType(FieldGroundType.STUBBLE_TILLAGE)
-    elseif missionName == "hoeMission" then
-        fieldUpdateTask:setGroundType(FieldGroundType.CULTIVATED)
-        fieldUpdateTask:setWeedState(0)
-    elseif missionName == "weedMission" then
-        fieldUpdateTask:setWeedState(0)
-    elseif missionName == "herbicideMission" then
-        -- Herbizid entfernt Unkraut - es erhöht NICHT den Düngerlevel
-        fieldUpdateTask:setSprayType(SprayType.HERBICIDE)
-        fieldUpdateTask:setWeedState(0)
-    elseif missionName == "fertilizeMission" then
-        fieldUpdateTask:setSprayType(SprayType.FERTILIZER)
-        fieldUpdateTask:setSprayLevel(fieldState.sprayLevel + 1)
-    end
-
-    fieldUpdateTask:enqueue(true)
 end
 
 -- ============================================================
@@ -8022,22 +5573,8 @@ function NachbarFelderManager:saveToXMLFile()
     if path == nil then return end
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.create("NachbarFelder", modSaveDir, baseXmlKey, xmlSchema)
-    local baseKey = baseXmlKey .. ".worker"
-    local i = 0
+    -- Build 150: keine Feldauftraege mehr - nur noch die Einstellungen speichern
     if g_NachbarFelderManager.vehicleType ~= nil then
-        for v, k in pairs(g_NachbarFelderManager.vehicleType) do
-            if k.NachbarFelderWorker.status < 3 and not k.NachbarFelderWorker.isPatrol then
-                local key = ("%s(%d)"):format(baseKey, i)
-                xmlFile:setInt(key .. "#fieldId", k.NachbarFelderWorker.fieldId)
-                xmlFile:setString(key .. "#missionType", k.NachbarFelderWorker.mission.type.name)
-                -- Build 139: Auftrag eines Spielers als solchen merken
-                if k.NachbarFelderWorker.istAuftrag then
-                    xmlFile:setBool(key .. "#auftrag", true)
-                    xmlFile:setInt(key .. "#auftragFarmId", k.NachbarFelderWorker.auftragFarmId or 0)
-                end
-                i = i + 1
-            end
-        end
         -- Settings-Block (Build 67): kompletter Einstellungs-Stand ins
         -- Savegame - server-autoritativ, ueberlebt Neustarts.
         pcall(function()
@@ -8055,17 +5592,6 @@ function NachbarFelderManager:saveToXMLFile()
                 j = j + 1
             end
         end)
-        -- Vorfrucht-Gedaechtnis (Build 68) mitspeichern
-        pcall(function()
-            local j = 0
-            local lastFruits = g_NachbarFelderManager.fieldLastFruit or {}
-            for fId, fName in pairs(lastFruits) do
-                local fKey = ("%s.fieldFruits.field(%d)"):format(baseXmlKey, j)
-                xmlFile:setInt(   fKey .. "#id",    fId)
-                xmlFile:setString(fKey .. "#fruit", fName)
-                j = j + 1
-            end
-        end)
         xmlFile:save(false, false)
         xmlFile:delete()
     end
@@ -8077,14 +5603,7 @@ function NachbarFelderManager:loadFromXML()
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.loadIfExists("NachbarFelder", modSaveDir, xmlSchema)
     if xmlFile == nil then return end
-    local itKey = baseXmlKey .. ".worker"
-    xmlFile:iterate(itKey, function(_, key)
-        local fieldId = xmlFile:getValue(key .. "#fieldId")
-        local missionType = xmlFile:getValue(key .. "#missionType")
-        local auftrag = xmlFile:getValue(key .. "#auftrag")
-        local auftragFarmId = xmlFile:getValue(key .. "#auftragFarmId")
-        self:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
-    end)
+    -- Build 150: gespeicherte Feldauftraege (".worker") aelterer Builds werden ignoriert
     -- Settings-Block lesen (Build 67). NICHT sofort anwenden - erst
     -- nach loadServerConfig() (in loadMap), damit die Savegame-Werte
     -- die Konfig-Datei-Werte ueberschreiben und nicht umgekehrt.
@@ -8109,22 +5628,7 @@ function NachbarFelderManager:loadFromXML()
             self.savegameSettings = st
         end
     end)
-    -- Vorfrucht-Gedaechtnis laden (Build 68)
-    pcall(function()
-        xmlFile:iterate(baseXmlKey .. ".fieldFruits.field", function(_, fKey)
-            local fId   = xmlFile:getValue(fKey .. "#id")
-            local fName = xmlFile:getValue(fKey .. "#fruit")
-            if fId ~= nil and fName ~= nil then
-                self.fieldLastFruit[fId] = fName
-            end
-        end)
-    end)
     xmlFile:delete()
-end
-
-function NachbarFelderManager:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
-    table.insert(self.loadVehiclesFromXML, {fieldId = fieldId, missionType = missionType,
-        auftrag = auftrag == true, auftragFarmId = auftragFarmId or 0})
 end
 
 -- ============================================================
@@ -8425,72 +5929,21 @@ function NachbarFelderManager:addConsoleCommands()
     self.consoleCommandsAdded = true
 
     addConsoleCommand("nachbarFelderTimer",
-        "NachbarFelder: Zeit bis zum naechsten Start anzeigen",
+        "NachbarFelder: Zeit bis zum naechsten Verkehrs-Spawn anzeigen",
         "consoleCommandNachbarFelderTimer", self)
     addConsoleCommand("nachbarFelderEntfernen",
         "NachbarFelder: alle aktiven Fahrzeuge entfernen",
         "consoleCommandNachbarFelderEntfernen", self)
-    addConsoleCommand("nachbarFelderStart",
-        "NachbarFelder: naechsten Auftrag starten",
-        "consoleCommandNachbarFelderStart", self)
     addConsoleCommand("nachbarFelderTrafficStop",
         "NachbarFelder: alle Traffic-Fahrzeuge entfernen und neue sperren",
         "consoleCommandNachbarFelderTrafficStop", self)
     addConsoleCommand("nachbarFelderTrafficStart",
         "NachbarFelder: Traffic-Fahrzeuge wieder erlauben",
         "consoleCommandNachbarFelderTrafficStart", self)
-    addConsoleCommand("nachbarFelderSperre",
-        "NachbarFelder: Feld aussperren/freigeben: nachbarFelderSperre <Feldnummer wie auf der Karte> [aus]",
-        "consoleCommandNachbarFelderSperre", self)
-end
-
---- Feld von der Bearbeitung ausschliessen.
---- Die Doppelpunkt-Form macht self implizit; feldNr ist damit wirklich das
---- erste Nutzer-Argument (anders als bei der Punkt-Form, siehe ErtragsFaktor).
-function NachbarFelderManager:consoleCommandNachbarFelderSperre(feldNr, aus)
-    if not g_currentMission:getIsServer() then
-        return "NachbarFelder: nur auf Server/SP verfuegbar!"
-    end
-
-    local nr = tonumber(feldNr)
-    if nr == nil then
-        local liste = {}
-        for id in pairs(self.feldSperre or {}) do
-            table.insert(liste, tostring(id))
-        end
-        table.sort(liste)
-        return "NachbarFelder: gesperrte Felder: " ..
-               (#liste > 0 and table.concat(liste, ", ") or "keine") ..
-               "  |  Aufruf: nachbarFelderSperre <Feldnummer wie auf der Karte> [aus]"
-    end
-    local an = not (aus ~= nil and (aus == "aus" or aus == "off" or aus == "0"))
-    -- Build 139: Die Nummer auf der Karte ist field:getId() und damit genau der
-    -- Schluessel von feldSperre/getFieldById - keine Umrechnung noetig. Beim
-    -- Sperren pruefen, ob es das Feld gibt; Freigeben geht immer (alte Eintraege).
-    if an and g_fieldManager:getFieldById(nr) == nil then
-        return string.format("NachbarFelder: Feld %d gibt es nicht - Feldnummer wie auf der Karte angeben", nr)
-    end
-    self:sperreFeld(nr, an)
-
-    return string.format("NachbarFelder: Feld %d %s", nr,
-        an and "gesperrt - wird nicht mehr bearbeitet" or "wieder freigegeben")
-end
-
-function NachbarFelderManager:consoleCommandNachbarFelderStart()
-    if not g_currentMission:getIsServer() then
-        print("NachbarFelder: nachbarFelderStart nur auf Server/SP verfuegbar!")
-        return
-    end
-    local created = self:generateWorkMission(true)
-    if created then
-        print("NachbarFelder: Neuer Auftrag gestartet!")
-    else
-        print("NachbarFelder: Kein Auftrag moeglich")
-    end
 end
 
 function NachbarFelderManager:consoleCommandNachbarFelderTimer()
-    print("NachbarFelder: naechster Auftrag in " .. tostring(self.timeToNextStart))
+    print("NachbarFelder: naechster Verkehrs-Spawn in " .. tostring(self.timeToNextStart) .. " Spielminuten")
 end
 
 function NachbarFelderManager:consoleCommandNachbarFelderEntfernen()

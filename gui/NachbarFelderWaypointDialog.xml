@@ -17,7 +17,7 @@
                      textColor="1 0.7 0 1"
                      textSize="19"
                      bold="true"
-                     text="NachbarFelder - Wegpunkt Manager"/>
+                     text="Lebendige Straßen - Wegpunkt Manager"/>
 
         <TextElement name="counterText"
                      position="0 78"

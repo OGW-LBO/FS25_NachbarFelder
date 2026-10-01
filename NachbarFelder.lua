@@ -5,33 +5,6 @@ local modName = g_currentModName
 -- ============================================================
 -- Network-Events: Client → Server
 -- ============================================================
-NachbarFelderStartEvent = {}
-NachbarFelderStartEvent_mt = Class(NachbarFelderStartEvent, Event)
-InitEventClass(NachbarFelderStartEvent, "NachbarFelderStartEvent")
-
-function NachbarFelderStartEvent.emptyNew()
-    return Event.new(NachbarFelderStartEvent_mt)
-end
-function NachbarFelderStartEvent.new()
-    return NachbarFelderStartEvent.emptyNew()
-end
-function NachbarFelderStartEvent:readStream(streamId, connection)
-    -- nur Server verarbeitet; nur Admin-Verbindungen (Build 75)
-    if g_currentMission:getIsServer() then
-        if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getIsConnectionAdmin ~= nil
-           and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
-            print("NachbarFelder: [ADMIN] Start-Event abgelehnt - Absender ist kein Admin")
-            return
-        end
-        local created = g_NachbarFelderManager:generateWorkMission()
-        if created then
-            print("NachbarFelder: Helfer durch Client-Event gestartet")
-        end
-    end
-end
-function NachbarFelderStartEvent:writeStream(streamId, connection)
-end
-
 NachbarFelderDeleteEvent = {}
 NachbarFelderDeleteEvent_mt = Class(NachbarFelderDeleteEvent, Event)
 InitEventClass(NachbarFelderDeleteEvent, "NachbarFelderDeleteEvent")
@@ -186,6 +159,8 @@ function NachbarFelderSettingsSyncEvent:writeStream(streamId, connection)
         streamWriteString(streamId, mName)
         streamWriteUInt8( streamId, (mActive == true) and 1 or 0)
     end
+    -- Build 157: Helfer-Farm (Karten-Symbole der Nachbarn ausblenden), 0 = unbekannt
+    streamWriteUInt8(streamId, math.max(0, math.min(255, st.helferFarmId or 0)))
 end
 function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     local state = {}
@@ -201,6 +176,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
         local mActive = streamReadUInt8(streamId) == 1
         state.missions[mName] = mActive
     end
+    state.helferFarmId = streamReadUInt8(streamId)   -- Build 157
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
         pcall(function()
@@ -373,17 +349,6 @@ local function addPlayerActionEvents(self, superFunc, ...)
         end
     end)
 
-    if InputAction.NF_START_NOW ~= nil then
-        pcall(function()
-            local _, idStart = g_inputBinding:registerActionEvent(
-                InputAction.NF_START_NOW, g_NachbarFelderManager,
-                g_NachbarFelderManager.onInputStartNow, false, true, false, true)
-            if idStart ~= nil then
-                g_inputBinding:setActionEventTextVisibility(idStart, false)
-            end
-        end)
-    end
-
     if InputAction.NF_ADD_WAYPOINT ~= nil then
         local ok, err = pcall(function()
             local _, idAdd = g_inputBinding:registerActionEvent(
@@ -425,19 +390,6 @@ local function addPlayerActionEvents(self, superFunc, ...)
                 g_NachbarFelderManager.onInputManageWaypoints, false, true, false, true)
             if idMgr ~= nil then
                 g_inputBinding:setActionEventTextVisibility(idMgr, false)
-            end
-        end)
-    end
-
-    -- Build 139: Auftrag an den Lohnunternehmer - fuer alle Spieler, der Server
-    -- prueft Besitz und Rechte (eigenes Feld: "Helfer einstellen", freies Feld: Admin)
-    if InputAction.NF_ORDER_FIELD ~= nil and NachbarFelderAuftrag ~= nil then
-        pcall(function()
-            local _, idAuftrag = g_inputBinding:registerActionEvent(
-                InputAction.NF_ORDER_FIELD, g_NachbarFelderManager,
-                NachbarFelderAuftrag.onInput, false, true, false, true)
-            if idAuftrag ~= nil then
-                g_inputBinding:setActionEventTextVisibility(idAuftrag, false)
             end
         end)
     end
@@ -496,8 +448,7 @@ end
 -- ============================================================
 local function init()
     source(modDirectory .. "NachbarFelderManager.lua")
-    -- Build 139: Auftrag an den Lohnunternehmer (eigene Klasse + Event)
-    source(modDirectory .. "NachbarFelderAuftrag.lua")
+    NachbarFelderManager.modDirectory = modDirectory   -- Build 153: fuer help/helpLine.xml
     source(modDirectory .. "NachbarFelderWorker.lua")
     source(modDirectory .. "NachbarFelderSettingsPage.lua")
     source(modDirectory .. "NachbarFelderUIHelper.lua")

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!-- Build 153: Ingame-Hilfe (ESC > Hilfe). Geladen in NachbarFelderManager:ladeHilfe()
+     ueber g_helpLineManager:loadFromXML - gleiches Format wie die Hilfe des Spiels.
+     Texte stehen in l10n/l10n_*.xml (Schluessel NF_help_*). -->
+<helpLines>
+    <category title="$l10n_NF_help_title" subTitle="$l10n_NF_help_subTitle">
+        <page title="$l10n_NF_help_page_ueberblick_title">
+            <paragraph>
+                <title text="$l10n_NF_help_page_ueberblick_title"/>
+                <text text="$l10n_NF_help_ueberblick_text1"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_ueberblick_text2"/>
+            </paragraph>
+        </page>
+        <page title="$l10n_NF_help_page_wegpunkte_title">
+            <paragraph>
+                <title text="$l10n_NF_help_page_wegpunkte_title"/>
+                <text text="$l10n_NF_help_wegpunkte_text1"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_wegpunkte_text2"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_wegpunkte_text3"/>
+            </paragraph>
+        </page>
+        <page title="$l10n_NF_help_page_einstellungen_title">
+            <paragraph>
+                <title text="$l10n_NF_help_page_einstellungen_title"/>
+                <text text="$l10n_NF_help_einstellungen_text1"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_einstellungen_text2"/>
+            </paragraph>
+        </page>
+        <page title="$l10n_NF_help_page_tasten_title">
+            <paragraph>
+                <title text="$l10n_NF_help_page_tasten_title"/>
+                <text text="$l10n_NF_help_tasten_text1"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_tasten_text2"/>
+            </paragraph>
+        </page>
+        <page title="$l10n_NF_help_page_verkehr_title">
+            <paragraph>
+                <title text="$l10n_NF_help_page_verkehr_title"/>
+                <text text="$l10n_NF_help_verkehr_text1"/>
+            </paragraph>
+            <paragraph>
+                <text text="$l10n_NF_help_verkehr_text2"/>
+            </paragraph>
+        </page>
+    </category>
+</helpLines>

@@ -8,6 +8,54 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 157 (01.10.): Kein Helfer-Symbol auf der Karte — im Spiel bestätigt, freigegeben** — Nachbar-Fahrzeuge (Besitzer = Helfer-Farm) werden in
+>   `IngameMap:drawHotspot` übersprungen (Minimap + große Karte); Helfer-Farm per Settings-Sync an die Clients. Abschnitt Build 157.
+> - **Build 156 (01.10.): Kippen beim Ankuppeln — im Spiel bestätigt** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
+>   zur Seite. Ursache: Kuppeln mit `noSmoothAttach = true` + Gerät nur gierrichtig gesetzt. Jetzt drehrichtig setzen
+>   (`jointOrigRotOffsetComponent`) und weich kuppeln wie ein Spieler. Abschnitt Build 156.
+> - **Build 155 (01.10.): Spawn wieder waagerecht** — Test 154: Vario 500 (Spawnpunkt WP1) lag mit einer Seite am Boden und
+>   kippte auf die Räder. Ursache: unsere Neigung + Shop-Drehung des Modells = Schräglage. Jetzt waagerecht, Höhe über dem
+>   höchsten von 5 Messpunkten. Abschnitt Build 155.
+> - **Build 154 (01.10.): Spawn ohne Hüpfen** — Test 153: Autos bremsen hinter den Traktoren (Build 152 wirkt), aber
+>   Fahrzeuge/Geräte spawnen über dem Boden und hüpfen. Fix: Höhen-Raycast mit `TERRAIN_DELTA`, Längsneigung der Straße
+>   beim Laden, 0,10 m statt 0,15 m, Geräte ohne Physik laden. Abschnitt Build 154.
+> - **Build 153 (01.10.): Ingame-Hilfe, ModHub-Beschreibung, GitHub** — neue Datei `help/helpLine.xml` (ESC > Hilfe >
+>   „Lebendige Straßen“, 5 Seiten de/en), geladen über `g_helpLineManager:loadFromXML`; modDesc-Beschreibung de/en/fr neu
+>   mit Changelog, **Version 1.2.0.0**; Settings-Texte ohne Feldarbeit; Issue-Vorlagen und Release-Titel angepasst. Abschnitt Build 153.
+> - **Build 152 (01.10.): Beim Spielverkehr anmelden** — Autos des Spielverkehrs bremsen nur für angemeldete Objekte
+>   (`addTrafficSystemPlayer`); unsere Fahrzeuge ohne Fahrer waren nie angemeldet. Jetzt Anmeldung beim Losfahren,
+>   Abmeldung bei Pool/Löschen/Spielende. Schalter `spielverkehrAnmelden`. Abschnitt Build 152.
+> - **Build 151 (01.10.): Angezeigter Name „Lebendige Straßen“** (en Living Roads, fr Routes vivantes) — nur Titel, Tastennamen,
+>   Settings-Überschrift und Ingame-Meldungen. Technischer Name bleibt `FS25_NachbarFelder` (ZIP, modSettings, Spielstand,
+>   Tasten, Log-Präfix `NachbarFelder:`). Abschnitt Build 151.
+> - **Build 150 (01.10.): Alle Feldhelfer entfernt — nur noch Verkehr.** Wunsch des Users: Lohnunternehmer UND zufällige
+>   Feldarbeit raus (Feld bearbeitet er selbst mit eigenem Trecker + seiner anderen Helfer-Mod). Entfernt: `NachbarFelderAuftrag.lua`,
+>   Feldwahl/Feldarbeit/Anfahrt/Gespannwahl, Tasten `NF_START_NOW`/`NF_ORDER_FIELD`, Konsole `nachbarFelderStart`/`…Sperre`,
+>   Regler „Anzahl Arbeiter“ und Arbeitsarten, Feld-Hooks (`getIsMissionWorkAllowed`, `saveSavegame`). Abschnitt Build 150.
+>   Die Abschnitte Build 105–149 zu Feldhelfern/Lohnunternehmer sind ab hier **nur noch Historie**.
+> - **Build 149 (01.10.): `toggleAIVehicle()` entfernt — wahrscheinliche Ursache „Feldarbeit 0 s“** (FS25: Helfer-Taste des
+>   Spielers, startete einen zweiten Auftrag); Ende-Meldungen bei laufendem eigenen Auftrag ignoriert; Felderkennung ohne
+>   Besitzprüfung jetzt um `AITaskFieldWork:start` (Build 147 setzte sie zu früh). Abschnitt Build 149.
+> - **Build 148 (01.10.): Kippen lag an bestimmten Ladeplätzen (Hindernis über der Straße), nicht am Gewicht** — Höhenmessung
+>   erkennt Baumkrone/Dach über der Fahrbahn, solche Plätze werden abgelehnt; Kippen sperrt wieder den Platz, ein Gespann
+>   erst nach Kippen auf 2 Plätzen; Hinweis + Menüzeile „Spawnpunkt hier setzen“. Abschnitt Build 148.
+> - **Build 147 (01.10.): Feldarbeit auf dem eigenen Feld** — Helfer kam auf Feld 47 an (Build 146), Arbeit endete nach
+>   0 s. Vermutung (LUADOC): `findClosestField` meldet `notOwned` → `AIMessageErrorFieldNotOwned`. Fix: während
+>   `startJob` `AIDriveStrategyFieldCourse.fieldDetectionPosition` setzen (Erkennung ohne Besitzprüfung). Abschnitt Build 147.
+> - **Build 146 (01.10.): Anfahrt mit Ausweich-Zugängen** — Zugänge nach Wegklasse (frei / über fremdes Feld / über
+>   Weide); bei „GOTO kein Pfad“ bis zu 3 andere Zugänge, zuletzt die alte Zielwahl, statt den Helfer zu entfernen.
+>   Build 145 bestätigt: Pflug-Gespann Series TJW 4,6 t + Juwel 6 1,1 t kippt nicht. Abschnitt Build 146.
+> - **Build 145 (01.10.): Gewichtsregel Feldgerät ≤ 40 % Traktor (vorher 50 %)** — belegt: Ares XL 3,1 t an Arion 6,6 t
+>   (47 %) kippte bei jedem Laden. Kippen sperrt nur noch das Gespann, nicht den Ladeplatz. Abschnitt Build 145.
+> - **Build 144 (01.10.): Kippen liegt am Gespann, nicht am Platz** — Arion 550 + Ares XL kippte auf zwei verschiedenen
+>   Plätzen 1–2 s nach dem Laden. Gekipptes Gespann wird dauerhaft gesperrt (`NachbarFelderGespannSperren.xml`, alle Karten);
+>   Auftrag ohne Grubber-Gespann pflügt. Abschnitt Build 144.
+> - **Build 143 (01.10.): Ladeplatz-Suche in Stufen, kartenunabhängig** — erst „echte Straßenstücke“ (gerade ±20 m,
+>   eben ≤ 1,2 m, 30 × 5 m frei) 40–250 m, dann 250–800 m, erst danach die alte lockere Prüfung; Auftrag nach Kippen am
+>   Ladeplatz automatisch neu eingeplant (max. 2×). Abschnitt Build 143. **Vorgabe User: Spawn muss auf allen Karten gehen.**
+> - **Build 142 (01.10.): gesperrte Ladeplätze dauerhaft je Karte + Kipp-Erkennung** — Datei
+>   `modSettings/FS25_NachbarFelder/NachbarFelderLadeplaetze_<KartenId>.xml`; umgekippte Gespanne werden nach 3 s
+>   entfernt (Ladeplatz gesperrt). Abschnitt Build 142.
 > - **Build 141 (01.10.): Anfahrt über freien Feldrand + Abbruchgrund der Feldarbeit im Log** — Zielpunkt ist jetzt
 >   die Randstelle mit der nächsten KI-Straße, deren Weg kein fremdes Feld / keine Weide kreuzt (`getFeldZugang`).
 >   Offen: Lohnunternehmer-Auftrag auf eigenem Feld 47 endete nach 0 s — Grund steht ab 141 im Log. Abschnitt Build 141.
@@ -25,7 +73,7 @@
 > - Im Spiel noch ungetestet: Build 135 (Buttons), 136 (Spurwahl, Pool), 137 („bebaut" je Feldumriss), 138 und 139.
 >
 > **Arbeitsweise (verbindlich)**
-> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 139; neue Dateien in `DATEIEN` eintragen).
+> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 153; neue Dateien in `DATEIEN` eintragen).
 > - GitHub-Release: `.github/workflows/release.yml` baut mit `build.py` und legt Release `build<N>` mit
 >   `FS25_NachbarFelder.zip` an — bei Push auf `main` (Merge), Tag `build<N>` oder „Run workflow“; schon vorhandenes
 >   Release → nichts. Neues Release nur mit hochgezähltem `BUILD`. ZIP-Name nie ändern = Mod-Name.
@@ -62,11 +110,11 @@
 >   alles entfernen Strg+Alt+L, Shift+Alt+X/W (lösen Alt+X/Shift+X mit aus → umlegen). Neue Standards seit 134:
 >   Strg+Alt+O/U/C/E/L, seit 139 zusätzlich Strg+Alt+J (Lohnunternehmer; Kollision mit Strg+J/Alt+J nicht geprüft).
 >   Vor Tastentipps immer das Profil prüfen.
-> - Lohnunternehmer (Build 139): an ein Feld stellen (im Feld oder ≤ 25 m vom Rand) → Strg+Alt+J oder Reiter
->   Wegpunkte → „Dieses Feld bearbeiten lassen“. Antwort als Meldung und in der Infozeile des Reiters.
+> - Lohnunternehmer und „Helfer starten“ gibt es seit Build 150 nicht mehr (Tasten Strg+Alt+J/E entfallen).
 >
 > **Offene Punkte (nach Priorität)**
-> 0. **Build 139 testen** (Auftrag an den Lohnunternehmer), Testplan im Abschnitt Build 139 am Ende.
+> 0. **Build 150 testen**: nur Verkehr; Prüfpunkte im Abschnitt Build 150 am Ende. Punkte 1–2 unten betreffen die
+>    entfernte Feldarbeit und sind erledigt/hinfällig.
 > 1. Servertest Build 137 auf Bergisch Land (enthält 136): im Log `0 Felder bebaut (Hindernis mind. 1 m im Feld)`,
 >    in der Feldarbeit-Statistik `0 bebaut` statt 83 und danach echte Feldaufträge; `[POOL] … aufgeweckt` muss
 >    auftauchen, „sofort abgewiesen" und „Ladeplatz … taugt nicht" deutlich seltener.
@@ -977,3 +1025,441 @@ Nächster Test: Auftrag auf eigenem Feld, Zeilen `FIELDWORK Feld=` und `Feldarbe
 - Helfer startete an einer Weide: selbst gesetzter Shop-Trigger hatte den Lieferplatz (`storeSpawnPlaces[1]`) verschoben —
   gewollt seit Build 96. Abhilfe für den User: Spawnpunkt setzen (hat Vorrang).
 
+
+# ERGÄNZUNG 2026-10-01 — Build 142: Ladeplatz-Sperren dauerhaft, Kipp-Erkennung
+
+Anlass (User-Test Build 141, Screenshot): Lohnunternehmer-Helfer für Feld 47 lag am Ladeplatz im Shop-Hof auf dem Dach
+(zwischen Zaun, Baum und Ausstellungsfahrzeugen). Log: `wird direkt an der KI-Strasse geladen (70 m vom Shop-Platz)`,
+60 s später `steht 60 s ohne Bewegung … bei x=-473 z=12`, `Ladeplatz x=-478 z=11 taugt nicht (Stillstand)`.
+Derselbe Platz war schon in der Sitzung davor gesperrt worden (`… taugt nicht (Anfahrt abgebrochen)`) — die Sperre galt
+nur je Session, nach dem Neustart wurde er wieder genommen. Die Werkstatt-Drehung (`Spawn-Blickrichtung`) ist es nicht:
+bei Ladung an der KI-Straße wird sie nur berechnet/geloggt, nicht angewendet (`aufStrasse`).
+
+**Fix:**
+- `merkeSpawnFehlschlag` schreibt gesperrte Ladeplätze (x, z, Grund) in
+  `modSettings/FS25_NachbarFelder/NachbarFelderLadeplaetze_<KartenId>.xml` (Schema `lpXmlSchema`, Muster wie die
+  Wegpunkt-Datei); `ladeLadeplatzSperre` liest sie einmal je Sitzung (Server). Admin-Spawnpunkte werden weiterhin nie
+  gesperrt. Wieder freigeben: Datei löschen.
+- Kipp-Erkennung im `update`: Hochachse des Traktors (`localDirectionToWorld(root, 0, 1, 0)`) < `KIPP_GRENZE` = 0,3
+  länger als 3 s → Log `… ist umgekippt bei x z (Status s) - wird entfernt`, Ladeplatz sperren (nur wenn ≤ 10 m vom
+  Ladeplatz), Job stoppen, Status 100. Gilt für Feldhelfer und Verkehr.
+
+**Test:** echte Funktionen (lupa, XMLFile nachgebaut): Sperre geschrieben, nach „Neustart“ (neue Instanz) geladen,
+Platz gesperrt, anderer Platz frei. Strukturcheck und Vollparse sauber.
+
+**Hinweis:** Die Sperrliste wächst nur; Verkehrs-Abweisungen sperren ebenfalls. Werden zu viele Plätze gesperrt, lädt die
+Mod wie bisher am Shop-Platz des Spiels (`Kein freier Strassenplatz …`). Zuverlässigster Weg: eigener Spawnpunkt.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 143: Ladeplatz-Suche in Stufen, Auftrag neu einplanen
+
+Vorgabe des Users: Das Spawnen muss auf allen Karten funktionieren — notfalls auf einem Straßenstück, wo Platz ist.
+Test Build 142 (Log 14:50): Helfer wieder am Hof-Ladeplatz x=-478 z=11 geladen, nach ~5 s umgekippt, von der
+Kipp-Erkennung entfernt, Platz dauerhaft gesperrt — für den User „kurz da, dann wieder weg“, der Auftrag war verloren.
+
+**Ursache, kartenunabhängig:** Auch Höfe (Shop, Betriebe) haben KI-Splines. Die Prüfung bis Build 142 (17 × 4 m frei,
+hinten Straße, voraus kein Fahrzeug) passt an einer Hofecke gerade noch.
+
+**Fix `setzeLadepositionStrasse` / neu `getIstLadeplatzGut(sp, rx, rz, ry, h, streng)`:**
+`LADEPLATZ_STUFEN`: 1) streng 40–250 m um den Shop-Platz, 2) streng 250–800 m, 3) locker 40–250 m (alte Prüfung),
+dann wie bisher Shop-Platz des Spiels. Je Stufe höchstens `LADEPLATZ_MAX_PRUEFUNGEN` = 150 Stellen, je Stufe erst
+Spuren Richtung Ziel, dann die übrigen. Streng heißt zusätzlich:
+- gerade Straße: Stützpunkte bei −20/−10/+10/+20 m entlang der Spur vorhanden und Richtung ≤ ~25° abweichend
+  (`LADEPLATZ_GERADE_COS` = 0,9; Gegenspur zählt) — keine Hofecke, keine enge Kurve;
+- eben: Fahrbahnhöhe (`getFahrbahnHoehe`, Raycast) vorn, Gespannende und seitlich ≤ `LADEPLATZ_MAX_HOEHE` = 1,2 m;
+- Platz: Kasten 30 × 5 m frei, reicht 13 m vor den Punkt (Raum zum Losfahren).
+Log: `… wird direkt an der KI-Strasse geladen (n m vom Shop-Platz, freier Platz, Stufe s, k Stellen geprueft)`.
+
+**Auftrag neu einplanen:** `planeAuftragNeu(w, grund)` — kippt ein Lohnunternehmer-Helfer am Ladeplatz, kommt der
+Auftrag zurück in die Warteschlange (`loadVehiclesFromXML`, über `starteGespeichert`), höchstens
+`AUFTRAG_MAX_NEUVERSUCHE` = 2 je Feld und Sitzung. Steht der alte Helfer noch (Prüfung „belegt“), bleibt der Eintrag in
+der Schlange statt verworfen zu werden.
+
+**Tests:** `getIstLadeplatzGut` mit echtem Code (lupa): gerade+eben+frei → ja; Kurve/Hofecke, Hang 15 %, vorn zugestellt
+→ streng nein, locker ja. Auftrags-Logiktest, Strukturcheck, Vollparse sauber. Im Spiel noch ungetestet.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 144: gekippte Gespanne dauerhaft sperren, Auftrag pflügt ersatzweise
+
+Test Build 143 (Log 14:58): Ladeplatz diesmal nach der strengen Prüfung (Stufe 1, x=-376 z=38, gerade/eben/30 × 5 m
+frei) — trotzdem `arion550.xml ist umgekippt` 4,5 s nach dem Laden (3 s Kipp-Wartezeit → gekippt ~1–2 s nach dem
+Laden, also beim Ankuppeln/Ausrichten). Zuvor dasselbe Gespann am Hof-Platz. Gespannwahl:
+`Eigenes Feldgespann fuer cultivateMission: arion550.xml (145 PS, 6.6 t) + aresXL.xml (Bedarf 150 PS) - Auswahl aus
+1 Geraeten, 1 Kombinationen` — jeder Grubber-Auftrag nimmt genau dieses Gespann. Vermutung: schwerer Anbaugrubber an
+leichtem Traktor ohne Frontgewicht (Gewichtsregel `getPasstFeldGeraetZuTraktor`: Gerät ≤ 50 % Traktor, entfällt bei
+unbekanntem Gerätegewicht). Nicht verifiziert — das Gerätegewicht stand nicht im Log.
+
+**Fix:**
+- Kipp-Erkennung sperrt bei Feldhelfern zusätzlich das Gespann dauerhaft: `sperreFeldGespannDauerhaft` →
+  `modSettings/FS25_NachbarFelder/NachbarFelderGespannSperren.xml` (kartenunabhängig, Schema `gsXmlSchema`,
+  Traktor-/Geräte-XML + Grund); `getIstFeldGespannGesperrt` lädt die Datei einmal (`ladeGespannSperren`). Freigeben:
+  Datei löschen.
+- Log der Gespannwahl nennt jetzt auch das Gerätegewicht (`Bedarf n PS, x t`).
+- `NachbarFelderAuftrag.starte`: schlägt `createMission` für Grubbern ohne Platzproblem fehl (kein taugliches Gespann)
+  und ist Pflügen an → Pflügen; Meldung/Log nennen die tatsächliche Arbeit.
+
+**Tests:** Auftrags-Logiktest sauber; Fallback (Grubbern scheitert → `plowMission` gestartet, Meldung „gepflügt“).
+Strukturcheck und Vollparse sauber. Im Spiel noch ungetestet.
+
+**Nächster Schritt, falls auch das Pflug-Gespann kippt:** Gewichtsregel verschärfen (Anbaugerät ≤ 35–40 % des
+Traktorgewichts, unbekanntes Gerätegewicht ablehnen) — erst mit den Gewichten aus dem neuen Log entscheiden.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 145: Gewichtsregel 40 %, Kippen sperrt keinen Ladeplatz mehr
+
+Test Build 144 (Log 15:04): `arion550.xml (145 PS, 6.6 t) + aresXL.xml (Bedarf 150 PS, 3.1 t)` — erstmals mit
+Gerätegewicht. 3,1 t = 47 % des Traktors, erlaubt waren 50 %. Wieder gekippt (dritter verschiedener, guter Ladeplatz
+nach Stufe 1), Gespann dauerhaft gesperrt, Auftrag neu eingeplant — Log endet vor dem neuen Anlauf.
+
+**Fix:**
+- `getPasstFeldGeraetZuTraktor`: Gerät höchstens `FELD_GEWICHT_ANTEIL` = 0,40 des Traktorgewichts (vorher fest 0,5).
+  Gilt nur für Feldhelfer; die Regel für Verkehr-Anbaugeräte (`getPasstGeraetZuTraktor`, leichte Geräte) bleibt 0,5.
+- Kipp-Erkennung sperrt den Ladeplatz nicht mehr (dasselbe Gespann kippte auf drei verschiedenen guten Plätzen);
+  Plätze sperren weiterhin Stillstand und „sofort abgewiesen“. `ladeLadeplatzSperre` verwirft vorhandene Einträge mit
+  Grund `umgekippt` (aus Builds 142–144) und schreibt die Datei neu — Log `n Ladeplatz-Sperren wegen 'umgekippt'
+  aufgehoben`.
+
+**Tests (lupa, echte Funktionen):** Arion 6,6 t + 3,1 t → passt nicht, + 2,5 t → passt. Datei mit 3 Kipp-Sperren und
+1 Stillstand-Sperre: nach Neustart Kipp-Plätze frei, Stillstand-Platz gesperrt. Strukturcheck und Vollparse sauber.
+
+**Folge auf Bergisch Land:** Für Grubbern gab es nur dieses eine Gespann — jetzt evtl. gar keins; der Lohnunternehmer
+pflügt dann (Build 144). Ob es ein Pflug-Gespann ≤ 40 % gibt, zeigt das nächste Log (`Eigenes Feldgespann fuer
+plowMission … t` bzw. `Kein eigenes Feldgespann …`).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 146: Ausweich-Zugänge bei „kein Pfad“
+
+Test Build 145 (Log 15:13): 40-%-Regel greift — `Kein eigenes Feldgespann fuer cultivateMission … keine Kombination
+passt`, Auftrag weicht aufs Pflügen aus: `seriesTJW.xml (123 PS, 4.6 t) + juwel6.xml (Bedarf 110 PS, 1.1 t)` (24 %),
+**kein Kippen**. Die 3 alten Kipp-Sperren der Ladeplätze wurden aufgehoben. Neues Problem: `Anfahrt Feld 47 -> Feldrand
+nahe KI-Strasse (19 m …, kein freier Weg …) x=-428 z=-423` → `GOTO kein Pfad (3044ms, AIMessageErrorNotReachable) …
+Fahrzeug wird am Shop entfernt`. Feld 47 hat keinen freien Zugang; Build 141 nahm dann die straßennächste Stelle, deren
+Weg offenbar über eine Weide (Zaun) führt. Mit der alten Zielwahl (Build 140) war der Helfer bis Feld 47 gekommen.
+
+**Fix:**
+- `getFeldZugang(field, ausschluss)` stuft jeden Zugang ein: 0 = Weg frei, 1 = kreuzt nur fremde Felder (befahrbar),
+  2 = kreuzt eine Weide (`isPunktInWeide`). Gewählt wird die niedrigste Klasse, darin die nächste Straße. Ziele im
+  Umkreis `ZUGANG_AUSSCHLUSS_M` = 80 m um schon gescheiterte Ziele werden übersprungen.
+- `getFeldZielpunkt` liest den Ausschluss vom Worker (`zugangAusschluss`), merkt das gewählte Ziel (`zugangZiel`);
+  ohne Kandidat greift wie bisher die alte Zielwahl (Straße nächst der Feldmitte). Log nennt die Wegklasse und
+  `(Zugang-Versuch n)`.
+- `NachbarFelderWorker:onAIJobFinished`, Zweig „GOTO kein Pfad“: Feldhelfer mit `zugangZiel` und weniger als
+  `ZUGANG_MAX_VERSUCHE` = 3 Versuchen → Ziel in den Ausschluss, Status 1 + Timer (wie „neuer Anlauf“), die
+  Update-Schleife plant mit dem nächsten Zugang neu. Log `GOTO kein Pfad … - anderer Zugang wird versucht (n/3)`.
+  Erst danach wie bisher entfernen + Feld-Cooldown.
+
+**Tests (lupa, echte Funktionen):** freier Zugang → Klasse 0; Ost über Weide, Süd über fremdes Feld → Süd (Klasse 1);
+Folge mit Ausschluss: Süd → Süd andere Ecke → Ost (Klasse 2) → alte Zielwahl. Strukturcheck und Vollparse sauber.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 147: Felderkennung der KI ohne Besitzprüfung
+
+Test Build 146 (Log 15:22): Pflug-Gespann `vestrum130.xml (110 PS, 5.5 t) + juwel6.xml (1.1 t)`, Anfahrt über
+`Weg kreuzt fremdes Feld` — **Helfer kam auf Feld 47 an**: `FIELDWORK Feld=47 (plowMission) | Gespann x=-428 z=-421
+im Feld: ja | Felderkennung x=-429 z=-421`, dann 1 ms später `Feldarbeit beendet Feld 47 (Laufzeit: 0s, Grund:
+unbekannt)`. Gleiches Bild wie mit dem Grubber-Gespann in Build 140 — es liegt am Feld, nicht am Gespann.
+
+**Analyse (LUADOC `AIDriveStrategyFieldCourse`):**
+- `setAIVehicle`: ohne `AIDriveStrategyFieldCourse.fieldDetectionPosition` →
+  `FieldCourse.findClosestField(nil, nil, nil, nil, vehicle:getAIJobFarmId(), vehicle, 2, settings)`; ist der dritte
+  Rückgabewert `notOwned` true → `fieldNotOwned`, kein Kurs.
+- `getDriveData` (nächstes Update, gleicher Frame) → `stopCurrentAIJob(AIMessageErrorFieldNotOwned)`.
+- `FieldCourse.findClosestField` selbst steht nicht in der LUADOC — wie `notOwned` entsteht, ist nicht belegt. Vermutung:
+  über `farmlandMapping` (bleibt beim Feldbesitz-Trick der Mod auf der Spielerfarm), auf herrenlosen Feldern greift die
+  Missions-Erlaubnis. Passt dazu, dass nur das eigene Feld 47 scheitert.
+- „Grund: unbekannt“: `onAIFieldWorkerEnd` kam offenbar vor dem `job.stop`-Wrapper.
+
+**Fix:**
+- `setAIOnField`: vor `aiSystem:startJob` `AIDriveStrategyFieldCourse.fieldDetectionPosition = {fieldDetectionX,
+  fieldDetectionZ}` (nur wenn nicht schon gesetzt), danach sofort wieder `nil`; Start in `pcall`. Log-Zusatz
+  `| Felderkennung ohne Besitzpruefung`.
+- `job.stop`-Wrapper loggt sofort `FIELDWORK Feld n gestoppt: <AIMessage> (nach x ms)`.
+- `NF_AI_MSG_CLASSES` um `AIMessageErrorFieldNotReady`, `AIMessageErrorVineyardNotSupported` ergänzt.
+
+**Unverifiziert** — im Spiel testen. Erwartung: Pflügen auf Feld 47 läuft; falls nicht, nennt die neue Zeile
+`FIELDWORK Feld 47 gestoppt: …` den Grund.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 148: Hindernis über der Fahrbahn, Kipp-Regel neu, Spawnpunkt-Hinweis
+
+Test Build 147 (Log 15:32): leichtes Gespann `vario500.xml (131 PS, 6.4 t) + juwel6.xml (1.1 t)` (17 %) kippte auf
+x=-365 z=28 — demselben Platz, auf dem um 15:04 Arion + Ares XL gekippt war. Übersicht aller Ladungen nahe dem Shop:
+gekippt an -478/11 (2×), -376/38, -363/29 (2× mit zwei verschiedenen Gespannen); ohne Kippen am „76 m“-Platz
+(Series TJW, Vestrum). **Die Gewichts-Theorie aus Build 144/145 war nicht die (alleinige) Ursache — es sind bestimmte
+Plätze.** Erster Screenshot: Traktor lag unter einem großen Baum.
+
+**Ursache (Vermutung, plausibel):** `getFahrbahnHoehe` tastet von Bezugshöhe + 3 m nach unten und nimmt den ersten Treffer
+inkl. `STATIC_OBJECT`/`BUILDING` — eine Baumkrone oder ein Dach über der Straße liefert eine zu hohe Ladehöhe, das
+Gespann wird oben abgesetzt und stürzt.
+
+**Fix:**
+- `getFahrbahnHoehe(x, z, splineH)` liefert zusätzlich `ueberkopf`: mit Spline-Höhe und Treffer mehr als
+  `HOEHE_UEBERKOPF` = 1,0 m über max(Gelände, Spline) → Bezugshöhe zurück, `ueberkopf = true`. Ohne Spline-Höhe (Admin-
+  Spawnpunkt, evtl. Brücke) unverändert.
+- `getIstLadeplatzGut` (streng und locker): Platz abgelehnt, wenn bei +3/0/−5/−10/−15 m entlang der Spur etwas über der
+  Fahrbahn ist.
+- Kippen: Platz wieder sperren (Grund `umgekippt (Platz)`); Gespann dauerhaft erst, wenn es an zwei Plätzen > 30 m
+  auseinander kippte (`gespannKippOrte`, Grund `umgekippt an 2 Plaetzen`). Beim Laden werden alte Gespann-Sperren mit Grund
+  `umgekippt` (Builds 144–147, u. a. Vario 500 + Juwel 6) verworfen; alte Platz-Sperren `umgekippt` (Build 142–144) wurden
+  schon in Build 145 verworfen.
+- Wunsch des Users (Spieler wählt den Platz): Spawnpunkte gibt es seit Build 132 und sie haben Vorrang. Neu:
+  `hinweisSpawnpunkt` — beim ersten gescheiterten automatischen Ladeplatz ohne Spawnpunkt einmal eine Ingame-Meldung
+  (SP/Host, `NF_hinweisSpawnpunkt`) und eine Log-Zeile; im Reiter Wegpunkte, Abschnitt Lohnunternehmer, zusätzlich die
+  Zeile „Spawnpunkt hier setzen“ (`nfAuftragSpawnHier`, nur Admin).
+
+**Tests (lupa, echte Funktionen):** Höhe unter Baum → Bezugshöhe + `ueberkopf`; Platz unter Baum streng und locker
+abgelehnt, ohne Baum angenommen; ohne Spline-Höhe Treffer wie bisher. Strukturcheck, Vollparse, XML sauber.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 149: toggleAIVehicle entfernt, falsche Ende-Meldungen ignorieren
+
+Test Build 148 (Log 15:39): Spawnpunkt WP1 vom User gesetzt und genutzt (`wird am Spawnpunkt WP1 geladen`), Feldhelfer
+kippte nicht; Ausweich-Zugang griff (`GOTO kein Pfad … anderer Zugang wird versucht (1/3)`, dann Zugang 2), Helfer kam
+auf Feld 47 an. Feldarbeit wieder 0 s — **und die Zeile `FIELDWORK Feld 47 gestoppt: …` aus dem job.stop-Wrapper fehlt**:
+unser Auftrag wurde gar nicht über `job:stop` beendet. (Nebenbei: Verkehrs-Lintrac kippte am Spawnpunkt WP1 — Hinweis
+im Log, Spawnpunkte werden nie gesperrt.)
+
+**Analyse (LUADOC):** `AISystem:startJob` → `startJobInternal` → `AIJob:start` setzt nur `currentTaskIndex = 0`; der
+Teilschritt `AITaskFieldWork:start` → `vehicle:startFieldWorker()` läuft erst im nächsten `AIJob:update`. Jedes reguläre
+Ende geht über `aiSystem:stopJob` → `job:stop`. Das „Feldarbeit beendet“ 1 ms nach `startJob` kann also nicht von unserem
+Auftrag stammen. Direkt davor rief `setAIOnField` `vehicle:toggleAIVehicle()` — in FS25 `AIJobVehicle:toggleAIVehicle`,
+die **Helfer-Taste des Spielers**: ohne aktiven Helfer `AIJobStartRequestEvent` für den „startbaren“ Auftrag des
+Fahrzeugs über `g_client` (bzw. Helfer-Menü öffnen). Das startete einen zweiten Auftrag, der unsere Feldarbeit
+verdrängte. Auf dem Dedi gibt es kein `g_client` (Fehler). Vermutlich ein FS22-Rest.
+
+**Fix:**
+- `toggleAIVehicle()` entfernt; gestartet wird nur über `aiSystem:startJob`.
+- `onAIFieldWorkerEnd`: kommt die Meldung bei Status 2, während `tt.fieldWorkJob.isRunning` (AIJob:start/stop) true ist,
+  wird nur geloggt (`Feldarbeit-Ende-Meldung … ignoriert - eigener Auftrag laeuft noch`).
+- Felderkennung ohne Besitzprüfung (Build 147) hängt jetzt an `job.fieldWorkTask.start` (Instanz-Wrapper: setzen →
+  Original → zurücksetzen). Build 147 setzte sie nur während `startJob` — dort wird sie noch nicht gelesen, wirkte also nie.
+- `startJob` und Task-Start in `pcall` mit Log.
+
+**Tests:** Mini-Gerüst nach LUADOC-Ablauf: Position beim Task-Start gesetzt, danach wieder frei. Strukturcheck, Vollparse.
+**Unverifiziert im Spiel** — Erwartung: Feldarbeit auf Feld 47 läuft; sonst nennt `FIELDWORK Feld 47 gestoppt: …` den Grund.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 150: Alle Feldhelfer entfernt, nur noch Verkehr
+
+**Anlass:** Build 149 (Feldarbeit 0 s) war noch ungetestet, da entschied der User: „Alle Feldhelfer raus“. Er fährt
+seinen Trecker selbst ans Feld und startet dort den Helfer über eine andere eigene Mod. Übrig bleibt der Verkehr
+(Patrouille zwischen Wegpunkten, Pool, Tagesrhythmus, Stammfahrzeuge, Ladeplatz-Suche, Spawnpunkte, Kipp-Erkennung).
+
+**Entfernt**
+- Datei `NachbarFelderAuftrag.lua` (Lohnunternehmer, Event `NachbarFelderAuftragEvent`), Eintrag in `build.py` (jetzt 14 Dateien).
+- `NachbarFelder.lua`: `NachbarFelderStartEvent`, Registrierung von `NF_START_NOW` und `NF_ORDER_FIELD`, `source` der Auftragsdatei.
+- `modDesc.xml`: Aktionen/Tasten `NF_START_NOW` (Strg+Alt+E) und `NF_ORDER_FIELD` (Strg+Alt+J); Beschreibung de/en/fr auf
+  Verkehr umgeschrieben. modDesc-Version bleibt `1.1.42.0`.
+- l10n de/en: `input_NF_START_NOW`, `input_NF_ORDER_FIELD`, alle `NF_auftrag*`. `NF_hinweisSpawnpunkt` bleibt (Ladeplatz-Hinweis).
+- Reiter Wegpunkte: Abschnitt „Lohnunternehmer“ (`nfAuftragHier`, `nfAuftragSpawnHier`). „Spawnpunkt hier setzen“ gibt es
+  weiter im Abschnitt „Neuer Punkt“.
+- Einstellungen: Regler „Anzahl Arbeiter“ (`MAX_ASSISTANT_WORKERS`) und die Arbeitsarten (`missionHelper`). Die Werte
+  laufen weiter durch Spielstand, Server-Konfig und Settings-Sync (Stream-Format unverändert, also keine
+  Versionskonflikte zwischen Server und Client), wirken aber nicht mehr.
+- Manager: Feldwahl (`isFieldUseful`, `getFeldAktion`, `getFruchtZustand`, Statistik, bebaut/Weide, Feldpolygon,
+  Feldnummern), Feldarbeit (`setAIOnField`, `finishFieldState`, Saatwahl), Anfahrt (`getFeldZielpunkt`, `getFeldZugang`,
+  Stillstand-Wächter Build 121), Gespannwahl (`getRandomVehicles`, `getEigenesFeldGespann`, Gespann-Sperren inkl.
+  `NachbarFelderGespannSperren.xml`, starr/breit, Zugmaschine zu groß), `createMission`/`generateWorkMission`/
+  `startSavedMission`, `planeAuftragNeu`, `onMissionStarted` (+ Abo `MissionStartedEvent`), Mähdrescher-Sonderfälle
+  (Korntank, Schneidwerk-Wagen, Status 3/33/4), Feld-Cooldowns/-Sperren, Vorfrucht-Gedächtnis, Konsolenbefehle
+  `nachbarFelderStart` und `nachbarFelderSperre`.
+- Hooks: `MissionManager.getIsMissionWorkAllowed` und der `saveSavegame`-Schutz für den temporären Feldbesitz.
+  **Behalten:** FarmlandManager-Hooks (`getCanAccessLandAtWorldPosition`/`AlongLine` sind Teil der GOTO-Wegsuche),
+  `addMoney`, `getJobTypeIndex`, `FSBaseMission.delete`, `ItemSystem.save`.
+- Worker: Feldhelfer-Zweige in `onAIJobFinished` (Rettung, Implement-Sperre, Zugangs-Wechsel, Feld-Cooldown),
+  `onAIFieldWorkerEnd` (samt Event-Abo), Ernte-Spezialfall. Ein Eintrag ohne `isPatrol` wird jetzt sofort aufgeräumt
+  (Status 100), falls je einer entsteht.
+- `driveToField`: nur noch Verkehr (kein `createAgent`-Zweig mehr); ohne Zielpunkt kein Auftrag.
+- Spielstand `NachbarFelder.xml`: es werden nur noch Einstellungen gespeichert; alte `worker`-Einträge und
+  `fieldFruits` werden beim Laden ignoriert (Schema-Registrierung bleibt, damit alte Dateien sauber laden).
+
+**Tests:** Referenzscan (keine Aufrufe ins Leere), Strukturcheck aller Lua-Dateien, Vollparse (lupa), XML (minidom).
+Lauftest mit Platzhalter-Umgebung: Manager anlegen, `update()` räumt einen Verkehrseintrag im Status 100 ab,
+`deleteMission` auf unbekannten Schlüssel ohne Fehler, entfernte Funktionen existieren nicht mehr.
+**Unverifiziert im Spiel.** Prüfpunkte: Start ohne Lua-Fehler (`loadMap auf SERVER (Build 150)`), Verkehr spawnt
+(`[TRAFFIC] …`), keine Zeilen „Feld … gewaehlt“/„generateWorkMission“ mehr, Einstellungsseite ohne „Anzahl Arbeiter“
+und Arbeitsarten, Reiter Wegpunkte ohne Abschnitt Lohnunternehmer, Strg+Alt+L entfernt weiter alle Fahrzeuge.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 151: Angezeigter Name „Lebendige Straßen“
+
+Nach Build 150 (nur noch Verkehr) passte „NachbarFelder“ nicht mehr. Entscheidung User: Name „Lebendige Straßen“,
+umgesetzt als **reiner Anzeigename** (Empfehlung, kein Risiko):
+- `modDesc.xml` `<title>`: de „Lebendige Straßen“, en „Living Roads“, fr „Routes vivantes“; Hinweis auf die Tasteneinträge
+  in der Beschreibung angepasst.
+- l10n de/en: Schlüssel `NachbarFelder`, `NF_setting_title` (Überschrift auf der Einstellungsseite, vorher „Aktivitaet auf
+  fremden Feldern“) und die Tastennamen `input_NF_*` mit Präfix „Lebendige Straßen:“ bzw. „Living Roads:“.
+- Wegpunkt-Dialog-Titel und Ingame-Meldungen (`addIngameNotification`) mit Präfix „Lebendige Straßen:“.
+
+**Bewusst NICHT geändert:** ZIP-Name `FS25_NachbarFelder.zip` (= Mod-Name), `g_currentModName` in `NachbarFelder.lua`
+(daran hängt die Registrierung der Spezialisierung `FS25_NachbarFelder.NachbarFelderWorker`), Ordner
+`modSettings/FS25_NachbarFelder/`, Spielstand-Datei `NachbarFelder.xml`, Aktionsnamen `NF_*`, Dateinamen, Log-Präfix
+`NachbarFelder:` (Logs bleiben vergleichbar). Eine echte Umbenennung bräuchte Übernahme der modSettings-Dateien,
+Anpassung von `g_currentModName`, neue Tastenbelegung bei allen Spielern und wäre für das Spiel eine neue Mod.
+
+**Tests:** XML (minidom), Strukturcheck, Vollparse. Im Spiel prüfen: Mod-Menü zeigt „Lebendige Straßen“, Steuerung zeigt
+„Lebendige Straßen: …“, Einstellungsseite Überschrift „Lebendige Straßen“.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 152: Nachbar-Fahrzeuge beim Spielverkehr anmelden
+
+**Frage User:** Fügt sich der KI-Verkehr in den normalen Spielverkehr ein, wenn der aktiv ist?
+
+**Befund (LUADOC):** Die Autos des Spielverkehrs laufen in der Engine (`g_currentMission.trafficSystem`). Sie reagieren nur
+auf angemeldete Objekte: `Player.lua` meldet den Spieler zu Fuß an (`addTrafficSystemPlayer(trafficSystemId,
+graphicsRootNode)`), `Enterable.lua:1724` ein Fahrzeug beim Einsteigen (`components[1].node`), Zeile 1808 meldet beim
+Aussteigen ab (`removeTrafficSystemPlayer`). Fahrzeuge ohne Fahrer – unsere Traktoren, auch normale Spieler-Helfer – kennt
+der Spielverkehr nicht: Autos fahren auf sie auf. Umgekehrt bremst die KI vor Autos (`AICollisionTriggerHandler`,
+Autos sind kinematisch → `hitStaticCounter`). Folge: Auffahrunfälle, verkeilte Autos, weggeschobene Gespanne.
+Die alte Beschreibungszeile „PS: Es ist ratsam, den Verkehr auszuschalten“ (in Build 150 entfallen) war also berechtigt.
+
+**Umsetzung:**
+- Manager: `getSpielverkehrId`, `meldeBeimSpielverkehrAn` (je Fahrzeug einmal, merkt `vehicle.nf_spielverkehrNode`,
+  `pcall`, Fehler einmal ins Log), `meldeGespannBeimSpielverkehrAn` (Traktor + `getChildVehicles`),
+  `meldeBeimSpielverkehrAb`.
+- Anmelden nach `aiSystem:startJob` in `driveToField` (jede Fahrt, idempotent; geweckte Pool-Fahrzeuge melden sich so
+  wieder an). Während des Parkens bleibt die Anmeldung bestehen.
+- Abmelden: `sleepPatrolEntry` (schlafend = wie ein abgestelltes Fahrzeug), Worker-`onDelete` (neues Event-Abo, deckt
+  jedes Löschen ab), `prepareForShutdown` (aktive und Pool-Fahrzeuge, vor dem Abbau des Verkehrssystems).
+- Server-Konfig `spielverkehrAnmelden` (Standard true, in Vorlage und Log-Zeile). Ohne Verkehrssystem
+  (`trafficSystemId` 0/nil) oder ohne die Engine-Funktion passiert nichts.
+- modDesc: PS-Zeile de/en/fr wieder aufgenommen (Autos bremsen; kracht es an Engstellen trotzdem → Verkehr ausschalten).
+
+**Tests:** Mock (lupa): Anmeldung Traktor + Gerät, keine Doppelanmeldung, Abmeldung über `onDelete` und Shutdown inkl.
+Pool, Schalter aus, ohne Verkehrssystem, Engine-Fehler → Log statt Absturz. Strukturcheck, Vollparse, XML.
+**Unverifiziert im Spiel:** ob die Engine eine Obergrenze für angemeldete Objekte hat, und ob Autos hinter einem länger
+parkenden Nachbar-Fahrzeug dauerhaft warten. Prüfen: Log-Zeile `Fahrzeuge werden beim Spielverkehr angemeldet`, Autos
+bremsen hinter Traktoren, keine Ruckler; falls Autos sich stauen, `spielverkehrAnmelden` auf false.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 153: Ingame-Hilfe, ModHub-Beschreibung, GitHub
+
+**Wunsch User:** Ingame-Hilfe, Beschreibung für ModHub und GitHub an „Lebendige Straßen“ / reinen Verkehr anpassen.
+
+**Ingame-Hilfe (neu, gab es vorher nicht):**
+- `help/helpLine.xml` im Format der Spielhilfe (`<helpLines>/<category>/<page>/<paragraph>/<title>|<text>`), Texte als
+  `$l10n_NF_help_*` in `l10n_de/en.xml`. Seiten: Überblick, Wegpunkte und Spawnpunkte, Einstellungen, Tasten und Konsole,
+  Spielverkehr und Probleme.
+- Laden: `NachbarFelderManager:ladeHilfe()` aus `loadMap`, nur mit `g_client` (nicht auf dem reinen Dedi), einmal je
+  Sitzung, `pcall`: `g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", modDirectory))`.
+  `NachbarFelderManager.modDirectory` setzt `NachbarFelder.lua` nach dem `source`. Vorbild: Courseplay FS25
+  (`CpHelpFrame`: `HelpLineManager:loadFromXML` + Kategorien je `customEnvironment` = Mod-Name). **Unverifiziert im
+  Spiel**, ob die Kategorie im Standard-Hilfemenü erscheint (Log: `Ingame-Hilfe geladen` bzw. Fehlerzeile).
+- `build.py`: `help/helpLine.xml` (15 Dateien).
+
+**ModHub-Beschreibung (`modDesc.xml`):** de/en/fr neu (Features, Bedienung: wo Einstellungen, Wegpunkte, Hilfe; PS
+Spielverkehr), Changelog 1.2.0.0 in de+en (TestRunner verlangt Changelog ab Version > 1.0.0.0, Build-81-Notiz).
+**Version 1.1.42.0 → 1.2.0.0** (Namenswechsel + Feldarbeit entfernt; ModHub/MP brauchen eine neue Versionsnummer).
+Titel fr „Routes Vivantes“ (TestRunner: jedes Wort groß).
+
+**Texte:** `NF_active_*` („Nachbar-Verkehr aktiv“), `NF_engeMap_long` ohne Feldarbeit; entfernt: `NF_MAX_ASSISTANT_WORKERS_*`
+und alle `NF_*Mission_*` (keine Regler mehr seit Build 150).
+
+**GitHub:** README (Hilfe, Version, Dateiliste), Issue-Vorlagen (Mod-Name, Build-Platzhalter 153, Beispiel ohne Strg+Alt+E,
+Frage nach Spielverkehr; nebenbei YAML-Fehler in `fehlerbericht.yml` Zeile 18 behoben – „: “ im ungequoteten Text, die Vorlage war dadurch ungültig), Release-Titel „Lebendige Straßen Build N“. Repo-Beschreibung/Name auf GitHub kann nur der User
+in den Repo-Einstellungen ändern (Repo-Name bleibt sinnvoll `FS25_NachbarFelder` = Mod-Name).
+
+**Tests:** XML aller Dateien, Strukturcheck, Vollparse, Mock `ladeHilfe` (Pfad, einmalig, Fehler → Log, ohne Client nichts).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 154: Fahrzeuge und Geräte spawnen ohne Hüpfen
+
+**Test Build 153 (User):** Spielverkehr bremst und fährt nicht mehr auf (Build 152 bestätigt). Neu gemeldet: Fahrzeuge
+und Anbaugeräte spawnen über dem Boden und hüpfen → Umkippen/Verkeilen möglich.
+
+**Analyse (LUADOC):**
+- `VehicleLoadingData:setPosition(x, y, z)` übernimmt y absolut; beim Laden kommt `storeItem.shopTranslationOffset` dazu
+  (Höhe des Root-Knotens über dem Boden, vgl. `AIDrivable:drawDebugAIAgent`) – das ist richtig und bleibt.
+- `getFahrbahnHoehe` maß mit `TERRAIN + ROAD + STATIC_OBJECT + BUILDING`. Das Spiel nimmt beim Paletten-Spawn
+  (`VehicleSystem.lua`, `consoleCommandAddPallet`) zusätzlich `TERRAIN_DELTA`. Ohne sie trifft der Strahl bei Straßen aus
+  Gelände-Deltas das tiefere Grundgelände → Fahrzeug steckt beim Laden in der Fahrbahn, die Physik drückt es heraus = Hüpfen.
+- Geladen wurde immer waagerecht (`setRotation(0, ry, 0)`): am Hang steckt ein Ende in der Straße.
+- Geräte wurden mit Physik geladen und erst im Ladecallback herausgenommen.
+
+**Fix:**
+- Maske + `CollisionFlag.TERRAIN_DELTA` (nur wenn vorhanden).
+- Längsneigung: Höhe 2,5 m vor/hinter dem Ladepunkt, Richtung über `setDirection` an einem Hilfsknoten und `getRotation`
+  (Euler-Reihenfolge der Engine, auch mit Modell-Drehung), höchstens ~11°; Höhe = max(Punkt, Mittel vorn/hinten) + 0,10 m.
+  Neue Konstanten `SPAWN_HOEHE`, `SPAWN_NEIGUNG_ABST`, `SPAWN_MAX_NEIGUNG`. Gilt für Spawnpunkte und automatische Ladeplätze.
+- Geräte (`index >= 2`) mit `data:setAddToPhysics(false)` laden; `setzeGeraetAnKupplung` bzw. die Rückfallwege nehmen
+  sie wie bisher in die Physik.
+
+**Tests:** Mock: 10 % Steigung → Richtung (0; 0,1; 0,995), Gerät 9 m dahinter tiefer, `setAddToPhysics(false)` nur fürs
+Gerät. Strukturcheck, Vollparse. **Unverifiziert im Spiel** – besonders das Vorzeichen der Neigung (kommt aus der Engine).
+Prüfen: Fahrzeuge setzen weich auf, kein Hüpfen; am Hang nicht verdreht.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 155: Spawn wieder waagerecht, Höhe über dem höchsten Messpunkt
+
+**Test Build 154 (User, Log 17:09):** `vario500SCR.xml + Anbaugeraet` am Spawnpunkt WP1 geladen – „mit einer Seite auf dem
+Boden, kippte dann auf alle 4 Räder“. Kuppeln und Losfahren danach normal (`Gespann startet am Ladeplatz …`).
+
+**Ursache:** die Längsneigung aus Build 154 (`setDirection`/`getRotation` → `data:setRotation(rx, ry, rz)`). Beim Laden
+verrechnet das Spiel zusätzlich die Shop-Drehung des Modells (`storeData.shopRotationOffset` „Rotation offset for shop
+spawning“, `spawnRotationOffset`; StoreManager/VehicleLoadingData). Ein vorab berechneter Euler-Satz mit Neigung wird
+dadurch zur seitlichen Schräglage. Nicht das Anbaugerät: das hängt erst nach dem Laden (ohne Physik) an der Kupplung.
+
+**Fix:** Rotation wieder `(0, ry + Modelldrehung, 0)`. Höhe: Fahrbahn an Mitte, 2,5 m vorn/hinten, 1,2 m links/rechts
+messen, höchsten Wert nehmen (höchstens +0,5 m über Mitte, sonst traf der Strahl ein Objekt) + 0,10 m. Am Hang fällt
+das tiefere Ende ein paar Zentimeter, nichts steckt in der Fahrbahn. `TERRAIN_DELTA` und Geräte ohne Physik (Build 154)
+bleiben. Konstanten `SPAWN_HOEHE`, `SPAWN_MESS_LAENGS`, `SPAWN_MESS_SEITE`, `SPAWN_MAX_ANHEBEN`.
+
+**Tests:** Mock 10 % Steigung → Rotation 0, Traktor 0,35 m über Mittelpunkt (vorne 0,10 m), Gerät 9 m dahinter.
+Strukturcheck, Vollparse.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 156: Kein Kippen mehr beim Ankuppeln
+
+**Test Build 155 (User):** „Traktor landet sauber, aber wenn das Anbaugerät montiert wird, kippt er zur Seite.“ Log
+17:19: `lintrac130.xml + Anbaugeraet` am Spawnpunkt WP1, `Gespann wird am Ladeplatz gekuppelt`, danach normal los.
+Damit ist der Spawn (Build 155) in Ordnung, der Fehler sitzt im Kuppeln. Vermutlich auch die Ursache vieler früherer
+„umgekippt“-Fälle (Builds 142–148), die damals Gewicht bzw. Ladeplatz zugeschrieben wurden.
+
+**Analyse (LUADOC):**
+- `AttacherJoints:createAttachmentJoint(implement, noSmoothAttach)`: mit `noSmoothAttach = true` sind die
+  Gelenkgrenzen sofort 0 (`attachingTransLimit/RotLimit = {0,0,0}`), jede Abweichung zwischen Eingangspunkt des Geräts
+  und Kupplung wird in einem Physik-Schritt erzwungen. Ohne (Spieler: `VehicleAttachEvent` → `attachImplement(…, true,
+  nil, startLowered)`) wird über `smoothAttachTime` weich zusammengezogen.
+- Unser `setzeGeraetAnKupplung` setzte nur die Gierrichtung (wie `additionalAttachmentLoaded`); geneigte oder
+  verdrehte Eingangspunkte (`jointOrigRotOffsetComponent`, Attachable.lua:1958) passten nicht → harter Ruck.
+  `SupportVehicle:enableSupportVehicle` setzt dagegen auch die Drehung: `localRotationToWorld(jointTransform, rotOffset)`.
+
+**Fix:**
+- `setzeGeraetAnKupplung`: Drehung = `localRotationToWorld(aj.jointTransform, ij.jointOrigRotOffsetComponent)`, sonst wie bisher
+  Gierrichtung. Mindesthöhe 5 cm bleibt.
+- Neu `kuppleGeraet(info)`: setzen + `attachImplement(…, true, nil, false, false, false)` = weich, nicht gesenkt, kein
+  Spielstand-Modus. Beide Kuppelstellen (`setAttachment`, Status-0-Zweig in `update`) nutzen sie. `attachObjectToCar`
+  (unbenutzt) entfernt.
+- Spawn-Log nennt das Gerät (`lintrac130.xml + <Geraet>.xml` statt `+ Anbaugeraet`).
+
+**Tests:** Mock: Position/Drehung aus Kupplung + Offsets, Physik an, `attachImplement` mit noSmoothAttach=false.
+Strukturcheck, Vollparse, Referenzscan.
+
+**Bestätigt im Spiel (User, 01.10.):** „Traktor und Anbaugerät sauber gespawnt, erst der Traktor, dann wurde das
+Anbaugerät sanft angekuppelt.“ Damit bestätigt: Build 152 (Spielverkehr bremst), 155 (waagerechter Spawn) und 156
+(weiches Kuppeln).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 157: Kein Helfer-Symbol der Nachbarn auf der Karte
+
+**Wunsch User:** „das typische Helfergrafik weg, damit es mit echten Helfern keinen Konflikt gibt“ – nachgefragt: gemeint
+ist das **Helfer-Symbol auf der Karte** (Minimap und ESC-Karte). Der KI-Verkehr soll sich wie normaler Verkehr einfügen.
+
+**Umsetzung (LUADOC):**
+- Minimap und große Karte zeichnen jeden Hotspot über `IngameMap:drawHotspot(hotspot, …)` (`IngameMapElement` →
+  `ingameMap:drawHotspotsOnly()`). Hotspots kennen ihr Fahrzeug (`getVehicle()`, vgl. `IngameMapElement`; Fahrzeug-Hotspot
+  aus `Vehicle:createMapHotspot` → `VehicleHotspot:setVehicle`). Ob das Helfer-Symbol während eines KI-Auftrags ein eigener
+  Hotspot ist (`AIJobVehicle:getMapHotspot` ist überschrieben, Rumpf nicht dokumentiert), spielt so keine Rolle.
+- `installKartenHook()` (aus `loadMap`, nur mit `g_client`, einmal): `IngameMap.drawHotspot` überschrieben – gehört der
+  Hotspot zu einem Nachbar-Fahrzeug, wird nicht gezeichnet. `getIstNachbarHotspot`: Fahrzeug aus `getVehicle()` bzw.
+  `.vehicle`, Zugfahrzeug über `getRootVehicle`, Besitzer-Farm == Helfer-Farm. Alles in `pcall`.
+- Helfer-Farm für Clients: `getSettingsState().helferFarmId` (Server: `farmId`, sobald ermittelt; sonst 0), am Ende von
+  `NachbarFelderSettingsSyncEvent` als UInt8 geschrieben/gelesen; `applySettingsState` merkt `helferFarmIdSync`. Nach der
+  Farmwahl (`getEffectiveFarmId`) sofort `broadcastSettingsToClients()`. Server und Clients müssen dieselbe Mod-Version
+  haben (Stream-Format geändert) – im MP ohnehin Pflicht.
+
+**Tests:** Mock: vor dem Sync sichtbar, danach Nachbar-Traktor und sein Gerät ausgeblendet, eigenes Fahrzeug und
+Hotspot ohne Fahrzeug gezeichnet; Server liefert `helferFarmId` 14; Stream-Rundlauf des Sync-Events. Strukturcheck,
+Vollparse.
+
+**Bestätigt im Spiel (User, 01.10.):** „Supi alles passt“ – Build 157 läuft, Stand freigegeben für PR/Release.
