@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 148
+NachbarFelderManager.BUILD = 149
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -5119,9 +5119,12 @@ function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
         vehicle:createAgent(helper.index)
     end
 
-    if not vehicle:getIsAIActive() then
-        vehicle:toggleAIVehicle()
-    end
+    -- Build 149: KEIN vehicle:toggleAIVehicle() mehr. In FS25 ist das die Helfer-Taste des
+    -- Spielers (AIJobVehicle:toggleAIVehicle, LUADOC): ohne aktiven Helfer schickt sie per
+    -- g_client einen AIJobStartRequestEvent fuer den "startbaren" Auftrag des Fahrzeugs bzw.
+    -- oeffnet das Helfer-Menue. Das startete einen zweiten Auftrag, der unsere Feldarbeit sofort
+    -- verdraengte ("Feldarbeit beendet ... 0s" 1 ms nach startJob, ohne job:stop). Auf dem Dedi
+    -- gibt es kein g_client. Gestartet wird ausschliesslich ueber aiSystem:startJob (unten).
 
     local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
     -- Kostenneutral (Build 91) - siehe Begruendung bei AIJobType.GOTO.
@@ -5159,6 +5162,7 @@ function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
     -- nur job:stop sieht die AIMessage. Feld 47 endete nach 0 s ohne erkennbaren Grund.
     local nfWFeld = self.vehicleType[fieldId].NachbarFelderWorker
     nfWFeld.lastFieldStopMsg = nil
+    nfWFeld.fieldWorkJob = job   -- Build 149: laeuft er noch, ist ein onAIFieldWorkerEnd nicht von ihm
     if job.stop ~= nil then
         local origStop = job.stop
         job.stop = function(jSelf, aiMessage)
@@ -5184,26 +5188,39 @@ function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
             vx, vz, imFeld, self.fieldDetectionX or 0, self.fieldDetectionZ or 0)
     end)
 
-    -- Build 147: Felderkennung der KI ohne Besitzpruefung. AIDriveStrategyFieldCourse:setAIVehicle
+    -- Build 147/149: Felderkennung der KI ohne Besitzpruefung. AIDriveStrategyFieldCourse:setAIVehicle
     -- ruft sonst FieldCourse.findClosestField(..., farmId, ...) auf; dessen dritter Wert "notOwned"
-    -- stoppt den Job mit AIMessageErrorFieldNotOwned - auf dem EIGENEN Feld des Spielers
-    -- (Lohnunternehmer-Auftrag) endete die Feldarbeit so nach 0 s. Ist die Klassenvariable
-    -- fieldDetectionPosition gesetzt, nimmt die KI diese Position (LUADOC AIDriveStrategyFieldCourse).
-    -- Nur fuer die Dauer von startJob setzen, danach sofort zuruecksetzen.
+    -- stoppt den Job mit AIMessageErrorFieldNotOwned. Ist die Klassenvariable fieldDetectionPosition
+    -- gesetzt, nimmt die KI diese Position (LUADOC AIDriveStrategyFieldCourse).
+    -- Build 149: gesetzt wird sie genau um AITaskFieldWork:start (dort entstehen die Fahrstrategien,
+    -- erst im naechsten AIJob:update) - Build 147 setzte sie nur waehrend startJob, also zu frueh.
     local detektionGesetzt = false
-    if AIDriveStrategyFieldCourse ~= nil and AIDriveStrategyFieldCourse.fieldDetectionPosition == nil
+    local fwTask = job.fieldWorkTask
+    if fwTask ~= nil and fwTask.start ~= nil and AIDriveStrategyFieldCourse ~= nil
        and self.fieldDetectionX ~= nil and self.fieldDetectionZ ~= nil then
-        AIDriveStrategyFieldCourse.fieldDetectionPosition = { self.fieldDetectionX, self.fieldDetectionZ }
+        local detX, detZ = self.fieldDetectionX, self.fieldDetectionZ
+        local origTaskStart = fwTask.start
+        fwTask.start = function(tSelf, ...)
+            local gesetzt = false
+            if AIDriveStrategyFieldCourse.fieldDetectionPosition == nil then
+                AIDriveStrategyFieldCourse.fieldDetectionPosition = { detX, detZ }
+                gesetzt = true
+            end
+            local ok, err = pcall(origTaskStart, tSelf, ...)
+            if gesetzt then
+                AIDriveStrategyFieldCourse.fieldDetectionPosition = nil
+            end
+            if not ok then
+                print("NachbarFelder: FEHLER beim Start der Feldarbeit Feld " .. tostring(fieldId) .. ": " .. tostring(err))
+            end
+        end
         detektionGesetzt = true
     end
     local okStart, errStart = pcall(function()
         g_currentMission.aiSystem:startJob(job, self.farmId)
     end)
-    if detektionGesetzt then
-        AIDriveStrategyFieldCourse.fieldDetectionPosition = nil
-    end
     if not okStart then
-        print("NachbarFelder: FEHLER beim Start der Feldarbeit Feld " .. tostring(fieldId) .. ": " .. tostring(errStart))
+        print("NachbarFelder: FEHLER beim Start des Feldarbeits-Auftrags Feld " .. tostring(fieldId) .. ": " .. tostring(errStart))
     end
     print("NachbarFelder: FIELDWORK Feld=" .. tostring(fieldId) .. " (" .. tostring(missionTypeName) .. ")" .. startInfo ..
         (detektionGesetzt and " | Felderkennung ohne Besitzpruefung" or ""))

@@ -711,6 +711,15 @@ function NachbarFelderWorker:onAIFieldWorkerEnd()
     if tt.isPatrol then return end
     if tt.status >= 3 then return end
 
+    -- Build 149: Ende-Meldung, obwohl UNSER Feldarbeits-Auftrag laut Spiel noch laeuft
+    -- (AIJob.isRunning, gesetzt in AIJob:start, geloescht in AIJob:stop) -> stammt nicht von
+    -- ihm (z.B. ein verdraengter anderer Auftrag). Nicht als Scheitern werten.
+    if tt.status == 2 and tt.fieldWorkJob ~= nil and tt.fieldWorkJob.isRunning == true then
+        print("NachbarFelder: Feldarbeit-Ende-Meldung fuer Feld " .. tostring(tt.fieldId) ..
+            " ignoriert - eigener Auftrag laeuft noch")
+        return
+    end
+
     -- Build 141: Abbruchgrund der KI (setAIOnField merkt ihn per job.stop-Wrapper)
     print("NachbarFelder: Feldarbeit beendet Feld " .. tostring(tt.fieldId) ..
         " (Laufzeit: " .. tostring(g_time and tt.fieldWorkStartedAt and

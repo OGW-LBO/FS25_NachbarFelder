@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 149 (01.10.): `toggleAIVehicle()` entfernt — wahrscheinliche Ursache „Feldarbeit 0 s“** (FS25: Helfer-Taste des
+>   Spielers, startete einen zweiten Auftrag); Ende-Meldungen bei laufendem eigenen Auftrag ignoriert; Felderkennung ohne
+>   Besitzprüfung jetzt um `AITaskFieldWork:start` (Build 147 setzte sie zu früh). Abschnitt Build 149.
 > - **Build 148 (01.10.): Kippen lag an bestimmten Ladeplätzen (Hindernis über der Straße), nicht am Gewicht** — Höhenmessung
 >   erkennt Baumkrone/Dach über der Fahrbahn, solche Plätze werden abgelehnt; Kippen sperrt wieder den Platz, ein Gespann
 >   erst nach Kippen auf 2 Plätzen; Hinweis + Menüzeile „Spawnpunkt hier setzen“. Abschnitt Build 148.
@@ -1181,4 +1184,32 @@ Gespann wird oben abgesetzt und stürzt.
 
 **Tests (lupa, echte Funktionen):** Höhe unter Baum → Bezugshöhe + `ueberkopf`; Platz unter Baum streng und locker
 abgelehnt, ohne Baum angenommen; ohne Spline-Höhe Treffer wie bisher. Strukturcheck, Vollparse, XML sauber.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 149: toggleAIVehicle entfernt, falsche Ende-Meldungen ignorieren
+
+Test Build 148 (Log 15:39): Spawnpunkt WP1 vom User gesetzt und genutzt (`wird am Spawnpunkt WP1 geladen`), Feldhelfer
+kippte nicht; Ausweich-Zugang griff (`GOTO kein Pfad … anderer Zugang wird versucht (1/3)`, dann Zugang 2), Helfer kam
+auf Feld 47 an. Feldarbeit wieder 0 s — **und die Zeile `FIELDWORK Feld 47 gestoppt: …` aus dem job.stop-Wrapper fehlt**:
+unser Auftrag wurde gar nicht über `job:stop` beendet. (Nebenbei: Verkehrs-Lintrac kippte am Spawnpunkt WP1 — Hinweis
+im Log, Spawnpunkte werden nie gesperrt.)
+
+**Analyse (LUADOC):** `AISystem:startJob` → `startJobInternal` → `AIJob:start` setzt nur `currentTaskIndex = 0`; der
+Teilschritt `AITaskFieldWork:start` → `vehicle:startFieldWorker()` läuft erst im nächsten `AIJob:update`. Jedes reguläre
+Ende geht über `aiSystem:stopJob` → `job:stop`. Das „Feldarbeit beendet“ 1 ms nach `startJob` kann also nicht von unserem
+Auftrag stammen. Direkt davor rief `setAIOnField` `vehicle:toggleAIVehicle()` — in FS25 `AIJobVehicle:toggleAIVehicle`,
+die **Helfer-Taste des Spielers**: ohne aktiven Helfer `AIJobStartRequestEvent` für den „startbaren“ Auftrag des
+Fahrzeugs über `g_client` (bzw. Helfer-Menü öffnen). Das startete einen zweiten Auftrag, der unsere Feldarbeit
+verdrängte. Auf dem Dedi gibt es kein `g_client` (Fehler). Vermutlich ein FS22-Rest.
+
+**Fix:**
+- `toggleAIVehicle()` entfernt; gestartet wird nur über `aiSystem:startJob`.
+- `onAIFieldWorkerEnd`: kommt die Meldung bei Status 2, während `tt.fieldWorkJob.isRunning` (AIJob:start/stop) true ist,
+  wird nur geloggt (`Feldarbeit-Ende-Meldung … ignoriert - eigener Auftrag laeuft noch`).
+- Felderkennung ohne Besitzprüfung (Build 147) hängt jetzt an `job.fieldWorkTask.start` (Instanz-Wrapper: setzen →
+  Original → zurücksetzen). Build 147 setzte sie nur während `startJob` — dort wird sie noch nicht gelesen, wirkte also nie.
+- `startJob` und Task-Start in `pcall` mit Log.
+
+**Tests:** Mini-Gerüst nach LUADOC-Ablauf: Position beim Task-Start gesetzt, danach wieder frei. Strukturcheck, Vollparse.
+**Unverifiziert im Spiel** — Erwartung: Feldarbeit auf Feld 47 läuft; sonst nennt `FIELDWORK Feld 47 gestoppt: …` den Grund.
 
