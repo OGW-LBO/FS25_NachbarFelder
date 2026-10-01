@@ -1,5 +1,7 @@
 # Lebendige Straßen (FS25_NachbarFelder)
 
+![Lebendige Straßen – KI-Verkehr für den Landwirtschafts-Simulator 25](docs/bilder/banner.png)
+
 Angezeigter Name seit Build 151: **Lebendige Straßen** (en „Living Roads“, fr „Routes Vivantes“). Technisch heißt die
 Mod weiter `FS25_NachbarFelder` – ZIP-Name, Ordner `modSettings/FS25_NachbarFelder/`, Spielstände und Tastenbelegungen
 bleiben dadurch gültig.
@@ -15,8 +17,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.0.0.0` (für den ModHub zurückgesetzt, `descVersion` 113)
-- Interner Stand: `NachbarFelderManager.BUILD = 162` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 162)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 163` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 163)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 

@@ -5,17 +5,17 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 162 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 163 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 162`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 163`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
-> - Builds **158–162** (ModHub-Fassung ohne `pcall`, Arbeitsbreite, Join-/Laufzeitfehler behoben) im Spiel bestätigt
->   („alles läuft“), PR → Release **build162**.
+> - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
+>   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1501,3 +1501,13 @@ belegt; `getHasGroupFlagSet` im Callback geprüft).
 **Tests:** Mock `getVehicleAiDiag` mit/ohne `ClassUtil`; Strukturcheck, Vollparse, kein `pcall` im Code.
 
 **Bestätigt im Spiel (User, 01.10.):** „alles läuft“ – Builds 158–162 freigegeben für PR/Release.
+
+---
+
+# ERGÄNZUNG 2026-10-01 — Build 163: Mod-Icon und Banner
+
+- `icon_NachbarFelder.dds` vom User ersetzt: Spielmotiv statt des alten Farmer-Assistant-Bildes (gleiche Größe, DDS).
+- `docs/bilder/banner.png` (1280 × 640, selbst gezeichnet, ohne fremde Logos) oben in der README; passt auch als
+  GitHub-Social-Preview (Settings → General → Social preview).
+- Kein Lua-Code geändert; `BUILD` nur hochgezählt, damit der Release-Workflow ein neues Release `build163` mit dem neuen
+  Icon baut (`build162` existiert schon und würde übersprungen).
