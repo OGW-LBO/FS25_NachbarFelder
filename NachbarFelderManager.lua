@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 144
+NachbarFelderManager.BUILD = 145
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2491,7 +2491,9 @@ function NachbarFelderManager:update(dt)
                         print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
                             w.isPatrol and "[TRAFFIC] Fahrzeug" or ("Feldhelfer fuer Feld " .. tostring(w.fieldId)),
                             tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
-                        self:merkeSpawnFehlschlag(w, x, z, "umgekippt")
+                        -- Build 145: Ladeplatz NICHT sperren - das Kippen lag am Gespann (dasselbe Gespann
+                        -- kippte auf drei verschiedenen, guten Plaetzen). Plaetze sperren weiterhin
+                        -- Stillstand und "sofort abgewiesen".
                         -- Build 144: Feldhelfer-Gespann dauerhaft sperren - es kippte auf jedem Platz
                         if not w.isPatrol then
                             local impl = w.vehiclesToLoad[2]
@@ -3690,20 +3692,30 @@ function NachbarFelderManager:ladeLadeplatzSperre()
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
     local pfad = self:getLadeplatzDatei()
     if pfad == nil then return end
+    local verworfen = 0
     pcall(function()
         local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", pfad, lpXmlSchema)
         if xmlFile == nil then return end
         xmlFile:iterate(lpXmlKey .. ".platz", function(_, key)
             local x = xmlFile:getValue(key .. "#x")
             local z = xmlFile:getValue(key .. "#z")
-            if x ~= nil and z ~= nil then
-                table.insert(self.spawnPlatzSperre, { x, z, xmlFile:getValue(key .. "#grund") or "?" })
+            local grund = xmlFile:getValue(key .. "#grund") or "?"
+            -- Build 145: "umgekippt" lag am Gespann, nicht am Platz (Builds 142-144 sperrten
+            -- trotzdem den Platz) -> solche Eintraege verwerfen
+            if grund == "umgekippt" then
+                verworfen = verworfen + 1
+            elseif x ~= nil and z ~= nil then
+                table.insert(self.spawnPlatzSperre, { x, z, grund })
             end
         end)
         xmlFile:delete()
     end)
     if #self.spawnPlatzSperre > 0 then
         print(string.format("NachbarFelder: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
+    end
+    if verworfen > 0 then
+        print(string.format("NachbarFelder: %d Ladeplatz-Sperren wegen 'umgekippt' aufgehoben (lag am Gespann)", verworfen))
+        self:speichereLadeplatzSperre()
     end
 end
 
@@ -7598,6 +7610,7 @@ end
 --- Wie getPasstGeraetZuTraktor, aber der Leistungsbedarf darf bis 130 % der
 --- Motorleistung betragen. Ohne Toleranz bleibt fuer Kleintraktoren bis 7 t kein
 --- schmal klappbarer Grubber (Smaragd 180 PS, Prolander 190 PS, Ares XL 150 PS ...).
+NachbarFelderManager.FELD_GEWICHT_ANTEIL    = 0.40   -- Build 145: Geraet hoechstens 40 % des Traktorgewichts
 NachbarFelderManager.FELD_LEISTUNG_TOLERANZ = 1.05   -- Build 124: 1.3 war zu viel (Crystal 150 PS + Smaragd 180 PS kroch)
 
 function NachbarFelderManager:getPasstFeldGeraetZuTraktor(traktor, geraet)
@@ -7610,8 +7623,10 @@ function NachbarFelderManager:getPasstFeldGeraetZuTraktor(traktor, geraet)
     elseif (geraet.gewichtKg or 0) > 1500 then
         return false
     end
+    -- Build 145: hoechstens FELD_GEWICHT_ANTEIL des Traktorgewichts (vorher 0,5). Log 01.10.:
+    -- Arion 550 (6,6 t) + Ares XL (3,1 t = 47 %) kippte bei jedem Laden nach hinten ueber.
     if traktor.gewichtKg ~= nil and geraet.gewichtKg ~= nil
-       and geraet.gewichtKg > traktor.gewichtKg * 0.5 then
+       and geraet.gewichtKg > traktor.gewichtKg * NachbarFelderManager.FELD_GEWICHT_ANTEIL then
         return false
     end
     return true

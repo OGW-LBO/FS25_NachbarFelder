@@ -8,6 +8,8 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 145 (01.10.): Gewichtsregel Feldgerät ≤ 40 % Traktor (vorher 50 %)** — belegt: Ares XL 3,1 t an Arion 6,6 t
+>   (47 %) kippte bei jedem Laden. Kippen sperrt nur noch das Gespann, nicht den Ladeplatz. Abschnitt Build 145.
 > - **Build 144 (01.10.): Kippen liegt am Gespann, nicht am Platz** — Arion 550 + Ares XL kippte auf zwei verschiedenen
 >   Plätzen 1–2 s nach dem Laden. Gekipptes Gespann wird dauerhaft gesperrt (`NachbarFelderGespannSperren.xml`, alle Karten);
 >   Auftrag ohne Grubber-Gespann pflügt. Abschnitt Build 144.
@@ -1064,4 +1066,26 @@ Strukturcheck und Vollparse sauber. Im Spiel noch ungetestet.
 
 **Nächster Schritt, falls auch das Pflug-Gespann kippt:** Gewichtsregel verschärfen (Anbaugerät ≤ 35–40 % des
 Traktorgewichts, unbekanntes Gerätegewicht ablehnen) — erst mit den Gewichten aus dem neuen Log entscheiden.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 145: Gewichtsregel 40 %, Kippen sperrt keinen Ladeplatz mehr
+
+Test Build 144 (Log 15:04): `arion550.xml (145 PS, 6.6 t) + aresXL.xml (Bedarf 150 PS, 3.1 t)` — erstmals mit
+Gerätegewicht. 3,1 t = 47 % des Traktors, erlaubt waren 50 %. Wieder gekippt (dritter verschiedener, guter Ladeplatz
+nach Stufe 1), Gespann dauerhaft gesperrt, Auftrag neu eingeplant — Log endet vor dem neuen Anlauf.
+
+**Fix:**
+- `getPasstFeldGeraetZuTraktor`: Gerät höchstens `FELD_GEWICHT_ANTEIL` = 0,40 des Traktorgewichts (vorher fest 0,5).
+  Gilt nur für Feldhelfer; die Regel für Verkehr-Anbaugeräte (`getPasstGeraetZuTraktor`, leichte Geräte) bleibt 0,5.
+- Kipp-Erkennung sperrt den Ladeplatz nicht mehr (dasselbe Gespann kippte auf drei verschiedenen guten Plätzen);
+  Plätze sperren weiterhin Stillstand und „sofort abgewiesen“. `ladeLadeplatzSperre` verwirft vorhandene Einträge mit
+  Grund `umgekippt` (aus Builds 142–144) und schreibt die Datei neu — Log `n Ladeplatz-Sperren wegen 'umgekippt'
+  aufgehoben`.
+
+**Tests (lupa, echte Funktionen):** Arion 6,6 t + 3,1 t → passt nicht, + 2,5 t → passt. Datei mit 3 Kipp-Sperren und
+1 Stillstand-Sperre: nach Neustart Kipp-Plätze frei, Stillstand-Platz gesperrt. Strukturcheck und Vollparse sauber.
+
+**Folge auf Bergisch Land:** Für Grubbern gab es nur dieses eine Gespann — jetzt evtl. gar keins; der Lohnunternehmer
+pflügt dann (Build 144). Ob es ein Pflug-Gespann ≤ 40 % gibt, zeigt das nächste Log (`Eigenes Feldgespann fuer
+plowMission … t` bzw. `Kein eigenes Feldgespann …`).
 
