@@ -14,8 +14,8 @@
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
-> - Release **build157** auf GitHub (PR #4 gemergt), im Spiel bestätigt. Builds **158** (ModHub-Fassung des Users), **159** (Arbeitsbreite)
->   und **160** (Join-Absturz behoben) warten auf Test im Spiel, noch kein PR.
+> - Builds **158–162** (ModHub-Fassung ohne `pcall`, Arbeitsbreite, Join-/Laufzeitfehler behoben) im Spiel bestätigt
+>   („alles läuft“), PR → Release **build162**.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1499,3 +1499,5 @@ Geländehöhe) und `getIstSpawnFlaecheFrei` (`CollisionMask.ALL` und Flaggen gep
 belegt; `getHasGroupFlagSet` im Callback geprüft).
 
 **Tests:** Mock `getVehicleAiDiag` mit/ohne `ClassUtil`; Strukturcheck, Vollparse, kein `pcall` im Code.
+
+**Bestätigt im Spiel (User, 01.10.):** „alles läuft“ – Builds 158–162 freigegeben für PR/Release.
