@@ -574,6 +574,10 @@ function NachbarFelderAuftrag.starteGespeichert(mgr, eintrag)
     local feldLog = "Feld " .. tostring(fieldId)
     local aktion, textKey, _, info = NachbarFelderAuftrag.pruefe(mgr, field, fieldId,
         eintrag.auftragFarmId or 0, nil, false)
+    if aktion == nil and textKey == NachbarFelderAuftrag.TEXT.BELEGT then
+        -- Build 143: alter Helfer wird noch entfernt (Neuversuch nach Fehlschlag) -> spaeter erneut
+        return false, false
+    end
     if aktion == nil then
         print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf " .. feldLog ..
             " verworfen: " .. tostring(textKey) .. (info ~= nil and (" | " .. info) or ""))

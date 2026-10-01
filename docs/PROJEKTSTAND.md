@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 143 (01.10.): Ladeplatz-Suche in Stufen, kartenunabhängig** — erst „echte Straßenstücke“ (gerade ±20 m,
+>   eben ≤ 1,2 m, 30 × 5 m frei) 40–250 m, dann 250–800 m, erst danach die alte lockere Prüfung; Auftrag nach Kippen am
+>   Ladeplatz automatisch neu eingeplant (max. 2×). Abschnitt Build 143. **Vorgabe User: Spawn muss auf allen Karten gehen.**
 > - **Build 142 (01.10.): gesperrte Ladeplätze dauerhaft je Karte + Kipp-Erkennung** — Datei
 >   `modSettings/FS25_NachbarFelder/NachbarFelderLadeplaetze_<KartenId>.xml`; umgekippte Gespanne werden nach 3 s
 >   entfernt (Ladeplatz gesperrt). Abschnitt Build 142.
@@ -1004,4 +1007,32 @@ Platz gesperrt, anderer Platz frei. Strukturcheck und Vollparse sauber.
 
 **Hinweis:** Die Sperrliste wächst nur; Verkehrs-Abweisungen sperren ebenfalls. Werden zu viele Plätze gesperrt, lädt die
 Mod wie bisher am Shop-Platz des Spiels (`Kein freier Strassenplatz …`). Zuverlässigster Weg: eigener Spawnpunkt.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 143: Ladeplatz-Suche in Stufen, Auftrag neu einplanen
+
+Vorgabe des Users: Das Spawnen muss auf allen Karten funktionieren — notfalls auf einem Straßenstück, wo Platz ist.
+Test Build 142 (Log 14:50): Helfer wieder am Hof-Ladeplatz x=-478 z=11 geladen, nach ~5 s umgekippt, von der
+Kipp-Erkennung entfernt, Platz dauerhaft gesperrt — für den User „kurz da, dann wieder weg“, der Auftrag war verloren.
+
+**Ursache, kartenunabhängig:** Auch Höfe (Shop, Betriebe) haben KI-Splines. Die Prüfung bis Build 142 (17 × 4 m frei,
+hinten Straße, voraus kein Fahrzeug) passt an einer Hofecke gerade noch.
+
+**Fix `setzeLadepositionStrasse` / neu `getIstLadeplatzGut(sp, rx, rz, ry, h, streng)`:**
+`LADEPLATZ_STUFEN`: 1) streng 40–250 m um den Shop-Platz, 2) streng 250–800 m, 3) locker 40–250 m (alte Prüfung),
+dann wie bisher Shop-Platz des Spiels. Je Stufe höchstens `LADEPLATZ_MAX_PRUEFUNGEN` = 150 Stellen, je Stufe erst
+Spuren Richtung Ziel, dann die übrigen. Streng heißt zusätzlich:
+- gerade Straße: Stützpunkte bei −20/−10/+10/+20 m entlang der Spur vorhanden und Richtung ≤ ~25° abweichend
+  (`LADEPLATZ_GERADE_COS` = 0,9; Gegenspur zählt) — keine Hofecke, keine enge Kurve;
+- eben: Fahrbahnhöhe (`getFahrbahnHoehe`, Raycast) vorn, Gespannende und seitlich ≤ `LADEPLATZ_MAX_HOEHE` = 1,2 m;
+- Platz: Kasten 30 × 5 m frei, reicht 13 m vor den Punkt (Raum zum Losfahren).
+Log: `… wird direkt an der KI-Strasse geladen (n m vom Shop-Platz, freier Platz, Stufe s, k Stellen geprueft)`.
+
+**Auftrag neu einplanen:** `planeAuftragNeu(w, grund)` — kippt ein Lohnunternehmer-Helfer am Ladeplatz, kommt der
+Auftrag zurück in die Warteschlange (`loadVehiclesFromXML`, über `starteGespeichert`), höchstens
+`AUFTRAG_MAX_NEUVERSUCHE` = 2 je Feld und Sitzung. Steht der alte Helfer noch (Prüfung „belegt“), bleibt der Eintrag in
+der Schlange statt verworfen zu werden.
+
+**Tests:** `getIstLadeplatzGut` mit echtem Code (lupa): gerade+eben+frei → ja; Kurve/Hofecke, Hang 15 %, vorn zugestellt
+→ streng nein, locker ja. Auftrags-Logiktest, Strukturcheck, Vollparse sauber. Im Spiel noch ungetestet.
 

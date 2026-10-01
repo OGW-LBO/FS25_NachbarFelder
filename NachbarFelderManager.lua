@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 142
+NachbarFelderManager.BUILD = 143
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2488,6 +2488,7 @@ function NachbarFelderManager:update(dt)
                         w.kippSeit  = nil
                         w.status    = 100
                         w.needTimer = true
+                        self:planeAuftragNeu(w, "umgekippt")   -- Build 143
                     end
                 else
                     w.kippSeit = nil
@@ -3639,6 +3640,27 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
         #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
 end
 
+--- Auftrag an den Lohnunternehmer nach einem Fehlschlag am Ladeplatz neu einplanen (Build 143).
+--- Der Platz ist dann gesperrt, der neue Anlauf laedt woanders. Hoechstens
+--- AUFTRAG_MAX_NEUVERSUCHE je Feld und Sitzung; laeuft ueber die Warteschlange der
+--- gespeicherten Auftraege (generateWorkMission -> NachbarFelderAuftrag.starteGespeichert).
+NachbarFelderManager.AUFTRAG_MAX_NEUVERSUCHE = 2
+function NachbarFelderManager:planeAuftragNeu(w, grund)
+    if w == nil or w.isPatrol or not w.istAuftrag or w.fieldId == nil then return end
+    self.auftragNeuversuche = self.auftragNeuversuche or {}
+    local n = (self.auftragNeuversuche[w.fieldId] or 0) + 1
+    self.auftragNeuversuche[w.fieldId] = n
+    if n > NachbarFelderManager.AUFTRAG_MAX_NEUVERSUCHE then
+        print(string.format("NachbarFelder: [AUFTRAG] Feld %s - %s, kein weiterer Versuch (%d Versuche)",
+            tostring(w.fieldId), tostring(grund), n - 1))
+        return
+    end
+    table.insert(self.loadVehiclesFromXML, { fieldId = w.fieldId, auftrag = true,
+        auftragFarmId = w.auftragFarmId or 0 })
+    print(string.format("NachbarFelder: [AUFTRAG] Feld %s - %s, Auftrag neu eingeplant (Versuch %d/%d)",
+        tostring(w.fieldId), tostring(grund), n, NachbarFelderManager.AUFTRAG_MAX_NEUVERSUCHE))
+end
+
 --- Datei der gesperrten Ladeplaetze fuer die geladene Karte (Build 142), nil ohne Kartenkennung.
 function NachbarFelderManager:getLadeplatzDatei()
     local kennung = nfGetKartenKennung()
@@ -3890,26 +3912,32 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
             -- Ziel zeigt, Durchgang 2 die uebrigen mit ihrer eigenen Richtung. Dazu muss es
             -- voraus frei sein (6-26 m): Log 19.09. standen neue Fahrzeuge 7-9 m hinter
             -- einem schlafenden Pool-Gespann und kamen nie weg.
+            -- Build 143: Stufen. Auch Hoefe haben KI-Splines - an einer Hofecke passte der
+            -- 17x4-m-Kasten gerade noch, das Gespann kam nicht weg und kippte (Bergisch Land,
+            -- Shop-Hof x=-478 z=11). Zuerst nur "echte Strassenstuecke" (gerade, eben, 30x5 m
+            -- frei), erst nah, dann weiter draussen; erst danach die alte lockere Pruefung.
             local geprueft = 0
-            local kandidaten = self:getSpawnKandidaten(sx, sz, 40, 250)
             local mitZiel = zielX ~= nil and zielZ ~= nil
-            for durchgang = 1, (mitZiel and 2 or 1) do
-                for _, k in ipairs(kandidaten) do
-                    if geprueft >= 120 then break end
-                    local sp = k[1]
-                    local rx, rz = sp[1], sp[2]
-                    local zumZiel = (not mitZiel) or (zielX - rx) * sp[3] + (zielZ - rz) * sp[4] >= 0
-                    if (durchgang == 1 and zumZiel) or (durchgang == 2 and not zumZiel) then
-                        geprueft = geprueft + 1
-                        local ry = MathUtil.getYRotationFromDirection(sp[3], sp[4])
-                        local h = self:getFahrbahnHoehe(rx, rz, sp[5])
-                        local gx, gz = rx - sp[3] * 9, rz - sp[4] * 9
-                        if not self:getIstSpawnPlatzGesperrt(rx, rz)   -- Build 129
-                           and self:getNearestRoadPoint(gx, gz, 2.5, 0) ~= nil
-                           and not self:isSpotBlockedByAnyVehicle(rx + sp[3] * 16, rz + sp[4] * 16, 10, nil)
-                           and self:getIstSpawnFlaecheFrei(rx, h, rz, ry, 17, 4.0) then
-                            w.spawnStrasse = { x = rx, z = rz, ry = ry, h = h, dist = k[2], geprueft = geprueft }
-                            return
+            local stufen = NachbarFelderManager.LADEPLATZ_STUFEN
+            for stufe, st in ipairs(stufen) do
+                local kandidaten = self:getSpawnKandidaten(sx, sz, st.minD, st.maxD)
+                local inStufe = 0
+                for durchgang = 1, (mitZiel and 2 or 1) do
+                    for _, k in ipairs(kandidaten) do
+                        if inStufe >= NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN then break end
+                        local sp = k[1]
+                        local rx, rz = sp[1], sp[2]
+                        local zumZiel = (not mitZiel) or (zielX - rx) * sp[3] + (zielZ - rz) * sp[4] >= 0
+                        if (durchgang == 1 and zumZiel) or (durchgang == 2 and not zumZiel) then
+                            inStufe = inStufe + 1
+                            geprueft = geprueft + 1
+                            local ry = MathUtil.getYRotationFromDirection(sp[3], sp[4])
+                            local h = self:getFahrbahnHoehe(rx, rz, sp[5])
+                            if self:getIstLadeplatzGut(sp, rx, rz, ry, h, st.streng) then
+                                w.spawnStrasse = { x = rx, z = rz, ry = ry, h = h, dist = k[2],
+                                                   geprueft = geprueft, stufe = stufe }
+                                return
+                            end
                         end
                     end
                 end
@@ -3942,10 +3970,63 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
             print(string.format("NachbarFelder: %s wird am Spawnpunkt WP%d geladen", wer, sp.spawnpunktIdx))
         else
             print(string.format("NachbarFelder: %s wird direkt an der KI-Strasse geladen (%.0f m vom Shop-Platz," ..
-                " freier Platz, %d Stellen geprueft)", wer, sp.dist or 0, sp.geprueft or 0))
+                " freier Platz, Stufe %s, %d Stellen geprueft)", wer, sp.dist or 0, tostring(sp.stufe or "?"),
+                sp.geprueft or 0))
         end
     end
     return ok
+end
+
+-- Build 143: Ladeplatz-Suche in Stufen (setzeLadepositionStrasse)
+-- streng = echtes Strassenstueck: gerade, eben, grosser freier Kasten
+NachbarFelderManager.LADEPLATZ_STUFEN = {
+    { minD = 40,  maxD = 250, streng = true  },
+    { minD = 250, maxD = 800, streng = true  },
+    { minD = 40,  maxD = 250, streng = false },   -- bisherige Pruefung (bis Build 142)
+}
+NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
+NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
+NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
+NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
+
+--- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
+--- Immer: nicht gesperrt, hinten noch Strasse, voraus kein Fahrzeug, Kasten 17 x 4 m frei.
+--- streng zusaetzlich: Strasse laeuft 20 m vor und hinter dem Punkt gerade weiter
+--- (keine Hofecke, keine Kurve), Fahrbahn eben, Kasten 30 x 5 m frei (Platz zum Losfahren).
+function NachbarFelderManager:getIstLadeplatzGut(sp, rx, rz, ry, h, streng)
+    if self:getIstSpawnPlatzGesperrt(rx, rz) then return false end   -- Build 129/142
+    local dx, dz = sp[3], sp[4]
+    if self:getNearestRoadPoint(rx - dx * 9, rz - dz * 9, 2.5, 0) == nil then return false end
+    if self:isSpotBlockedByAnyVehicle(rx + dx * 16, rz + dz * 16, 10, nil) then return false end
+    if not streng then
+        return self:getIstSpawnFlaecheFrei(rx, h, rz, ry, 17, 4.0)
+    end
+
+    -- gerade Strasse: Stuetzpunkte vor und hinter dem Punkt mit gleicher (oder Gegen-) Richtung
+    local abstaende = NachbarFelderManager.LADEPLATZ_GERADE_ABST
+    for _, d in ipairs(abstaende) do
+        local qx, _, qry = self:getNearestRoadPoint(rx + dx * d, rz + dz * d, 3, 0)
+        if qx == nil or qry == nil then return false end
+        if math.abs(math.sin(qry) * dx + math.cos(qry) * dz) < NachbarFelderManager.LADEPLATZ_GERADE_COS then
+            return false
+        end
+    end
+
+    -- eben: Fahrbahnhoehe vorn, hinten (Gespannende) und seitlich
+    local hMin, hMax = h, h
+    local px, pz = -dz, dx
+    local messpunkte = { { 3, 0 }, { -14, 0 }, { -5, 2 }, { -5, -2 } }
+    for _, p in ipairs(messpunkte) do
+        local hx = rx + dx * p[1] + px * p[2]
+        local hz = rz + dz * p[1] + pz * p[2]
+        local hh = self:getFahrbahnHoehe(hx, hz, sp[5])
+        hMin, hMax = math.min(hMin, hh), math.max(hMax, hh)
+    end
+    if hMax - hMin > NachbarFelderManager.LADEPLATZ_MAX_HOEHE then return false end
+
+    -- Platz: Gespann (17 m) plus Raum zum Losfahren, Kasten reicht 3 m vor den Punkt -> 13 m davor frei
+    if not self:getIstSpawnFlaecheFrei(rx + dx * 13, h, rz + dz * 13, ry, 30, 5.0) then return false end
+    return true
 end
 
 function NachbarFelderManager:loadVehicles(NachbarFelderWorker)
