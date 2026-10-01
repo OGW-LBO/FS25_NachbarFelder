@@ -271,7 +271,7 @@ end
 
 --- Client: Ergebnis als Meldung und in der Infozeile des Reiters Wegpunkte
 --- (Ingame-Meldungen verdeckt das offene Menue).
---- @param feldNr angezeigte Feldnummer vom Server (getFeldNummer), nicht der Index
+--- @param feldNr Feldnummer vom Server (field:getId())
 --- @return string angezeigter Text
 function NachbarFelderAuftrag.zeigeAntwort(ok, textKey, feldNr, arbeitKey)
     local vorlage = g_i18n:getText(textKey or NachbarFelderAuftrag.TEXT.FEHLER)
@@ -352,42 +352,25 @@ function NachbarFelderAuftrag.getFeldAnPosition(mgr, x, z)
     return nil, nil
 end
 
---- Feld-ID zu einem Feld-Objekt (Field.new kennt kein id-Feld; die Mod
---- adressiert Felder ueber den Index von getFields/getFieldById).
-function NachbarFelderAuftrag.getFeldId(field)
+--- Feldnummer eines Feld-Objekts = field:getId() (NachbarFelderManager:getFeldNummer).
+--- Dieselbe Nummer zeigt das Spiel auf der Karte, und sie ist der Schluessel
+--- fuer getFieldById, vehicleType und feldSperre. Bis zum Fix suchte diese
+--- Funktion den Listenplatz in getFields() - auf Karten mit Luecken in der
+--- Nummerierung fand der Auftrag dann kein Feld.
+--- Nur gueltig, wenn getFieldById die Nummer wieder auf dasselbe Feld fuehrt.
+function NachbarFelderAuftrag.getFeldId(mgr, field)
     if field == nil then return nil end
-    for id, f in pairs(g_fieldManager:getFields() or {}) do
-        if f == field and g_fieldManager:getFieldById(id) == field then
-            return id
+    local nr = mgr:getFeldNummer(field)
+    if nr ~= nil and g_fieldManager:getFieldById(nr) == field then
+        return nr
+    end
+    -- Fallback (getId fehlt in einer anderen Spielversion): Listenplatz, der getFieldById trifft
+    for idx, f in pairs(g_fieldManager:getFields() or {}) do
+        if f == field and g_fieldManager:getFieldById(idx) == field then
+            return idx
         end
     end
-    return field.fieldId or field.id
-end
-
---- Feldnummer fuer Meldungen und Log (Build 139): field:getId() - dieselbe
---- Nummer, die das Spiel auf der Karte und in Vertragsmeldungen zeigt
---- (AbstractFieldMission). Der Index aus getFields() kann davon abweichen und
---- bleibt nur der interne Schluessel (vehicleType, createMission).
---- Fallback auf den Index, wenn getId fehlt oder nichts liefert.
-function NachbarFelderAuftrag.getFeldNummer(field, index)
-    local nr = nil
-    if field ~= nil and field.getId ~= nil then
-        pcall(function()
-            nr = field:getId()
-        end)
-    end
-    if type(nr) ~= "number" then
-        nr = index
-    end
-    return nr or -1
-end
-
---- Log-Text "Feld 12" bzw. "Feld 12 (Index 7)", wenn Nummer und Index abweichen
-local function nfFeldLog(nr, index)
-    if index ~= nil and nr ~= index then
-        return string.format("Feld %s (Index %s)", tostring(nr), tostring(index))
-    end
-    return "Feld " .. tostring(nr)
+    return nil
 end
 
 --- Wahrer Besitzer eines Farmlands. getFarmlandOwner liest farmlandMapping -
@@ -526,7 +509,7 @@ end
 -- ============================================================
 -- Server: Auftrag annehmen und ausfuehren
 -- @param connection nil = lokaler Aufruf (SP / eigener Host)
--- @return boolean ok, string textKey, number feldNr (angezeigte Nummer), string arbeitKey
+-- @return boolean ok, string textKey, number feldNr (field:getId()), string arbeitKey
 -- ============================================================
 function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
     local T = NachbarFelderAuftrag.TEXT
@@ -542,21 +525,21 @@ function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
     end
 
     local field, abstand = NachbarFelderAuftrag.getFeldAnPosition(mgr, x, z)
-    local fieldId = NachbarFelderAuftrag.getFeldId(field)
+    local fieldId = NachbarFelderAuftrag.getFeldId(mgr, field)
     if field == nil or fieldId == nil then
         print(string.format("NachbarFelder: [AUFTRAG] kein Feld bis %d m bei x=%d z=%d",
             NachbarFelderAuftrag.MAX_ABSTAND, math.floor(x), math.floor(z)))
         return false, T.KEIN_FELD, -1, ""
     end
 
-    local feldNr = NachbarFelderAuftrag.getFeldNummer(field, fieldId)
-    local feldLog = nfFeldLog(feldNr, fieldId)
+    -- es gibt nur eine Feldnummer: fieldId ist field:getId()
+    local feldLog = "Feld " .. tostring(fieldId)
 
     local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, true)
     if aktion == nil then
         print(string.format("NachbarFelder: [AUFTRAG] %s (%.0f m) abgelehnt fuer Farm %d: %s",
             feldLog, abstand or 0, farmId or 0, tostring(textKey)))
-        return false, textKey, feldNr, ""
+        return false, textKey, fieldId, ""
     end
 
     local gestartet, startKey = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
@@ -564,12 +547,12 @@ function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
     if not gestartet then
         print(string.format("NachbarFelder: [AUFTRAG] %s angenommen, Start nicht moeglich: %s",
             feldLog, tostring(startKey)))
-        return false, startKey, feldNr, arbeitKey
+        return false, startKey, fieldId, arbeitKey
     end
     local name = mgr.missionHelper[aktion] ~= nil and mgr.missionHelper[aktion].name or "?"
     print(string.format("NachbarFelder: [AUFTRAG] %s fuer Farm %d gestartet (%s, Besitzer %s)",
         feldLog, farmId or 0, name, tostring(NachbarFelderAuftrag.getBesitzer(field.farmland))))
-    return true, T.OK, feldNr, arbeitKey
+    return true, T.OK, fieldId, arbeitKey
 end
 
 --- Server: gespeicherten Auftrag nach dem Neuladen fortsetzen. Die Rechte
@@ -578,7 +561,7 @@ end
 function NachbarFelderAuftrag.starteGespeichert(mgr, eintrag)
     local fieldId = eintrag.fieldId
     local field   = fieldId ~= nil and g_fieldManager:getFieldById(fieldId) or nil
-    local feldLog = nfFeldLog(NachbarFelderAuftrag.getFeldNummer(field, fieldId), fieldId)
+    local feldLog = "Feld " .. tostring(fieldId)
     local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId,
         eintrag.auftragFarmId or 0, nil, false)
     if aktion == nil then

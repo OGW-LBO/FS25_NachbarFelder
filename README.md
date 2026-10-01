@@ -70,6 +70,12 @@ dann genau dieses Feld – auch ein eigenes.
 
 Die Antwort des Servers erscheint als Meldung und in der Infozeile des Reiters.
 
+### Feldnummern
+
+Es gibt nur eine Feldnummer: die, die das Spiel auf der Karte und in den Vertragsmeldungen zeigt
+(`field:getId()`). Sie gilt überall – in Meldungen, im Log, beim Konsolenbefehl `nachbarFelderSperre`
+und im Spielstand. Der Platz eines Felds in der internen Feldliste ist keine Feldnummer.
+
 Wegpunkt-Typen: 0 Normal, 1 Kurz, 2 Lang, 3 Durchfahrt, 4 Spawnpunkt. Ein Spawnpunkt wird am besten
 im Fahrzeug auf der rechten Spur gesetzt, Front in Fahrtrichtung.
 
@@ -81,7 +87,7 @@ im Fahrzeug auf der rechten Spur gesetzt, Front in Fahrtrichtung.
 | `nachbarFelderTimer` | Timer bis zum nächsten Start anzeigen/setzen |
 | `nachbarFelderEntfernen` | Alle Helfer entfernen |
 | `nachbarFelderTrafficStop` / `…Start` | Patrouille-Verkehr anhalten und fortsetzen |
-| `nachbarFelderSperre <Nr> [aus]` | Ein Feld dauerhaft aussperren oder wieder freigeben |
+| `nachbarFelderSperre <Nr> [aus]` | Ein Feld dauerhaft aussperren oder wieder freigeben (Nummer wie auf der Karte) |
 
 ## Einstellungen und Daten
 

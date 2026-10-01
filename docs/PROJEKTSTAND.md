@@ -89,6 +89,8 @@
 >   `saveWaypoints`/`loadWaypoints` (Datei je Karte).
 > - Worker: `onAIJobFinished` (Abweisungen, `pathFails`, `nfRoadSnap`, `nfMarkStartPlaceBad`).
 > - Seite: `NachbarFelderWaypointPage.BUTTON_TEXT`, Profile in `gui/NachbarFelderGuiProfiles.xml`.
+> - Feldnummer = immer `field:getId()` = Schlüssel für `getFieldById` (`getFeldNummer`, `getFeldNummern`); NIE den
+>   Listenplatz aus `getFields()` als Nummer nehmen (Build 139, siehe dort).
 > - Auftrag (Build 139): `NachbarFelderAuftrag.anfordern` (Client), `.ausfuehren` (Server), `.pruefe`, `.starte`,
 >   `.getFeldAnPosition`, `.starteGespeichert`; Worker-Felder `istAuftrag`/`auftragFarmId`.
 > - Events: `NachbarFelderAuftragEvent` (Build 139, beide Richtungen, `connection:getIsServer()`);
@@ -849,16 +851,30 @@ Feld zu bearbeiten, auch wenn es ihm selbst gehört. Eingabe-Aktion plus Zeile i
 
 **Kartenunabhängig:** keine Koordinaten, keine Feldnummern; Feldsuche nur über Farmland-Karte und Feldumrisse.
 
-**Feldnummer in Meldungen:** Angezeigt wird `field:getId()` (`NachbarFelderAuftrag.getFeldNummer`) — dieselbe Nummer
-wie auf der Karte und in den Vertragsmeldungen des Spiels (`AbstractFieldMission`). Fallback auf den Index aus
-`getFields()`, wenn `getId` fehlt. Intern (Schlüssel in `vehicleType`, `createMission`, Savegame `worker#fieldId`)
-bleibt der Index. Log: `Feld 12 (Index 7)`, wenn beide abweichen. Die Antwort an den Client trägt die Nummer, nicht
-den Index.
+**Feldnummer — es gibt nur eine (Stolperfalle, nicht nochmal suchen):**
+- Feldnummer ist **immer `field:getId()`** (`NachbarFelderManager:getFeldNummer(field)`). Das ist die Nummer auf der
+  Karte und in den Vertragsmeldungen, und genau sie erwartet `g_fieldManager:getFieldById`. Beleg im Spielcode:
+  `FieldManager:saveToXMLFile` schreibt `field:getId()`, `loadFromXMLFile` liest mit `getFieldById`; dasselbe bei
+  `AbstractFieldMission` (Spielstand und Netzwerk); `AbstractFieldMission:getFarmlandId()` liefert `field:getId()` —
+  die Feldnummer ist die Farmland-Nummer (`FieldManager.farmlandIdFieldMapping[farmland.id]`).
+- Der **Listenplatz in `getFields()` ist keine Feldnummer.** Farmland-Nummern können Lücken haben, die Feldliste
+  nicht. Alle Schlüssel der Mod (`vehicleType`, `feldSperre`, `fieldCooldown`, `worker#fieldId` im Spielstand,
+  `nachbarFelderSperre <Nr>`) sind die Feldnummer — dort war nichts umzurechnen.
+- **Warum die Zufallswahl falsch war:** `generateWorkMission` zog `math.random(1, #getFields())` und gab das an
+  `getFieldById`. Bei 100 Feldern mit Nummern bis 140 kamen die Felder 101–140 nie dran, und Nummern ohne Feld waren
+  Fehlversuche. Jetzt: zufälliger Eintrag aus der echten Liste (`getFeldNummern()`), davon `getId()`.
+- Ebenso falsch waren (behoben): `logFeldStatistik` (`fid` = Listenplatz → belegt/gesperrt am falschen Feld gezählt),
+  die Liste „n Felder bebaut … : Feld x“ in `getBebauteFelder` und `NachbarFelderAuftrag.getFeldId` (suchte den
+  Listenplatz → „Kein Feld in der Nähe“, obwohl man im Feld stand). `NachbarFelderWorker.lua` war sauber.
+- Fallback nur für eine Spielversion ohne `getId`: `field.fieldId`/`field.id`, zuletzt der Listenplatz.
+- Alte Spielstände: ein `worker`-Eintrag, dessen Nummer kein Feld trifft, wird mit Log-Zeile verworfen
+  (`Gespeicherter Auftrag verworfen - Feld n gibt es auf dieser Karte nicht`), statt abzubrechen.
+- `nachbarFelderSperre <Feldnummer wie auf der Karte> [aus]` prüft jetzt, ob es das Feld gibt.
 
 **Verifiziert** (LUADOC-Repo `umbraprior/FS25-Community-LUADOC`, die Webseite war gesperrt):
 `FarmlandManager:getFarmlandAtWorldPosition` / `getFarmlandOwner` / `NO_OWNER_FARM_ID`, `Farmland.field` und
-`FieldManager:loadMapData` (`farmland:setField(field)`), `Field.new` (kein id-Feld → `NachbarFelderAuftrag.getFeldId`
-sucht den Index in `getFields()`), `AIJobStartRequestEvent` (Muster Event, `streamWriteUIntN`,
+`FieldManager:loadMapData` (`farmland:setField(field)`), `field:getId()` / `getFieldById` (siehe Feldnummer oben),
+`AIJobStartRequestEvent` (Muster Event, `streamWriteUIntN`,
 `FarmManager.FARM_ID_SEND_NUM_BITS`, `connection:sendEvent`), `AIJobFieldWork:getIsStartable`
 (`getHasPlayerPermission("hireAssistant", connection, farmId)`), `g_currentMission:getFarmId()` und
 `g_localPlayer.farmId` (Verwendung im Spielcode). `XMLFile:getValue` mit Default bewusst nicht genutzt (nicht belegt).
