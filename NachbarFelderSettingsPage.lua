@@ -40,21 +40,13 @@ function NachbarFelderSettingsPage:init()
 	print("init Settings page")
 	local controlProperties = {
 		{ name = "active", autoBind = true, nillable = false },
-		{ name = "MAX_ASSISTANT_WORKERS", autoBind = true, min = 0, max = 15, step = 1, nillable = false, value = self.settings["MAX_ASSISTANT_WORKERS"]},
 		{ name = "trafficLimit", autoBind = true, min = 1, max = 8, step = 1, nillable = false, value = self.settings["trafficLimit"]},
 		{ name = "trafficTrailerSize", autoBind = true, min = 0, max = 3, step = 1, nillable = false, value = self.settings["trafficTrailerSize"]},
 		{ name = "engeMap", autoBind = true, nillable = false },
     }
 
-	for k,v in pairs(self.NachbarFelderManager.missionHelper) do
-		if v.skip then
-			continue
-		end
-		self.settings[v.name] = v.active
-		local value = v
-		value.autoBind = true
-		table.insert(controlProperties, value)
-	end
+	-- Build 150: Feldarbeit entfernt - keine Regler mehr fuer "Anzahl Arbeiter" und die
+	-- Arbeitsarten. Die Werte bleiben in Speicherdatei und Sync, wirken aber nicht mehr.
 
 	controlProperties = self:loadSettingsFromXML(controlProperties)
 

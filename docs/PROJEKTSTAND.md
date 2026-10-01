@@ -8,6 +8,11 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 150 (01.10.): Alle Feldhelfer entfernt — nur noch Verkehr.** Wunsch des Users: Lohnunternehmer UND zufällige
+>   Feldarbeit raus (Feld bearbeitet er selbst mit eigenem Trecker + seiner anderen Helfer-Mod). Entfernt: `NachbarFelderAuftrag.lua`,
+>   Feldwahl/Feldarbeit/Anfahrt/Gespannwahl, Tasten `NF_START_NOW`/`NF_ORDER_FIELD`, Konsole `nachbarFelderStart`/`…Sperre`,
+>   Regler „Anzahl Arbeiter“ und Arbeitsarten, Feld-Hooks (`getIsMissionWorkAllowed`, `saveSavegame`). Abschnitt Build 150.
+>   Die Abschnitte Build 105–149 zu Feldhelfern/Lohnunternehmer sind ab hier **nur noch Historie**.
 > - **Build 149 (01.10.): `toggleAIVehicle()` entfernt — wahrscheinliche Ursache „Feldarbeit 0 s“** (FS25: Helfer-Taste des
 >   Spielers, startete einen zweiten Auftrag); Ende-Meldungen bei laufendem eigenen Auftrag ignoriert; Felderkennung ohne
 >   Besitzprüfung jetzt um `AITaskFieldWork:start` (Build 147 setzte sie zu früh). Abschnitt Build 149.
@@ -48,7 +53,7 @@
 > - Im Spiel noch ungetestet: Build 135 (Buttons), 136 (Spurwahl, Pool), 137 („bebaut" je Feldumriss), 138 und 139.
 >
 > **Arbeitsweise (verbindlich)**
-> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 139; neue Dateien in `DATEIEN` eintragen).
+> - Bauen nur mit `py build.py` im Quellordner (feste Liste, **14 Dateien** seit Build 150; neue Dateien in `DATEIEN` eintragen).
 > - GitHub-Release: `.github/workflows/release.yml` baut mit `build.py` und legt Release `build<N>` mit
 >   `FS25_NachbarFelder.zip` an — bei Push auf `main` (Merge), Tag `build<N>` oder „Run workflow“; schon vorhandenes
 >   Release → nichts. Neues Release nur mit hochgezähltem `BUILD`. ZIP-Name nie ändern = Mod-Name.
@@ -85,11 +90,11 @@
 >   alles entfernen Strg+Alt+L, Shift+Alt+X/W (lösen Alt+X/Shift+X mit aus → umlegen). Neue Standards seit 134:
 >   Strg+Alt+O/U/C/E/L, seit 139 zusätzlich Strg+Alt+J (Lohnunternehmer; Kollision mit Strg+J/Alt+J nicht geprüft).
 >   Vor Tastentipps immer das Profil prüfen.
-> - Lohnunternehmer (Build 139): an ein Feld stellen (im Feld oder ≤ 25 m vom Rand) → Strg+Alt+J oder Reiter
->   Wegpunkte → „Dieses Feld bearbeiten lassen“. Antwort als Meldung und in der Infozeile des Reiters.
+> - Lohnunternehmer und „Helfer starten“ gibt es seit Build 150 nicht mehr (Tasten Strg+Alt+J/E entfallen).
 >
 > **Offene Punkte (nach Priorität)**
-> 0. **Build 139 testen** (Auftrag an den Lohnunternehmer), Testplan im Abschnitt Build 139 am Ende.
+> 0. **Build 150 testen**: nur Verkehr; Prüfpunkte im Abschnitt Build 150 am Ende. Punkte 1–2 unten betreffen die
+>    entfernte Feldarbeit und sind erledigt/hinfällig.
 > 1. Servertest Build 137 auf Bergisch Land (enthält 136): im Log `0 Felder bebaut (Hindernis mind. 1 m im Feld)`,
 >    in der Feldarbeit-Statistik `0 bebaut` statt 83 und danach echte Feldaufträge; `[POOL] … aufgeweckt` muss
 >    auftauchen, „sofort abgewiesen" und „Ladeplatz … taugt nicht" deutlich seltener.
@@ -1213,3 +1218,44 @@ verdrängte. Auf dem Dedi gibt es kein `g_client` (Fehler). Vermutlich ein FS22-
 **Tests:** Mini-Gerüst nach LUADOC-Ablauf: Position beim Task-Start gesetzt, danach wieder frei. Strukturcheck, Vollparse.
 **Unverifiziert im Spiel** — Erwartung: Feldarbeit auf Feld 47 läuft; sonst nennt `FIELDWORK Feld 47 gestoppt: …` den Grund.
 
+
+# ERGÄNZUNG 2026-10-01 — Build 150: Alle Feldhelfer entfernt, nur noch Verkehr
+
+**Anlass:** Build 149 (Feldarbeit 0 s) war noch ungetestet, da entschied der User: „Alle Feldhelfer raus“. Er fährt
+seinen Trecker selbst ans Feld und startet dort den Helfer über eine andere eigene Mod. Übrig bleibt der Verkehr
+(Patrouille zwischen Wegpunkten, Pool, Tagesrhythmus, Stammfahrzeuge, Ladeplatz-Suche, Spawnpunkte, Kipp-Erkennung).
+
+**Entfernt**
+- Datei `NachbarFelderAuftrag.lua` (Lohnunternehmer, Event `NachbarFelderAuftragEvent`), Eintrag in `build.py` (jetzt 14 Dateien).
+- `NachbarFelder.lua`: `NachbarFelderStartEvent`, Registrierung von `NF_START_NOW` und `NF_ORDER_FIELD`, `source` der Auftragsdatei.
+- `modDesc.xml`: Aktionen/Tasten `NF_START_NOW` (Strg+Alt+E) und `NF_ORDER_FIELD` (Strg+Alt+J); Beschreibung de/en/fr auf
+  Verkehr umgeschrieben. modDesc-Version bleibt `1.1.42.0`.
+- l10n de/en: `input_NF_START_NOW`, `input_NF_ORDER_FIELD`, alle `NF_auftrag*`. `NF_hinweisSpawnpunkt` bleibt (Ladeplatz-Hinweis).
+- Reiter Wegpunkte: Abschnitt „Lohnunternehmer“ (`nfAuftragHier`, `nfAuftragSpawnHier`). „Spawnpunkt hier setzen“ gibt es
+  weiter im Abschnitt „Neuer Punkt“.
+- Einstellungen: Regler „Anzahl Arbeiter“ (`MAX_ASSISTANT_WORKERS`) und die Arbeitsarten (`missionHelper`). Die Werte
+  laufen weiter durch Spielstand, Server-Konfig und Settings-Sync (Stream-Format unverändert, also keine
+  Versionskonflikte zwischen Server und Client), wirken aber nicht mehr.
+- Manager: Feldwahl (`isFieldUseful`, `getFeldAktion`, `getFruchtZustand`, Statistik, bebaut/Weide, Feldpolygon,
+  Feldnummern), Feldarbeit (`setAIOnField`, `finishFieldState`, Saatwahl), Anfahrt (`getFeldZielpunkt`, `getFeldZugang`,
+  Stillstand-Wächter Build 121), Gespannwahl (`getRandomVehicles`, `getEigenesFeldGespann`, Gespann-Sperren inkl.
+  `NachbarFelderGespannSperren.xml`, starr/breit, Zugmaschine zu groß), `createMission`/`generateWorkMission`/
+  `startSavedMission`, `planeAuftragNeu`, `onMissionStarted` (+ Abo `MissionStartedEvent`), Mähdrescher-Sonderfälle
+  (Korntank, Schneidwerk-Wagen, Status 3/33/4), Feld-Cooldowns/-Sperren, Vorfrucht-Gedächtnis, Konsolenbefehle
+  `nachbarFelderStart` und `nachbarFelderSperre`.
+- Hooks: `MissionManager.getIsMissionWorkAllowed` und der `saveSavegame`-Schutz für den temporären Feldbesitz.
+  **Behalten:** FarmlandManager-Hooks (`getCanAccessLandAtWorldPosition`/`AlongLine` sind Teil der GOTO-Wegsuche),
+  `addMoney`, `getJobTypeIndex`, `FSBaseMission.delete`, `ItemSystem.save`.
+- Worker: Feldhelfer-Zweige in `onAIJobFinished` (Rettung, Implement-Sperre, Zugangs-Wechsel, Feld-Cooldown),
+  `onAIFieldWorkerEnd` (samt Event-Abo), Ernte-Spezialfall. Ein Eintrag ohne `isPatrol` wird jetzt sofort aufgeräumt
+  (Status 100), falls je einer entsteht.
+- `driveToField`: nur noch Verkehr (kein `createAgent`-Zweig mehr); ohne Zielpunkt kein Auftrag.
+- Spielstand `NachbarFelder.xml`: es werden nur noch Einstellungen gespeichert; alte `worker`-Einträge und
+  `fieldFruits` werden beim Laden ignoriert (Schema-Registrierung bleibt, damit alte Dateien sauber laden).
+
+**Tests:** Referenzscan (keine Aufrufe ins Leere), Strukturcheck aller Lua-Dateien, Vollparse (lupa), XML (minidom).
+Lauftest mit Platzhalter-Umgebung: Manager anlegen, `update()` räumt einen Verkehrseintrag im Status 100 ab,
+`deleteMission` auf unbekannten Schlüssel ohne Fehler, entfernte Funktionen existieren nicht mehr.
+**Unverifiziert im Spiel.** Prüfpunkte: Start ohne Lua-Fehler (`loadMap auf SERVER (Build 150)`), Verkehr spawnt
+(`[TRAFFIC] …`), keine Zeilen „Feld … gewaehlt“/„generateWorkMission“ mehr, Einstellungsseite ohne „Anzahl Arbeiter“
+und Arbeitsarten, Reiter Wegpunkte ohne Abschnitt Lohnunternehmer, Strg+Alt+L entfernt weiter alle Fahrzeuge.

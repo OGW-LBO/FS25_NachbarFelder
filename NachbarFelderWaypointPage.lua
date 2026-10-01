@@ -20,8 +20,6 @@ NachbarFelderWaypointPage.BUTTON_TEXT = {
     nfWpDelete       = "NF_wpBtn_delete",
     nfWpAddHere      = "NF_wpBtn_set",
     nfWpAddSpawnHere = "NF_wpBtn_set",
-    nfAuftragHier    = "NF_auftragBtn",   -- Build 139
-    nfAuftragSpawnHier = "NF_wpBtn_set",  -- Build 148
 }
 
 function NachbarFelderWaypointPage.new(manager)
@@ -192,11 +190,6 @@ function NachbarFelderWaypointPage:registerAndInject()
             addSection("NF_wpNew_section_title")
             addRow("nfWpAddHere",       "NF_wpAddHere_short",       "onNFWpAddHere",       "NF_wpAddHere_long",       true)
             addRow("nfWpAddSpawnHere",  "NF_wpAddSpawnHere_short",  "onNFWpAddSpawnHere",  "NF_wpAddSpawnHere_long",  true)
-            -- Build 139: Auftrag an den Lohnunternehmer - das Feld an der eigenen Position
-            addSection("NF_auftrag_section_title")
-            addRow("nfAuftragHier",     "NF_auftragHier_short",     "onNFAuftragHier",     "NF_auftragHier_long",     true)
-            -- Build 148: Spawnpunkt gleich hier setzen - zuverlaessiger als die automatische Platzsuche
-            addRow("nfAuftragSpawnHier", "NF_wpAddSpawnHere_short", "onNFWpAddSpawnHere", "NF_auftragSpawnHier_long", true)
             addSection("NF_wpMap_section_title")
             addRow("nfWpMapShow",       "NF_wpMapShow_short",       "onNFWpMapShow",       "NF_wpMapShow_long",       false)
             addSection("NF_wpVehicles_section_title")
@@ -551,7 +544,6 @@ function NachbarFelderWaypointPage:refreshWpInfo()
     if self.nfWpDelete   ~= nil then pcall(function() self.nfWpDelete:setDisabled(not hasWp or not isAdmin)   end) end
     if self.nfWpAddHere      ~= nil then pcall(function() self.nfWpAddHere:setDisabled(not isAdmin)      end) end
     if self.nfWpAddSpawnHere ~= nil then pcall(function() self.nfWpAddSpawnHere:setDisabled(not isAdmin) end) end
-    if self.nfAuftragSpawnHier ~= nil then pcall(function() self.nfAuftragSpawnHier:setDisabled(not isAdmin) end) end
     if self.nfWpPrev     ~= nil then pcall(function() self.nfWpPrev:setDisabled(count == 0)    end) end
     if self.nfWpNext     ~= nil then pcall(function() self.nfWpNext:setDisabled(count == 0)    end) end
     local catIds = { "nfWpCatTractorS", "nfWpCatTractorM", "nfWpCatTractorL",
@@ -750,18 +742,6 @@ end
 
 function NachbarFelderWaypointPage:onNFWpAddSpawnHere(state, elem)
     setzePunktHier(NachbarFelderManager.WP_CAT_SPAWN or 4)
-end
-
--- Build 139: Auftrag an den Lohnunternehmer. Kein Admin-Zwang: eigene Felder
--- darf jeder mit dem Recht "Helfer einstellen" beauftragen - das prueft der Server.
--- Das Ergebnis steht danach in der Infozeile (NachbarFelderAuftrag.zeigeAntwort).
-function NachbarFelderWaypointPage:onNFAuftragHier(state, elem)
-    local page = getPage()
-    if page == nil or page.manager == nil or NachbarFelderAuftrag == nil then return end
-    local ok, err = pcall(NachbarFelderAuftrag.anfordern, page.manager)
-    if not ok then
-        print("NachbarFelder: [WP-PAGE] Auftrag fehlgeschlagen: " .. tostring(err))
-    end
 end
 
 function NachbarFelderWaypointPage:onNFWpMapShow(state, elem)

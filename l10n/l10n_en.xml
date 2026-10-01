@@ -30,7 +30,6 @@
         <text name="NF_fertilizeMission_short" text="Fertilizing"/>
         <text name="NF_fertilizeMission_long" text="Generate fertilizing mission"/>
         <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Remove all neighbour vehicles"/>
-        <text name="input_NF_START_NOW" text="NachbarFelder: Start helper now"/>
         <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Set waypoint"/>
         <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Remove last waypoint"/>
         <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Show waypoints one by one"/>
@@ -74,39 +73,7 @@
         <text name="NF_wpCatLoader_long" text="Spawn wheel loaders as traffic vehicles (only if navmesh-capable)"/>
         <text name="NF_wpCatTeleLoader_short" text="Telescopic handlers"/>
         <text name="NF_wpCatTeleLoader_long" text="Spawn telescopic handlers as traffic vehicles (only if navmesh-capable)"/>
-        <!-- Build 139: Auftrag an den Lohnunternehmer -->
-        <text name="input_NF_ORDER_FIELD" text="NachbarFelder: Hire contractor for this field"/>
-        <text name="NF_auftrag_section_title" text="Contractor"/>
-        <text name="NF_auftragHier_short" text="Have this field worked"/>
-        <text name="NF_auftragHier_long" text="The neighbour helpers plow or cultivate the field you are standing at (up to 25 m from the field edge) - your own field as well. Own fields: permission 'Hire assistant' required. Unowned fields: admin only. Fields of other farms and fields with a standing crop are refused."/>
-        <text name="NF_auftragBtn" text="Hire"/>
-        <text name="NF_auftrag_ok" text="Order accepted - field %s will be %s. The helper starts at the dealer."/>
-        <text name="NF_auftrag_arbeitPflug" text="plowed"/>
-        <text name="NF_auftrag_arbeitGrubber" text="cultivated"/>
-        <text name="NF_auftrag_gesendet" text="Order sent to the server ..."/>
-        <text name="NF_auftrag_keinePosition" text="Order not possible - your position is unknown."/>
-        <text name="NF_auftrag_keinFeld" text="No field nearby - stand in the field or at most 25 m from its edge."/>
-        <text name="NF_auftrag_fremd" text="Field %s belongs to another farm - no order possible."/>
-        <text name="NF_auftrag_keinRecht" text="Field %s: you lack the permission 'Hire assistant' for your farm."/>
-        <text name="NF_auftrag_nurAdmin" text="Field %s has no owner - orders for unowned fields are admin only."/>
-        <text name="NF_auftrag_belegt" text="A neighbour helper is already working on field %s."/>
-        <text name="NF_auftrag_gesperrt" text="Field %s is locked for the neighbour helpers (console: nachbarFelderSperre)."/>
-        <text name="NF_auftrag_vertrag" text="An accepted contract is running on field %s."/>
-        <text name="NF_auftrag_bebaut" text="Field %s: building or fence inside the field - too risky for the helper."/>
-        <text name="NF_auftrag_weide" text="Field %s lies inside a fenced pasture."/>
-        <text name="NF_auftrag_klein" text="Field %s is smaller than 0.3 ha - too small for the helper."/>
-        <text name="NF_auftrag_gruenland" text="Field %s is grassland - the contractor only plows and cultivates."/>
-        <text name="NF_auftrag_frucht" text="There is a crop on field %s (%s) - harvest first, then hire."/>
-        <text name="NF_auftrag_bearbeitet" text="Field %s is already worked - nothing to do."/>
-        <text name="NF_auftrag_unklar" text="The state of field %s is unclear - no order."/>
-        <text name="NF_auftrag_arbeitAus" text="Plowing and cultivating are disabled in the settings."/>
-        <text name="NF_auftrag_voll" text="All neighbour helpers are busy - try again later."/>
-        <text name="NF_auftrag_keineFarm" text="No helper farm available - see the server log.txt."/>
-        <text name="NF_auftrag_inaktiv" text="NachbarFelder is switched off in the settings."/>
-        <text name="NF_auftrag_platz" text="Field %s: the dealer spot is occupied - try again in a minute."/>
-        <text name="NF_auftrag_fehler" text="Order could not be started - see the server log.txt."/>
         <!-- Build 148 -->
         <text name="NF_hinweisSpawnpunkt" text="An automatic loading spot failed. More reliable: set a spawn point (ESC &gt; Settings &gt; Waypoints &gt; Set spawn point here)."/>
-        <text name="NF_auftragSpawnHier_long" text="Sets a spawn point at your position. All helpers, including the contractor, then start there instead of at an automatically chosen spot. Stand in a tractor on a free road, front in driving direction, then drive away. Admin only."/>
     </texts>
 </l10n>

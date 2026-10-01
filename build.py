@@ -18,7 +18,6 @@ DATEIEN = [
     # Einstiegspunkt (extraSourceFiles) - laedt den Rest per source()
     "NachbarFelder.lua",
     "NachbarFelderManager.lua",
-    "NachbarFelderAuftrag.lua",           # Build 139: Auftrag an den Lohnunternehmer
     "NachbarFelderWorker.lua",
     "NachbarFelderSettingsPage.lua",
     "NachbarFelderUIHelper.lua",
