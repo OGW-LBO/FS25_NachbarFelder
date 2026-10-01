@@ -21,8 +21,10 @@
 >
 > **Arbeitsweise (verbindlich)**
 > - Bauen nur mit `py build.py` im Quellordner (feste Liste, **15 Dateien** seit Build 139; neue Dateien in `DATEIEN` eintragen).
-> - GitHub-Release: Tag `build<N>` pushen → `.github/workflows/release.yml` baut mit `build.py` und legt das Release
->   mit `FS25_NachbarFelder.zip` an (Tag muss zu `NachbarFelderManager.BUILD` passen). ZIP-Name nie ändern = Mod-Name.
+> - GitHub-Release: `.github/workflows/release.yml` baut mit `build.py` und legt Release `build<N>` mit
+>   `FS25_NachbarFelder.zip` an — bei Push auf `main` (Merge), Tag `build<N>` oder „Run workflow“; schon vorhandenes
+>   Release → nichts. Neues Release nur mit hochgezähltem `BUILD`. ZIP-Name nie ändern = Mod-Name.
+>   Claude-Sitzungen dürfen nur ihren Branch pushen (keine Tags) → Release entsteht beim Merge.
 > - Prüfen: `lsc.py` (Skill `ls25-modding/references/lua_syntax_check.py`, Kopie `%TEMP%\lsc.py`) + Vollparse mit
 >   Python-`luaparser` oder `lupa` (`load()` ohne Ausführen; vorher `continue` → `break` ersetzen, GIANTS-Lua kennt
 >   `continue`; BOM vorher entfernen); XML mit minidom.
