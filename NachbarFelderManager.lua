@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 138
+NachbarFelderManager.BUILD = 139
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -177,6 +177,9 @@ function NachbarFelderManager.new()
     createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".worker(?)#missionType", "Missionname")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#fieldId",    "FieldId")
+    -- Build 139: Auftrag an den Lohnunternehmer (NachbarFelderAuftrag.lua)
+    xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".worker(?)#auftrag",       "Auftrag eines Spielers")
+    xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#auftragFarmId", "Farm des Auftraggebers")
     -- Settings im SAVEGAME (Build 67): server-autoritativ, MP-synct.
     -- Die lokale NachbarFelderSetting.xml bleibt nur Fallback fuer
     -- Savegames, die noch keinen settings-Block haben.
@@ -4915,6 +4918,12 @@ local function nfRandAbstand(x, z, poly)
     return math.sqrt(best)
 end
 
+-- Build 139: fuer NachbarFelderAuftrag.lua (Feld an der Spielerposition).
+-- Als Tabellenfelder, damit sie auch nach dem zweiten Laden dieser Datei
+-- (addSpecialization) ueber die Manager-Instanz erreichbar sind.
+NachbarFelderManager.nfPunktInPolygon = nfPunktInPolygon
+NachbarFelderManager.nfRandAbstand    = nfRandAbstand
+
 --- Feldumriss als Polygon (Build 137). Felder bewegen sich nicht, also
 --- einmal je Feld gelesen.
 --- @return table|nil {x={}, z={}, n=, minX=, maxX=, minZ=, maxZ=}
@@ -5144,7 +5153,7 @@ function NachbarFelderManager:getBebauteFelder()
                     treffer[field] = fund
                     anzahl = anzahl + 1
                     if #liste < 12 then
-                        table.insert(liste, "Feld " .. tostring(field.fieldId or field.id or id) .. " (" .. fund .. ")")
+                        table.insert(liste, "Feld " .. tostring(self:getFeldNummer(field, id)) .. " (" .. fund .. ")")
                     end
                 end
             end)
@@ -5310,6 +5319,47 @@ function NachbarFelderManager:sperreFeld(fieldId, an)
     end
     self.feldSperre[fieldId] = true
     return true
+end
+
+-- ============================================================
+-- Feldnummer (Build 139)
+-- Es gibt nur EINE Feldnummer: field:getId(). Das ist die Nummer auf der
+-- Karte und in den Vertragsmeldungen, und genau sie erwartet getFieldById -
+-- das Spiel speichert Felder mit getId() und laedt sie mit getFieldById
+-- (FieldManager:saveToXMLFile/loadFromXMLFile, AbstractFieldMission).
+-- Der Listenplatz in getFields() ist KEINE Feldnummer: Die Nummern folgen
+-- den Farmlands und koennen Luecken haben. Alle Schluessel der Mod
+-- (vehicleType, feldSperre, fieldCooldown, Spielstand) sind diese Nummer.
+-- ============================================================
+--- Feldnummer eines Feld-Objekts: field:getId(), sonst field.fieldId/field.id,
+--- zuletzt der Listenplatz (nur falls getId in einer anderen Spielversion fehlt).
+--- @param listIndex optional, Schluessel aus pairs(getFields())
+--- @return number|nil
+function NachbarFelderManager:getFeldNummer(field, listIndex)
+    if field == nil then return nil end
+    local nr = nil
+    if field.getId ~= nil then
+        pcall(function()
+            nr = field:getId()
+        end)
+    end
+    if type(nr) ~= "number" then
+        nr = field.fieldId or field.id or listIndex
+    end
+    return nr
+end
+
+--- Nummern aller Felder aus der echten Feldliste - Grundlage der Zufallswahl.
+--- Bewusst NICHT math.random(1, #getFields()): das waere ein Listenplatz.
+function NachbarFelderManager:getFeldNummern()
+    local liste = {}
+    for idx, field in pairs(g_fieldManager:getFields() or {}) do
+        local nr = self:getFeldNummer(field, idx)
+        if nr ~= nil then
+            table.insert(liste, nr)
+        end
+    end
+    return liste
 end
 
 function NachbarFelderManager:isFieldUseful(fieldId)
@@ -6607,15 +6657,39 @@ function NachbarFelderManager:generateWorkMission(manuell)
     self.counter = self.counter + 1
 
     if #self.loadVehiclesFromXML > 0 then
-        local created, verworfen = self:startSavedMission(
-            self.loadVehiclesFromXML[1].fieldId,
-            self.loadVehiclesFromXML[1].missionType)
+        local eintrag = self.loadVehiclesFromXML[1]
+        local created, verworfen
+        local feldDa = false
+        pcall(function()
+            feldDa = eintrag.fieldId ~= nil and g_fieldManager:getFieldById(eintrag.fieldId) ~= nil
+        end)
+        if not feldDa then
+            -- Build 139: Nummer trifft kein Feld (alter Spielstand, andere Karte) -> verwerfen
+            print("NachbarFelder: Gespeicherter Auftrag verworfen - Feld " .. tostring(eintrag.fieldId) ..
+                " gibt es auf dieser Karte nicht")
+            created, verworfen = false, true
+        elseif eintrag.auftrag and NachbarFelderAuftrag ~= nil then
+            -- Build 139: Auftrag eines Spielers - eigenes Feld ist erlaubt,
+            -- isFieldUseful wuerde es als "gehoert einer Farm" verwerfen
+            created, verworfen = NachbarFelderAuftrag.starteGespeichert(self, eintrag)
+        else
+            created, verworfen = self:startSavedMission(eintrag.fieldId, eintrag.missionType)
+        end
         -- Build 126: auch verworfene Auftraege entfernen, sonst Endlosschleife
         if created or verworfen then table.remove(self.loadVehiclesFromXML, 1) end
         return created
     end
 
-    local randomFieldId = math.random(1, #g_fieldManager:getFields())
+    -- Build 139: zufaelliger Eintrag der echten Feldliste und dessen Nummer
+    -- (getFeldNummer). Frueher math.random(1, #getFields()) - ein Listenplatz:
+    -- Felder mit hoeherer Nummer als die Anzahl der Felder kamen nie dran,
+    -- Nummern ohne Feld waren Fehlversuche.
+    local feldNummern = self:getFeldNummern()
+    if #feldNummern == 0 then
+        print("NachbarFelder: keine Felder auf der Karte gefunden")
+        return false
+    end
+    local randomFieldId = feldNummern[math.random(#feldNummern)]
     local actionOnField = self:isFieldUseful(randomFieldId)
     local missionHelper
     if actionOnField ~= nil then
@@ -6623,14 +6697,14 @@ function NachbarFelderManager:generateWorkMission(manuell)
         if missionHelper == nil or not missionHelper.active then actionOnField = nil end
     end
 
-    local count = math.max(50, #g_fieldManager:getFields() * 3)
+    local count = math.max(50, #feldNummern * 3)
     while actionOnField == nil do
         if count <= 0 then
             print("NF: no useful field found")
             self:logFeldStatistik(manuell)
             return false
         end
-        randomFieldId = math.random(1, #g_fieldManager:getFields())
+        randomFieldId = feldNummern[math.random(#feldNummern)]
         actionOnField = self:isFieldUseful(randomFieldId)
         if actionOnField ~= nil then
             missionHelper = self.missionHelper[actionOnField]
@@ -6894,7 +6968,7 @@ function NachbarFelderManager:logFeldStatistik(sofort)
     for id, field in pairs(g_fieldManager:getFields() or {}) do
         z.gesamt = z.gesamt + 1
         pcall(function()
-            local fid = field.fieldId or field.id or id
+            local fid = self:getFeldNummer(field, id)   -- Build 139: nicht der Listenplatz
             if self.vehicleType[fid] ~= nil
                or (self.feldSperre ~= nil and self.feldSperre[fid])
                or ((self.fieldCooldown[fid] or 0) > 0) then
@@ -7769,6 +7843,11 @@ function NachbarFelderManager:saveToXMLFile()
                 local key = ("%s(%d)"):format(baseKey, i)
                 xmlFile:setInt(key .. "#fieldId", k.NachbarFelderWorker.fieldId)
                 xmlFile:setString(key .. "#missionType", k.NachbarFelderWorker.mission.type.name)
+                -- Build 139: Auftrag eines Spielers als solchen merken
+                if k.NachbarFelderWorker.istAuftrag then
+                    xmlFile:setBool(key .. "#auftrag", true)
+                    xmlFile:setInt(key .. "#auftragFarmId", k.NachbarFelderWorker.auftragFarmId or 0)
+                end
                 i = i + 1
             end
         end
@@ -7815,7 +7894,9 @@ function NachbarFelderManager:loadFromXML()
     xmlFile:iterate(itKey, function(_, key)
         local fieldId = xmlFile:getValue(key .. "#fieldId")
         local missionType = xmlFile:getValue(key .. "#missionType")
-        self:loadedSettings(fieldId, missionType)
+        local auftrag = xmlFile:getValue(key .. "#auftrag")
+        local auftragFarmId = xmlFile:getValue(key .. "#auftragFarmId")
+        self:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
     end)
     -- Settings-Block lesen (Build 67). NICHT sofort anwenden - erst
     -- nach loadServerConfig() (in loadMap), damit die Savegame-Werte
@@ -7854,8 +7935,9 @@ function NachbarFelderManager:loadFromXML()
     xmlFile:delete()
 end
 
-function NachbarFelderManager:loadedSettings(fieldId, missionType)
-    table.insert(self.loadVehiclesFromXML, {fieldId = fieldId, missionType = missionType})
+function NachbarFelderManager:loadedSettings(fieldId, missionType, auftrag, auftragFarmId)
+    table.insert(self.loadVehiclesFromXML, {fieldId = fieldId, missionType = missionType,
+        auftrag = auftrag == true, auftragFarmId = auftragFarmId or 0})
 end
 
 -- ============================================================
@@ -8171,7 +8253,7 @@ function NachbarFelderManager:addConsoleCommands()
         "NachbarFelder: Traffic-Fahrzeuge wieder erlauben",
         "consoleCommandNachbarFelderTrafficStart", self)
     addConsoleCommand("nachbarFelderSperre",
-        "NachbarFelder: Feld aussperren/freigeben: nachbarFelderSperre <Nr> [aus]",
+        "NachbarFelder: Feld aussperren/freigeben: nachbarFelderSperre <Feldnummer wie auf der Karte> [aus]",
         "consoleCommandNachbarFelderSperre", self)
 end
 
@@ -8192,10 +8274,15 @@ function NachbarFelderManager:consoleCommandNachbarFelderSperre(feldNr, aus)
         table.sort(liste)
         return "NachbarFelder: gesperrte Felder: " ..
                (#liste > 0 and table.concat(liste, ", ") or "keine") ..
-               "  |  Aufruf: nachbarFelderSperre <Nr> [aus]"
+               "  |  Aufruf: nachbarFelderSperre <Feldnummer wie auf der Karte> [aus]"
     end
-
     local an = not (aus ~= nil and (aus == "aus" or aus == "off" or aus == "0"))
+    -- Build 139: Die Nummer auf der Karte ist field:getId() und damit genau der
+    -- Schluessel von feldSperre/getFieldById - keine Umrechnung noetig. Beim
+    -- Sperren pruefen, ob es das Feld gibt; Freigeben geht immer (alte Eintraege).
+    if an and g_fieldManager:getFieldById(nr) == nil then
+        return string.format("NachbarFelder: Feld %d gibt es nicht - Feldnummer wie auf der Karte angeben", nr)
+    end
     self:sperreFeld(nr, an)
 
     return string.format("NachbarFelder: Feld %d %s", nr,
