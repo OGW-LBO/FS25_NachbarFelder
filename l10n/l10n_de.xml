@@ -105,5 +105,8 @@
         <text name="NF_auftrag_inaktiv" text="NachbarFelder ist in den Einstellungen ausgeschaltet."/>
         <text name="NF_auftrag_platz" text="Feld %s: der Händlerplatz ist gerade belegt - in einer Minute erneut beauftragen."/>
         <text name="NF_auftrag_fehler" text="Auftrag konnte nicht gestartet werden - siehe log.txt des Servers."/>
+        <!-- Build 148 -->
+        <text name="NF_hinweisSpawnpunkt" text="Ein automatischer Ladeplatz hat nicht geklappt. Zuverlässiger: Spawnpunkt setzen (ESC &gt; Einstellungen &gt; Wegpunkte &gt; Spawnpunkt hier setzen)."/>
+        <text name="NF_auftragSpawnHier_long" text="Setzt einen Spawnpunkt an deiner Position. Alle Helfer, auch der Lohnunternehmer, starten dann dort statt an einem automatisch gesuchten Platz. Im Traktor auf freier Straße stehen, Front in Fahrtrichtung, danach wegfahren. Nur Admin."/>
     </texts>
 </l10n>

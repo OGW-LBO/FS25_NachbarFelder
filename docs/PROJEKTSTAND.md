@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 148 (01.10.): Kippen lag an bestimmten Ladeplätzen (Hindernis über der Straße), nicht am Gewicht** — Höhenmessung
+>   erkennt Baumkrone/Dach über der Fahrbahn, solche Plätze werden abgelehnt; Kippen sperrt wieder den Platz, ein Gespann
+>   erst nach Kippen auf 2 Plätzen; Hinweis + Menüzeile „Spawnpunkt hier setzen“. Abschnitt Build 148.
 > - **Build 147 (01.10.): Feldarbeit auf dem eigenen Feld** — Helfer kam auf Feld 47 an (Build 146), Arbeit endete nach
 >   0 s. Vermutung (LUADOC): `findClosestField` meldet `notOwned` → `AIMessageErrorFieldNotOwned`. Fix: während
 >   `startJob` `AIDriveStrategyFieldCourse.fieldDetectionPosition` setzen (Erkennung ohne Besitzprüfung). Abschnitt Build 147.
@@ -1147,4 +1150,35 @@ unbekannt)`. Gleiches Bild wie mit dem Grubber-Gespann in Build 140 — es liegt
 
 **Unverifiziert** — im Spiel testen. Erwartung: Pflügen auf Feld 47 läuft; falls nicht, nennt die neue Zeile
 `FIELDWORK Feld 47 gestoppt: …` den Grund.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 148: Hindernis über der Fahrbahn, Kipp-Regel neu, Spawnpunkt-Hinweis
+
+Test Build 147 (Log 15:32): leichtes Gespann `vario500.xml (131 PS, 6.4 t) + juwel6.xml (1.1 t)` (17 %) kippte auf
+x=-365 z=28 — demselben Platz, auf dem um 15:04 Arion + Ares XL gekippt war. Übersicht aller Ladungen nahe dem Shop:
+gekippt an -478/11 (2×), -376/38, -363/29 (2× mit zwei verschiedenen Gespannen); ohne Kippen am „76 m“-Platz
+(Series TJW, Vestrum). **Die Gewichts-Theorie aus Build 144/145 war nicht die (alleinige) Ursache — es sind bestimmte
+Plätze.** Erster Screenshot: Traktor lag unter einem großen Baum.
+
+**Ursache (Vermutung, plausibel):** `getFahrbahnHoehe` tastet von Bezugshöhe + 3 m nach unten und nimmt den ersten Treffer
+inkl. `STATIC_OBJECT`/`BUILDING` — eine Baumkrone oder ein Dach über der Straße liefert eine zu hohe Ladehöhe, das
+Gespann wird oben abgesetzt und stürzt.
+
+**Fix:**
+- `getFahrbahnHoehe(x, z, splineH)` liefert zusätzlich `ueberkopf`: mit Spline-Höhe und Treffer mehr als
+  `HOEHE_UEBERKOPF` = 1,0 m über max(Gelände, Spline) → Bezugshöhe zurück, `ueberkopf = true`. Ohne Spline-Höhe (Admin-
+  Spawnpunkt, evtl. Brücke) unverändert.
+- `getIstLadeplatzGut` (streng und locker): Platz abgelehnt, wenn bei +3/0/−5/−10/−15 m entlang der Spur etwas über der
+  Fahrbahn ist.
+- Kippen: Platz wieder sperren (Grund `umgekippt (Platz)`); Gespann dauerhaft erst, wenn es an zwei Plätzen > 30 m
+  auseinander kippte (`gespannKippOrte`, Grund `umgekippt an 2 Plaetzen`). Beim Laden werden alte Gespann-Sperren mit Grund
+  `umgekippt` (Builds 144–147, u. a. Vario 500 + Juwel 6) verworfen; alte Platz-Sperren `umgekippt` (Build 142–144) wurden
+  schon in Build 145 verworfen.
+- Wunsch des Users (Spieler wählt den Platz): Spawnpunkte gibt es seit Build 132 und sie haben Vorrang. Neu:
+  `hinweisSpawnpunkt` — beim ersten gescheiterten automatischen Ladeplatz ohne Spawnpunkt einmal eine Ingame-Meldung
+  (SP/Host, `NF_hinweisSpawnpunkt`) und eine Log-Zeile; im Reiter Wegpunkte, Abschnitt Lohnunternehmer, zusätzlich die
+  Zeile „Spawnpunkt hier setzen“ (`nfAuftragSpawnHier`, nur Admin).
+
+**Tests (lupa, echte Funktionen):** Höhe unter Baum → Bezugshöhe + `ueberkopf`; Platz unter Baum streng und locker
+abgelehnt, ohne Baum angenommen; ohne Spline-Höhe Treffer wie bisher. Strukturcheck, Vollparse, XML sauber.
 

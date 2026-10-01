@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 147
+NachbarFelderManager.BUILD = 148
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2491,14 +2491,27 @@ function NachbarFelderManager:update(dt)
                         print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
                             w.isPatrol and "[TRAFFIC] Fahrzeug" or ("Feldhelfer fuer Feld " .. tostring(w.fieldId)),
                             tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
-                        -- Build 145: Ladeplatz NICHT sperren - das Kippen lag am Gespann (dasselbe Gespann
-                        -- kippte auf drei verschiedenen, guten Plaetzen). Plaetze sperren weiterhin
-                        -- Stillstand und "sofort abgewiesen".
-                        -- Build 144: Feldhelfer-Gespann dauerhaft sperren - es kippte auf jedem Platz
+                        -- Build 148: Platz sperren (zwei verschiedene Gespanne kippten auf demselben
+                        -- Platz); das Gespann erst, wenn es auf ZWEI verschiedenen Plaetzen kippte.
+                        self:merkeSpawnFehlschlag(w, x, z, "umgekippt (Platz)")
                         if not w.isPatrol then
                             local impl = w.vehiclesToLoad[2]
-                            self:sperreFeldGespannDauerhaft(veh.configFileName,
-                                impl ~= nil and impl.configFileName or nil, "umgekippt")
+                            local iFile = impl ~= nil and impl.configFileName or nil
+                            local key = string.lower(tostring(veh.configFileName)) .. "|" .. string.lower(tostring(iFile or ""))
+                            self.gespannKippOrte = self.gespannKippOrte or {}
+                            local orte = self.gespannKippOrte[key] or {}
+                            self.gespannKippOrte[key] = orte
+                            local anderer = false
+                            for _, o in ipairs(orte) do
+                                if MathUtil.vector2Length(x - o[1], z - o[2]) > 30 then anderer = true end
+                            end
+                            table.insert(orte, { x, z })
+                            if anderer then
+                                self:sperreFeldGespannDauerhaft(veh.configFileName, iFile, "umgekippt an 2 Plaetzen")
+                            else
+                                print("NachbarFelder: Gespann " .. tostring(self:getWorkerName(w)) ..
+                                    " erst einmal gekippt - nicht gesperrt (Platz gesperrt)")
+                            end
                         end
                         self:stopAIJobSafely(veh)
                         w.kippSeit  = nil
@@ -3651,6 +3664,7 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
     self:ladeLadeplatzSperre()
     table.insert(self.spawnPlatzSperre, { sp.x, sp.z, tostring(grund) })
     self:speichereLadeplatzSperre()
+    self:hinweisSpawnpunkt(grund)   -- Build 148
     print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
         " (%d Plaetze gesperrt, Datei %s)", math.floor(sp.x), math.floor(sp.z), tostring(grund),
         #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
@@ -3675,6 +3689,23 @@ function NachbarFelderManager:planeAuftragNeu(w, grund)
         auftragFarmId = w.auftragFarmId or 0 })
     print(string.format("NachbarFelder: [AUFTRAG] Feld %s - %s, Auftrag neu eingeplant (Versuch %d/%d)",
         tostring(w.fieldId), tostring(grund), n, NachbarFelderManager.AUFTRAG_MAX_NEUVERSUCHE))
+end
+
+--- Einmaliger Hinweis "Spawnpunkt setzen" (Build 148), wenn ein automatischer Ladeplatz
+--- scheitert und auf der Karte noch kein Spawnpunkt gesetzt ist. Ein Spawnpunkt hat immer
+--- Vorrang vor der automatischen Suche. Meldung nur, wo ein lokaler Spieler ist (SP / Host);
+--- auf dem Dedi steht der Hinweis im Log.
+function NachbarFelderManager:hinweisSpawnpunkt(grund)
+    if self.spawnHinweisGegeben or self:getHatSpawnpunkte() then return end
+    self.spawnHinweisGegeben = true
+    print("NachbarFelder: Hinweis - automatischer Ladeplatz gescheitert (" .. tostring(grund) ..
+        "). Zuverlaessiger: Spawnpunkt setzen (ESC > Einstellungen > Wegpunkte > Spawnpunkt hier setzen)")
+    if g_client ~= nil and g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        pcall(function()
+            g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
+                "NachbarFelder: " .. g_i18n:getText("NF_hinweisSpawnpunkt"))
+        end)
+    end
 end
 
 --- Datei der gesperrten Ladeplaetze fuer die geladene Karte (Build 142), nil ohne Kartenkennung.
@@ -3774,6 +3805,13 @@ end
 --- Build 127 nahm die Hoehe der KI-Spline - liegt die ueber der Fahrbahn, fiel das Fahrzeug
 --- herunter und sprang in die Mauer (Server 14.09. 12:20). Strahl wie
 --- GuiTopDownCamera.lua:269 (RaycastUtil.raycastClosest liefert hit, x, y, z sofort).
+--- Build 148: Der Strahl trifft auch Baumkronen, Daecher und Schilder UEBER der Strasse.
+--- Mit Spline-Hoehe (Ladeplatz an der KI-Strasse): Treffer mehr als HOEHE_UEBERKOPF ueber
+--- der Bezugshoehe = Hindernis ueber der Fahrbahn -> Bezugshoehe zurueck, zweiter Wert true.
+--- Log 01.10.: Gespanne kippten immer wieder auf denselben Plaetzen nahe dem Shop, auch
+--- leichte (Vario 500 + Juwel 6) - abgesetzt in einer Baumkrone, dann heruntergefallen.
+--- Ohne Spline-Hoehe (Admin-Spawnpunkt, evtl. auf einer Bruecke) wie bisher.
+--- @return number Hoehe, boolean ueberkopf
 function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
     local gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
     local h = nil
@@ -3783,7 +3821,13 @@ function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
         local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
         if hit and hitY ~= nil then h = hitY end
     end)
-    return h or gelaende
+    if h ~= nil and splineH ~= nil then
+        local bezug = math.max(gelaende, splineH)
+        if h > bezug + NachbarFelderManager.HOEHE_UEBERKOPF then
+            return bezug, true
+        end
+    end
+    return h or gelaende, false
 end
 
 --- Ist die Flaeche fuer ein Gespann frei? (Build 128)
@@ -4014,6 +4058,7 @@ NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
 NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
 NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
 NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
+NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
 --- Immer: nicht gesperrt, hinten noch Strasse, voraus kein Fahrzeug, Kasten 17 x 4 m frei.
@@ -4022,6 +4067,12 @@ NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf
 function NachbarFelderManager:getIstLadeplatzGut(sp, rx, rz, ry, h, streng)
     if self:getIstSpawnPlatzGesperrt(rx, rz) then return false end   -- Build 129/142
     local dx, dz = sp[3], sp[4]
+    -- Build 148: nichts ueber der Fahrbahn (Baumkrone, Dach) auf der Gespannlaenge -
+    -- dort landete das Fahrzeug beim Laden oben und stuerzte
+    for _, d in ipairs({ 3, 0, -5, -10, -15 }) do
+        local _, ueberkopf = self:getFahrbahnHoehe(rx + dx * d, rz + dz * d, sp[5])
+        if ueberkopf then return false end
+    end
     if self:getNearestRoadPoint(rx - dx * 9, rz - dz * 9, 2.5, 0) == nil then return false end
     if self:isSpotBlockedByAnyVehicle(rx + dx * 16, rz + dz * 16, 10, nil) then return false end
     if not streng then
@@ -7711,6 +7762,12 @@ function NachbarFelderManager:ladeGespannSperren()
         xmlFile:iterate(gsXmlKey .. ".gespann", function(_, key)
             local t = xmlFile:getValue(key .. "#traktor")
             local g = xmlFile:getValue(key .. "#geraet")
+            local gr = xmlFile:getValue(key .. "#grund")
+            -- Build 148: Einzel-Sperren "umgekippt" (Builds 144-147) waren meist der Platz -> verwerfen
+            if gr == "umgekippt" then
+                t = nil
+                self.gespannSperrenVerworfen = (self.gespannSperrenVerworfen or 0) + 1
+            end
             if t ~= nil then
                 local k = string.lower(t) .. "|" .. string.lower(g or "")
                 self.feldGespannSperre[k] = true
@@ -7723,6 +7780,21 @@ function NachbarFelderManager:ladeGespannSperren()
     for _ in pairs(self.feldGespannSperreDauer) do n = n + 1 end
     if n > 0 then
         print(string.format("NachbarFelder: %d dauerhaft gesperrte Gespanne geladen (%s)", n, pfad))
+    end
+    if (self.gespannSperrenVerworfen or 0) > 0 then
+        print(string.format("NachbarFelder: %d Gespann-Sperren 'umgekippt' aufgehoben (lag meist am Ladeplatz)",
+            self.gespannSperrenVerworfen))
+        -- Datei ohne die verworfenen Eintraege neu schreiben
+        local t1 = next(self.feldGespannSperreDauer)
+        if t1 ~= nil then
+            local e = self.feldGespannSperreDauer[t1]
+            self:sperreFeldGespannDauerhaft(e[1], e[2], e[3])
+        else
+            pcall(function()
+                local xf = XMLFile.create("NachbarFelderGespannSperren", pfad, gsXmlKey, gsXmlSchema)
+                if xf ~= nil then xf:save(false, false); xf:delete() end
+            end)
+        end
     end
 end
 

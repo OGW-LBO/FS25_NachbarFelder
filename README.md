@@ -8,8 +8,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 147` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 147)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 148` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 148)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -83,6 +83,10 @@ dann genau dieses Feld – auch ein eigenes.
 - Feld einer anderen Farm, Feld mit stehender Frucht, Grünland, bebaute Felder und Weiden: abgelehnt.
 
 Die Antwort des Servers erscheint als Meldung und in der Infozeile des Reiters.
+
+Am zuverlässigsten starten die Helfer von einem eigenen **Spawnpunkt** (im Abschnitt Lohnunternehmer direkt
+„Spawnpunkt hier setzen“). Ohne Spawnpunkt sucht die Mod selbst einen Platz an einer KI-Straße; scheitert das, kommt
+einmal ein Hinweis.
 
 ### Feldnummern
 

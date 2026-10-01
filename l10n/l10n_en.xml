@@ -105,5 +105,8 @@
         <text name="NF_auftrag_inaktiv" text="NachbarFelder is switched off in the settings."/>
         <text name="NF_auftrag_platz" text="Field %s: the dealer spot is occupied - try again in a minute."/>
         <text name="NF_auftrag_fehler" text="Order could not be started - see the server log.txt."/>
+        <!-- Build 148 -->
+        <text name="NF_hinweisSpawnpunkt" text="An automatic loading spot failed. More reliable: set a spawn point (ESC &gt; Settings &gt; Waypoints &gt; Set spawn point here)."/>
+        <text name="NF_auftragSpawnHier_long" text="Sets a spawn point at your position. All helpers, including the contractor, then start there instead of at an automatically chosen spot. Stand in a tractor on a free road, front in driving direction, then drive away. Admin only."/>
     </texts>
 </l10n>
