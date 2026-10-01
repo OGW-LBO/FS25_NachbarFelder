@@ -5,16 +5,17 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 157 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 158 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.2.0.0**, `NachbarFelderManager.BUILD = 157`.
+>   `NachbarFelder:`). modDesc-Version **1.2.0.0**, `NachbarFelderManager.BUILD = 158`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
-> - Release **build157** auf GitHub (PR #4 gemergt), im Spiel bestätigt. Kein offener PR.
+> - Release **build157** auf GitHub (PR #4 gemergt), im Spiel bestätigt. **Build 158** (Arbeitsbreite) wartet auf
+>   Test im Spiel, noch kein PR.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -22,7 +23,8 @@
 >   Changelog, Version 1.2.0.0 · 154/155 Spawn: Höhe mit `TERRAIN_DELTA`, waagerecht über höchstem von 5 Messpunkten
 >   (Neigung per `setRotation` scheiterte an der Shop-Drehung), Geräte ohne Physik laden · 156 Gerät drehrichtig an die
 >   Kupplung (`jointOrigRotOffsetComponent`) und **weich** kuppeln (`noSmoothAttach=false`) · 157 kein Helfer-Symbol auf
->   der Karte (`IngameMap.drawHotspot` überschrieben, Helfer-Farm per Settings-Sync an Clients).
+>   der Karte (`IngameMap.drawHotspot` überschrieben, Helfer-Farm per Settings-Sync an Clients) · 158 Gerätebreite passend zum Traktor
+>   (`specs.workingWidth`, max 1,2 m je t Traktor, 3–6 m).
 >
 > **Arbeitsweise (verbindlich)**
 > - Commits als `OGW-LBO <76265133+OGW-LBO@users.noreply.github.com>`, keine Claude-Zeilen in Commits/PRs (CLAUDE.md);
@@ -1385,3 +1387,27 @@ Hotspot ohne Fahrzeug gezeichnet; Server liefert `helferFarmId` 14; Stream-Rundl
 Vollparse.
 
 **Bestätigt im Spiel (User, 01.10.):** „Supi alles passt“ – Build 157 läuft, Stand freigegeben für PR/Release.
+
+---
+
+# ERGÄNZUNG 2026-10-01 — Build 158: Anbaugerät passend zur Traktorgröße
+
+**Problem (User, Log + Screenshot):** „Anbaugeräte viel zu groß für die Trecker“. Log: `skh60.xml + claasVolto80.xml`
+– Rigitrac SKH 60 (Kompakttraktor) mit 7,7-m-Zettwender; danach zweimal `AIMessageErrorNotReachable`. Geprüft wurden
+bisher nur Leistungsbedarf ≤ Motorleistung und Gerätegewicht ≤ halbes Traktorgewicht – beides passte.
+
+**Ursache:** Die Arbeitsbreite wurde nie geprüft. Der alte Kommentar „Arbeitsbreite steht nicht in den StoreItem-Specs“
+stimmt nicht: `Vehicle.loadSpecValueWorkingWidth` legt `specs.workingWidth = { width, minWidth }` an
+(`addSpecType("workingWidth", …)`, Vehicle.lua), Geräte mit Breiten-Konfiguration `specs.workingWidthConfig`
+(`[configName][index] = { width, isSelectable }`). Gefüllt wird beides über das schon genutzte `nfLoadSpecs`.
+
+**Fix:**
+- `nfGetItemWorkingWidth(item)`: `workingWidth.width`, sonst größte Breite aus `workingWidthConfig`, sonst nil.
+- `buildTrafficTrailerList`: Breite je Gerät (`breiteM`); Geräte ohne lesbare Breite nur noch bis 1 t. Log listet jedes
+  Gerät mit Breite und Gewicht.
+- `getPasstGeraetZuTraktor`: zusätzlich `breiteM ≤ getMaxGeraeteBreite(traktor)` = Traktorgewicht in t × 1,2 m, begrenzt
+  auf 3–6 m (`NF_IMPL_BREITE_JE_TONNE/_MIN/_MAX`). SKH 60 (~2,5 t) → 3 m, 5-t-Traktor → 6 m.
+- Spawn-Log: `… + gerät.xml (Breite m, Traktor t, max m)`.
+
+**Tests:** Mock: Volto 80 (7,7 m) an 2,5 t und 5 t abgelehnt; Konfig-Gerät 4,2/5,4 m → 5,4 m, an 2,5 t abgelehnt, an
+5 t erlaubt; Gerät ohne Breite (0,6 t) erlaubt; unbekanntes Traktorgewicht → 3 m. Strukturcheck, Vollparse.

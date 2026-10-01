@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 157
+NachbarFelderManager.BUILD = 158
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -4420,6 +4420,38 @@ local function nfGetItemNeededPower(item)
     return (type(p) == "number" and p > 0) and p or nil
 end
 
+-- Build 158: Arbeitsbreite laut Shop in Metern, nil wenn unbekannt.
+-- specs.workingWidth = { width, minWidth } (Vehicle.loadSpecValueWorkingWidth),
+-- bei Geraeten mit Breiten-Konfiguration specs.workingWidthConfig =
+-- { [configName] = { [index] = { width, isSelectable } } } - dann zaehlt die
+-- groesste Breite, weil das Geraet mit Standard-Konfiguration geladen wird und
+-- wir die nicht sicher kennen (lieber zu vorsichtig).
+local function nfGetItemWorkingWidth(item)
+    nfLoadSpecs(item)
+    local w = nil
+    pcall(function()
+        local specs = item.specs
+        if specs == nil then return end
+        local ww = specs.workingWidth
+        if type(ww) == "table" then
+            w = tonumber(ww.width)
+        elseif ww ~= nil then
+            w = tonumber(ww)
+        end
+        if w == nil and type(specs.workingWidthConfig) == "table" then
+            for _, liste in pairs(specs.workingWidthConfig) do
+                if type(liste) == "table" then
+                    for _, e in pairs(liste) do
+                        local b = type(e) == "table" and tonumber(e.width) or nil
+                        if b ~= nil and (w == nil or b > w) then w = b end
+                    end
+                end
+            end
+        end
+    end)
+    return (type(w) == "number" and w > 0) and w or nil
+end
+
 -- Nutzlast aus StoreItem-Specs (in Litern, nil wenn nicht verfügbar).
 local function nfGetItemCapacity(item)
     local cap = nil
@@ -4455,6 +4487,13 @@ local NF_KLEIN_MAX_VEH_WEIGHT_KG = 7000
 -- steht nicht in den StoreItem-Specs (nur item.specs.weight ist dort belegt),
 -- deshalb dient das Leergewicht als Ersatzmass.
 local NF_ENG_MAX_IMPL_WEIGHT_KG = 3000
+-- Build 158: Groessenverhaeltnis Traktor/Geraet. Ein Rigitrac SKH 60 zog einen
+-- 7,7-m-Zettwender (Claas Volto 80) - Gewicht und Leistung passten, die Optik
+-- nicht. Erlaubte Arbeitsbreite je Tonne Traktorgewicht, mit Unter-/Obergrenze.
+-- Bei unbekanntem Traktorgewicht gilt die Untergrenze.
+local NF_IMPL_BREITE_JE_TONNE = 1.2   -- m Arbeitsbreite je t Traktor
+local NF_IMPL_BREITE_MIN      = 3.0   -- m, so breit darf es immer sein
+local NF_IMPL_BREITE_MAX      = 6.0   -- m, breiter nie (Kleintraktoren bis 7 t)
 
 -- Kategorien, die bei engeMap gefahren werden duerfen. Radlader und
 -- Teleskoplader bleiben draussen: kurz, aber breit, und sie rangieren staendig.
@@ -4599,7 +4638,20 @@ function NachbarFelderManager:getPasstGeraetZuTraktor(traktor, geraet)
        and geraet.gewichtKg > traktor.gewichtKg * 0.5 then
         return false
     end
+    -- Build 158: Arbeitsbreite passend zur Traktorgroesse
+    if geraet.breiteM ~= nil and geraet.breiteM > self:getMaxGeraeteBreite(traktor) then
+        return false
+    end
     return true
+end
+
+--- Groesste erlaubte Arbeitsbreite eines Geraets fuer diesen Traktor in m (Build 158).
+function NachbarFelderManager:getMaxGeraeteBreite(traktor)
+    local t = (traktor ~= nil and traktor.gewichtKg ~= nil) and (traktor.gewichtKg / 1000) or 0
+    local maxB = t * NF_IMPL_BREITE_JE_TONNE
+    if maxB < NF_IMPL_BREITE_MIN then maxB = NF_IMPL_BREITE_MIN end
+    if maxB > NF_IMPL_BREITE_MAX then maxB = NF_IMPL_BREITE_MAX end
+    return maxB
 end
 
 function NachbarFelderManager:buildTrafficTrailerList()
@@ -4635,13 +4687,22 @@ function NachbarFelderManager:buildTrafficTrailerList()
             local w   = nfGetItemWeight(item)
             local cap = nfGetItemCapacity(item)
             if (cap == nil or cap == 0) and w ~= nil and w <= NF_ENG_MAX_IMPL_WEIGHT_KG then
-                table.insert(self.trafficImplListLight, {
-                    filename  = item.xmlFilename,
-                    gewichtKg = w,
-                    bedarf    = nfGetItemNeededPower(item),
-                })
+                local breite = nfGetItemWorkingWidth(item)
+                -- Build 158: unbekannte Breite nur bei leichten Geraeten (bis 1 t)
+                if breite ~= nil or w <= 1000 then
+                    table.insert(self.trafficImplListLight, {
+                        filename  = item.xmlFilename,
+                        gewichtKg = w,
+                        bedarf    = nfGetItemNeededPower(item),
+                        breiteM   = breite,
+                    })
+                end
             end
         end
+    end
+    for _, impl in ipairs(self.trafficImplListLight) do
+        print(string.format("NachbarFelder: [TRAFFIC]   Geraet %s: %s m, %.1f t", tostring(impl.filename):match("[^/]+$") or "?",
+            impl.breiteM ~= nil and string.format("%.1f", impl.breiteM) or "?", (impl.gewichtKg or 0) / 1000))
     end
 
     print("NachbarFelder: [TRAFFIC] Anbaugeraete: " ..
@@ -5373,7 +5434,10 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     self.countWorkers = self.countWorkers + 1
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
     print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
-        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")) or "") ..
+        (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")
+            .. string.format(" (%s m, Traktor %.1f t, max %.1f m)",          -- Build 158
+                vehList[2].breiteM ~= nil and string.format("%.1f", vehList[2].breiteM) or "?",
+                (vehInfo.gewichtKg or 0) / 1000, self:getMaxGeraeteBreite(vehInfo))) or "") ..
         " | Ziel: WP" .. tostring(destIdx) ..
         " | " .. tostring(worker.hopsLeft) .. " Hops" ..
         " | Aktiv: " .. tostring(activePatrol + 1) .. "/" .. tostring(effLimit) ..
