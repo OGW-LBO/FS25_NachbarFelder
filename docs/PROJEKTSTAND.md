@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 161 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 162 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 161`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 162`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
@@ -1481,3 +1481,21 @@ die ohne geöffnetes Menü laufen.
 **Prüfungen:** TestRunner 0.9.22 PASS (alle 15 Module), Vollparse, Referenzscan ohne echte Treffer,
 lupa-Join-Test 6 von 6 (dieselbe Prüfung meldet für Build 160 noch 2 Fehler), l10n de/en/fr je 105
 Schlüssel deckungsgleich, alle 21 benutzten Schlüssel vorhanden und formatierbar.
+
+---
+
+# ERGÄNZUNG 2026-10-01 — Build 162: ClassUtil zur Laufzeit nicht vorhanden
+
+**Problem (User, Log 19:15, Build 161):** Nach dem ersten Gespann-Start
+`Error: Running LUA method 'update'. NachbarFelderManager.lua:4728: attempt to call a nil value`.
+
+**Ursache:** `getVehicleAiDiag` rief `ClassUtil.getClassNameByObject(job)` auf. In der LUADOC benutzt (FieldManager),
+zur Laufzeit im Mod aber nicht aufrufbar. Bis Build 157 vom Fehlerfänger verdeckt. **Lehre:** „steht in der LUADOC“
+reicht ohne Absicherung nicht – jeden Aufruf einer Spiel-Hilfsfunktion auf Existenz prüfen.
+
+**Fix:** Jobname über `ClassUtil` nur wenn vorhanden, sonst `job.name`, sonst „aktiv“. Gleich mit abgesichert:
+`getFahrbahnHoehe` (Gelände-Node, `CollisionFlag`-Werte einzeln, `RaycastUtil.raycastClosest`; ohne Strahl
+Geländehöhe) und `getIstSpawnFlaecheFrei` (`CollisionMask.ALL` und Flaggen geprüft, fehlt einer → Fläche gilt als
+belegt; `getHasGroupFlagSet` im Callback geprüft).
+
+**Tests:** Mock `getVehicleAiDiag` mit/ohne `ClassUtil`; Strukturcheck, Vollparse, kein `pcall` im Code.

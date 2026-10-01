@@ -15,8 +15,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.0.0.0` (für den ModHub zurückgesetzt, `descVersion` 113)
-- Interner Stand: `NachbarFelderManager.BUILD = 161` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 161)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 162` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 162)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 

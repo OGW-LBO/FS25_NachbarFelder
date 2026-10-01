@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 161
+NachbarFelderManager.BUILD = 162
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -3447,16 +3447,28 @@ end
 --- Ohne Spline-Hoehe (Admin-Spawnpunkt, evtl. auf einer Bruecke) wie bisher.
 --- @return number Hoehe, boolean ueberkopf
 function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
-    local gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+    local gelaende = splineH or 0
+    if g_terrainNode ~= nil then
+        gelaende = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+    end
     local h = nil
     local oben = math.max(gelaende, splineH or gelaende) + 3
     -- Build 154: TERRAIN_DELTA dazu (wie VehicleSystem.lua beim Paletten-Spawn). Ohne sie traf der
     -- Strahl auf Strassen aus Gelaende-Deltas das tiefere Grundgelaende - das Fahrzeug wurde IN
     -- der Fahrbahn geladen, von der Physik herausgedrueckt und huepfte.
-    local maske = CollisionFlag.TERRAIN + CollisionFlag.ROAD + CollisionFlag.STATIC_OBJECT + CollisionFlag.BUILDING
-    if CollisionFlag.TERRAIN_DELTA ~= nil then maske = maske + CollisionFlag.TERRAIN_DELTA end
-    local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
-    if hit and hitY ~= nil then h = hitY end
+    -- Build 162: jede Flagge und den Strahl vorher pruefen (ohne Absicherung waere ein
+    -- fehlender Wert ein Spielfehler); ohne Strahl gilt die Gelaendehoehe
+    if CollisionFlag ~= nil and RaycastUtil ~= nil and RaycastUtil.raycastClosest ~= nil then
+        local maske = 0
+        for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "ROAD", "STATIC_OBJECT", "BUILDING" }) do
+            local f = CollisionFlag[name]
+            if type(f) == "number" then maske = maske + f end
+        end
+        if maske > 0 then
+            local hit, _, hitY = RaycastUtil.raycastClosest(x, oben, z, 0, -1, 0, 10, maske)
+            if hit and hitY ~= nil then h = hitY end
+        end
+    end
     if h ~= nil and splineH ~= nil then
         local bezug = math.max(gelaende, splineH)
         if h > bezug + NachbarFelderManager.HOEHE_UEBERKOPF then
@@ -3481,12 +3493,19 @@ function NachbarFelderManager:getIstSpawnFlaecheFrei(x, h, z, ry, laenge, breite
         ziel.nfUeberlappung = function(target, nodeId)
             if nodeId == nil or nodeId == 0 then return true end
             if getCollisionFilterMask(nodeId) == 1 then return true end
-            if CollisionFlag.getHasGroupFlagSet(nodeId, CollisionFlag.ROAD) then return true end
+            if CollisionFlag.getHasGroupFlagSet ~= nil and CollisionFlag.ROAD ~= nil
+               and CollisionFlag.getHasGroupFlagSet(nodeId, CollisionFlag.ROAD) then return true end
             target.treffer = nodeId
             return false
         end
-        local maske = CollisionMask.ALL - CollisionFlag.TERRAIN - CollisionFlag.TERRAIN_DELTA
-                      - CollisionFlag.TERRAIN_DISPLACEMENT - CollisionFlag.TRIGGER - CollisionFlag.FILLABLE
+        -- Build 162: Masken-Werte vorher pruefen; fehlt einer, gilt die Flaeche als belegt
+        if CollisionMask == nil or type(CollisionMask.ALL) ~= "number" or CollisionFlag == nil then return end
+        local maske = CollisionMask.ALL
+        for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "TERRAIN_DISPLACEMENT", "TRIGGER", "FILLABLE" }) do
+            local f = CollisionFlag[name]
+            if type(f) ~= "number" then return end
+            maske = maske - f
+        end
         overlapBox(mx, h + 1.3, mz, 0, ry, 0, breite * 0.5, 1.0, laenge * 0.5,
             "nfUeberlappung", ziel, maske, true, true, true, true)
         frei = ziel.treffer == nil
@@ -4724,8 +4743,19 @@ function NachbarFelderManager:getVehicleAiDiag(veh)
     if veh.getDamageAmount ~= nil then
         add(string.format("Schaden %.0f%%", (veh:getDamageAmount() or 0) * 100))
     end
+    -- Build 162: ClassUtil.getClassNameByObject gibt es zur Laufzeit nicht (Log 01.10.
+    -- 19:15: "attempt to call a nil value" - bis Build 157 war das still abgefangen)
     local job = veh.getJob ~= nil and veh:getJob() or nil
-    add("Job " .. (job ~= nil and tostring(ClassUtil.getClassNameByObject(job)) or "keiner"))
+    local jobName = "keiner"
+    if job ~= nil then
+        jobName = "aktiv"
+        if ClassUtil ~= nil and ClassUtil.getClassNameByObject ~= nil then
+            jobName = tostring(ClassUtil.getClassNameByObject(job))
+        elseif job.name ~= nil then
+            jobName = tostring(job.name)
+        end
+    end
+    add("Job " .. jobName)
 
     return table.concat(t, " | ")
 end
