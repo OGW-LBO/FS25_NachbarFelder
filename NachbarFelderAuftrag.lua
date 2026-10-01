@@ -32,7 +32,8 @@
 --   streamWriteUIntN/streamReadUIntN, connection:getIsServer(),
 --   connection:sendEvent() (AIJobStartRequestEvent),
 --   g_currentMission:getHasPlayerPermission("hireAssistant", connection, farmId)
---   (AIJobFieldWork:getIsStartable), g_currentMission:getFarmId().
+--   (AIJobFieldWork:getIsStartable), g_currentMission:getFarmId(),
+--   field:getId() (AbstractFieldMission: Feldnummer in den Vertragsmeldungen).
 -- ============================================================
 NachbarFelderAuftrag = {}
 
@@ -112,11 +113,12 @@ function NachbarFelderAuftragEvent.new(x, z, farmId)
 end
 
 --- Server -> Client: Ergebnis fuer den Absender
-function NachbarFelderAuftragEvent.newAntwort(ok, textKey, fieldId, arbeitKey)
+--- @param feldNr angezeigte Feldnummer (field:getId()), -1 = keine
+function NachbarFelderAuftragEvent.newAntwort(ok, textKey, feldNr, arbeitKey)
     local self = NachbarFelderAuftragEvent.emptyNew()
     self.ok        = ok == true
     self.textKey   = textKey or ""
-    self.fieldId   = fieldId or -1
+    self.feldNr    = feldNr or -1
     self.arbeitKey = arbeitKey or ""
     return self
 end
@@ -131,7 +133,7 @@ function NachbarFelderAuftragEvent:writeStream(streamId, connection)
         -- wir sind Server und antworten
         streamWriteUInt8(streamId, self.ok and 1 or 0)
         streamWriteString(streamId, self.textKey or "")
-        streamWriteInt32(streamId, self.fieldId or -1)
+        streamWriteInt32(streamId, self.feldNr or -1)
         streamWriteString(streamId, self.arbeitKey or "")
     end
 end
@@ -142,26 +144,26 @@ function NachbarFelderAuftragEvent:readStream(streamId, connection)
         self.x      = streamReadFloat32(streamId)
         self.z      = streamReadFloat32(streamId)
         self.farmId = streamReadUIntN(streamId, nfFarmBits())
-        local ok, textKey, fieldId, arbeitKey = false, NachbarFelderAuftrag.TEXT.FEHLER, -1, ""
+        local ok, textKey, feldNr, arbeitKey = false, NachbarFelderAuftrag.TEXT.FEHLER, -1, ""
         if g_NachbarFelderManager ~= nil then
             local pok, a, b, c, d = pcall(NachbarFelderAuftrag.ausfuehren,
                 g_NachbarFelderManager, self.x, self.z, self.farmId, connection)
             if pok then
-                ok, textKey, fieldId, arbeitKey = a, b, c, d
+                ok, textKey, feldNr, arbeitKey = a, b, c, d
             else
                 print("NachbarFelder: [AUFTRAG] Fehler: " .. tostring(a))
             end
         end
         pcall(function()
-            connection:sendEvent(NachbarFelderAuftragEvent.newAntwort(ok, textKey, fieldId, arbeitKey))
+            connection:sendEvent(NachbarFelderAuftragEvent.newAntwort(ok, textKey, feldNr, arbeitKey))
         end)
     else
         -- Client: Antwort lesen und anzeigen
         self.ok        = streamReadUInt8(streamId) == 1
         self.textKey   = streamReadString(streamId)
-        self.fieldId   = streamReadInt32(streamId)
+        self.feldNr    = streamReadInt32(streamId)
         self.arbeitKey = streamReadString(streamId)
-        pcall(NachbarFelderAuftrag.zeigeAntwort, self.ok, self.textKey, self.fieldId, self.arbeitKey)
+        pcall(NachbarFelderAuftrag.zeigeAntwort, self.ok, self.textKey, self.feldNr, self.arbeitKey)
     end
 end
 
@@ -251,8 +253,8 @@ function NachbarFelderAuftrag.anfordern(mgr)
 
     if g_currentMission:getIsServer() then
         -- SP / eigener Host: direkt, lokaler Aufruf ohne Verbindung
-        local ok, textKey, fieldId, arbeitKey = NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, nil)
-        return NachbarFelderAuftrag.zeigeAntwort(ok, textKey, fieldId, arbeitKey)
+        local ok, textKey, feldNr, arbeitKey = NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, nil)
+        return NachbarFelderAuftrag.zeigeAntwort(ok, textKey, feldNr, arbeitKey)
     end
     if g_client == nil then
         return NachbarFelderAuftrag.zeigeAntwort(false, NachbarFelderAuftrag.TEXT.FEHLER, -1, "")
@@ -269,11 +271,12 @@ end
 
 --- Client: Ergebnis als Meldung und in der Infozeile des Reiters Wegpunkte
 --- (Ingame-Meldungen verdeckt das offene Menue).
+--- @param feldNr angezeigte Feldnummer vom Server (getFeldNummer), nicht der Index
 --- @return string angezeigter Text
-function NachbarFelderAuftrag.zeigeAntwort(ok, textKey, fieldId, arbeitKey)
+function NachbarFelderAuftrag.zeigeAntwort(ok, textKey, feldNr, arbeitKey)
     local vorlage = g_i18n:getText(textKey or NachbarFelderAuftrag.TEXT.FEHLER)
     local arbeit  = (arbeitKey ~= nil and arbeitKey ~= "") and g_i18n:getText(arbeitKey) or ""
-    local feld    = (fieldId ~= nil and fieldId >= 0) and tostring(fieldId) or "?"
+    local feld    = (feldNr ~= nil and feldNr >= 0) and tostring(feldNr) or "?"
     local text    = vorlage
     pcall(function()
         text = string.format(vorlage, feld, arbeit)
@@ -359,6 +362,32 @@ function NachbarFelderAuftrag.getFeldId(field)
         end
     end
     return field.fieldId or field.id
+end
+
+--- Feldnummer fuer Meldungen und Log (Build 139): field:getId() - dieselbe
+--- Nummer, die das Spiel auf der Karte und in Vertragsmeldungen zeigt
+--- (AbstractFieldMission). Der Index aus getFields() kann davon abweichen und
+--- bleibt nur der interne Schluessel (vehicleType, createMission).
+--- Fallback auf den Index, wenn getId fehlt oder nichts liefert.
+function NachbarFelderAuftrag.getFeldNummer(field, index)
+    local nr = nil
+    if field ~= nil and field.getId ~= nil then
+        pcall(function()
+            nr = field:getId()
+        end)
+    end
+    if type(nr) ~= "number" then
+        nr = index
+    end
+    return nr or -1
+end
+
+--- Log-Text "Feld 12" bzw. "Feld 12 (Index 7)", wenn Nummer und Index abweichen
+local function nfFeldLog(nr, index)
+    if index ~= nil and nr ~= index then
+        return string.format("Feld %s (Index %s)", tostring(nr), tostring(index))
+    end
+    return "Feld " .. tostring(nr)
 end
 
 --- Wahrer Besitzer eines Farmlands. getFarmlandOwner liest farmlandMapping -
@@ -497,7 +526,7 @@ end
 -- ============================================================
 -- Server: Auftrag annehmen und ausfuehren
 -- @param connection nil = lokaler Aufruf (SP / eigener Host)
--- @return boolean ok, string textKey, number fieldId, string arbeitKey
+-- @return boolean ok, string textKey, number feldNr (angezeigte Nummer), string arbeitKey
 -- ============================================================
 function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
     local T = NachbarFelderAuftrag.TEXT
@@ -520,24 +549,27 @@ function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
         return false, T.KEIN_FELD, -1, ""
     end
 
+    local feldNr = NachbarFelderAuftrag.getFeldNummer(field, fieldId)
+    local feldLog = nfFeldLog(feldNr, fieldId)
+
     local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, true)
     if aktion == nil then
-        print(string.format("NachbarFelder: [AUFTRAG] Feld %d (%.0f m) abgelehnt fuer Farm %d: %s",
-            fieldId, abstand or 0, farmId or 0, tostring(textKey)))
-        return false, textKey, fieldId, ""
+        print(string.format("NachbarFelder: [AUFTRAG] %s (%.0f m) abgelehnt fuer Farm %d: %s",
+            feldLog, abstand or 0, farmId or 0, tostring(textKey)))
+        return false, textKey, feldNr, ""
     end
 
     local gestartet, startKey = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
     local arbeitKey = NachbarFelderAuftrag.ARBEIT_TEXT[aktion] or ""
     if not gestartet then
-        print(string.format("NachbarFelder: [AUFTRAG] Feld %d angenommen, Start nicht moeglich: %s",
-            fieldId, tostring(startKey)))
-        return false, startKey, fieldId, arbeitKey
+        print(string.format("NachbarFelder: [AUFTRAG] %s angenommen, Start nicht moeglich: %s",
+            feldLog, tostring(startKey)))
+        return false, startKey, feldNr, arbeitKey
     end
     local name = mgr.missionHelper[aktion] ~= nil and mgr.missionHelper[aktion].name or "?"
-    print(string.format("NachbarFelder: [AUFTRAG] Feld %d fuer Farm %d gestartet (%s, Besitzer %s)",
-        fieldId, farmId or 0, name, tostring(NachbarFelderAuftrag.getBesitzer(field.farmland))))
-    return true, T.OK, fieldId, arbeitKey
+    print(string.format("NachbarFelder: [AUFTRAG] %s fuer Farm %d gestartet (%s, Besitzer %s)",
+        feldLog, farmId or 0, name, tostring(NachbarFelderAuftrag.getBesitzer(field.farmland))))
+    return true, T.OK, feldNr, arbeitKey
 end
 
 --- Server: gespeicherten Auftrag nach dem Neuladen fortsetzen. Die Rechte
@@ -546,10 +578,11 @@ end
 function NachbarFelderAuftrag.starteGespeichert(mgr, eintrag)
     local fieldId = eintrag.fieldId
     local field   = fieldId ~= nil and g_fieldManager:getFieldById(fieldId) or nil
+    local feldLog = nfFeldLog(NachbarFelderAuftrag.getFeldNummer(field, fieldId), fieldId)
     local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId,
         eintrag.auftragFarmId or 0, nil, false)
     if aktion == nil then
-        print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf Feld " .. tostring(fieldId) ..
+        print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf " .. feldLog ..
             " verworfen: " .. tostring(textKey))
         return false, true
     end
@@ -559,6 +592,6 @@ function NachbarFelderAuftrag.starteGespeichert(mgr, eintrag)
         local verworfen = startKey ~= NachbarFelderAuftrag.TEXT.PLATZ and startKey ~= NachbarFelderAuftrag.TEXT.VOLL
         return false, verworfen
     end
-    print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf Feld " .. tostring(fieldId) .. " fortgesetzt")
+    print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf " .. feldLog .. " fortgesetzt")
     return true, false
 end
