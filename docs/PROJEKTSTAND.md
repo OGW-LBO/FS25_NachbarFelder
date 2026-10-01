@@ -972,9 +972,8 @@ prüft nur das Fahrzeug, `AIVehicleUtil.getIsAreaOwned` fragt `getIsOwnedByFarmA
 Nächster Test: Auftrag auf eigenem Feld, Zeilen `FIELDWORK Feld=` und `Feldarbeit beendet … Grund:` liefern.
 
 **3. Nebenbefunde:**
-- Erste Auftrags-Anfrage jeder Sitzung „Pflügen und Grubbern abgeschaltet“, nach dem Öffnen des ESC-Menüs geht es:
-  Einstellungsseite (`NachbarFelderSettingsPage`, lokale Datei + `updateUiElements` bei `onFrameOpen`) und Savegame-Stand
-  (`applySettingsState`) setzen `missionHelper[].active` beide — offen.
+- „Pflügen und Grubbern abgeschaltet“ bei der ersten Anfrage, danach ging es: **kein Fehler** — beide Arbeiten waren in
+  den Einstellungen wirklich aus, der User hat sie zwischen den Anfragen im ESC-Menü eingeschaltet (User 01.10.).
 - Helfer startete an einer Weide: selbst gesetzter Shop-Trigger hatte den Lieferplatz (`storeSpawnPlaces[1]`) verschoben —
   gewollt seit Build 96. Abhilfe für den User: Spawnpunkt setzen (hat Vorrang).
 
