@@ -95,6 +95,8 @@
         <text name="NF_msg_wpEntfernt" text="Wegpunkt entfernt. Verbleibend: %d"/>
         <text name="NF_msg_nichtGesetzt" text="Nicht gesetzt"/>
         <text name="NF_msg_wpGespeichert" text="%d Wegpunkte gespeichert"/>
+        <text name="NF_ui_nein" text="Nein"/>
+        <text name="NF_ui_ja" text="Ja"/>
         <text name="NF_msg_wpVonCount" text="Wegpunkt %d von %d"/>
         <text name="NF_msg_keineWpVorhanden" text="Keine Wegpunkte vorhanden"/>
         <text name="NF_msg_wpSetzenHinweis" text="Strg+Alt+O drücken, um Punkte zu setzen"/>

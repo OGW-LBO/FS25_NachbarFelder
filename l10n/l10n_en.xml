@@ -95,6 +95,8 @@
         <text name="NF_msg_wpEntfernt" text="Waypoint removed. Remaining: %d"/>
         <text name="NF_msg_nichtGesetzt" text="Not placed"/>
         <text name="NF_msg_wpGespeichert" text="%d waypoints saved"/>
+        <text name="NF_ui_nein" text="No"/>
+        <text name="NF_ui_ja" text="Yes"/>
         <text name="NF_msg_wpVonCount" text="Waypoint %d of %d"/>
         <text name="NF_msg_keineWpVorhanden" text="No waypoints available"/>
         <text name="NF_msg_wpSetzenHinweis" text="Press Ctrl+Alt+O to place points"/>

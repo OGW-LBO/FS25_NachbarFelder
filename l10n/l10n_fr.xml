@@ -95,6 +95,8 @@
         <text name="NF_msg_wpEntfernt" text="Point retiré. Restants : %d"/>
         <text name="NF_msg_nichtGesetzt" text="Non placé"/>
         <text name="NF_msg_wpGespeichert" text="%d points enregistrés"/>
+        <text name="NF_ui_nein" text="Non"/>
+        <text name="NF_ui_ja" text="Oui"/>
         <text name="NF_msg_wpVonCount" text="Point %d sur %d"/>
         <text name="NF_msg_keineWpVorhanden" text="Aucun point disponible"/>
         <text name="NF_msg_wpSetzenHinweis" text="Appuie sur Ctrl+Alt+O pour placer des points"/>

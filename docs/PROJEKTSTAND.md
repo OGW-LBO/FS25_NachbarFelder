@@ -5,17 +5,17 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 159 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 160 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 159`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 160`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
-> - Release **build157** auf GitHub (PR #4 gemergt), im Spiel bestätigt. **Build 158** (ModHub-Fassung des Users) und
->   **159** (Arbeitsbreite) warten auf Test im Spiel, noch kein PR.
+> - Release **build157** auf GitHub (PR #4 gemergt), im Spiel bestätigt. Builds **158** (ModHub-Fassung des Users), **159** (Arbeitsbreite)
+>   und **160** (Join-Absturz behoben) warten auf Test im Spiel, noch kein PR.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -25,7 +25,8 @@
 >   Kupplung (`jointOrigRotOffsetComponent`) und **weich** kuppeln (`noSmoothAttach=false`) · 157 kein Helfer-Symbol auf
 >   der Karte (`IngameMap.drawHotspot` überschrieben, Helfer-Farm per Settings-Sync an Clients) · 158 ModHub-Fassung (User): kein `pcall` mehr,
 >   Spielertexte aus l10n (`nfText`/`nfMeldung`), `l10n_fr.xml`, Speicher-Telemetrie raus · 159 Gerätebreite passend zum
->   Traktor (`specs.workingWidth`, max 1,2 m je t Traktor, 3–6 m).
+>   Traktor (`specs.workingWidth`, max 1,2 m je t Traktor, 3–6 m) · 160 Fehler ohne `pcall` reißen den ganzen
+>   Spiel-Frame mit (Join: Spieler fiel durch die Map) – Stellen abgesichert.
 >
 > **Arbeitsweise (verbindlich)**
 > - **Kein `pcall`** im Code (ModHub-Fassung seit Build 158) – Existenz-Prüfungen statt `pcall`.
@@ -1423,3 +1424,30 @@ stimmt nicht: `Vehicle.loadSpecValueWorkingWidth` legt `specs.workingWidth = { w
 
 **Tests:** Mock: Volto 80 (7,7 m) an 2,5 t und 5 t abgelehnt; Konfig-Gerät 4,2/5,4 m → 5,4 m, an 2,5 t abgelehnt, an
 5 t erlaubt; Gerät ohne Breite (0,6 t) erlaubt; unbekanntes Traktorgewicht → 3 m. Strukturcheck, Vollparse.
+
+---
+
+# ERGÄNZUNG 2026-10-01 — Build 160: Join-Absturz nach Entfernen der pcall
+
+**Problem (User, Log):** Beim Joinen landet der Spieler unter der Map. Log:
+`Error: Running LUA method 'update'. NachbarFelderWaypointPage.lua:122: attempt to call missing method 'setImageColor'`.
+
+**Ursache:** In der ModHub-Fassung (Build 158) sind alle `pcall` entfernt. Früher fing ein `pcall` je Layout-Kind den
+Fehler ab (nicht jedes Kind im Wegpunkt-Layout ist eine Bitmap). Ohne Absicherung bricht der Fehler den kompletten
+Update-Durchlauf des Spiels in diesem Frame ab (`Running LUA method 'update'`), genau beim Spieler-Spawn → Fall durch die
+Map. Zweiter Fund: `nfSetDisabled` wurde in `refreshWpInfo` aufgerufen, war aber nirgends definiert (Absturz beim
+ersten Öffnen des Wegpunkte-Tabs).
+
+**Grundregel ab jetzt:** Ohne `pcall` ist jeder Laufzeitfehler ein Spiel-Fehler. Jede Spielfunktion vor dem Aufruf auf
+Existenz prüfen, besonders in Hooks auf Spielfunktionen (Speichern, Menü-Update, Karten-Zeichnen, Mission-Delete).
+
+**Fix:**
+- WaypointPage: `nfSetDisabled` und `nfSetOptionState` definiert; `updateAlternating` nur bei vorhandenem
+  `setImageColor`; `onTabOpen`, `onFrameOpen`-Hook, Slider und Fokus-Links prüfen Methoden vorher. Ja/Nein-Texte aus
+  l10n (`NF_ui_ja`/`NF_ui_nein`, de/en/fr).
+- Manager: `setzeGeraetAnKupplung` prüft Gelenk-Tabellen und Methoden; `saveToXMLFile` (läuft vor `ItemSystem.save`)
+  prüft Pfad, `XMLFile.create`, Werte (keine nil an `setBool/setInt`), löscht die Datei-Instanz immer;
+  `FSBaseMission.delete`-Hook ohne Manager sicher; Wegpunkt-Nummern auf der Karte nur bei `getLastScreenPosition`;
+  `getIsMotorStarted` vor dem Aufruf geprüft.
+- Komplettprüfung: alle 164 entfernten `pcall`-Stellen gegen Build 157 durchgesehen; Strukturcheck, Vollparse,
+  Undefiniert-Scan (nf-Funktionen je Datei, Nutzung vor Definition), l10n-Abdeckung de/en/fr.

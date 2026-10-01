@@ -17,6 +17,23 @@ local function nfPageText(key, ...)
 end
 
 
+-- Build 160: Element sperren/freigeben, nur wenn das Element es kann (ersetzt die
+-- frueheren Fehlerfaenger; ein Fehler im Menue-Update reisst sonst den ganzen
+-- Spiel-Frame mit).
+local function nfSetDisabled(elem, disabled)
+    if elem ~= nil and elem.setDisabled ~= nil then
+        elem:setDisabled(disabled)
+    end
+end
+
+-- Build 160: Zustand einer BinaryOption setzen, nur wenn es eine ist.
+local function nfSetOptionState(elem, state)
+    if elem ~= nil and elem.setState ~= nil then
+        elem.texts = { nfPageText("NF_ui_nein"), nfPageText("NF_ui_ja") }
+        elem:setState(state)
+    end
+end
+
 NachbarFelderWaypointPage = {}
 local NachbarFelderWaypointPage_mt = Class(NachbarFelderWaypointPage, FrameElement)
 local modDirectory = g_currentModDirectory
@@ -114,12 +131,17 @@ function NachbarFelderWaypointPage:registerAndInject()
             local colors = InGameMenuSettingsFrame.COLOR_ALTERNATING
             if colors == nil then return end
             local isAlt = true
+            if layout == nil or layout.elements == nil then return end
             for _, container in ipairs(layout.elements) do
                 if container.name == "sectionHeader" then
                     isAlt = true   -- nach jeder Sektion zurücksetzen
                 elseif container.getIsVisibleNonRec == nil
                     or container:getIsVisibleNonRec() then
-                    container:setImageColor(nil, unpack(colors[isAlt]))
+                    -- Build 160: nicht jedes Layout-Kind ist eine Bitmap (beim Joinen
+                    -- kam setImageColor = nil und der Spieler fiel durch die Map)
+                    if container.setImageColor ~= nil and colors[isAlt] ~= nil then
+                        container:setImageColor(nil, unpack(colors[isAlt]))
+                    end
                     isAlt = not isAlt
                 end
             end
@@ -296,7 +318,7 @@ function NachbarFelderWaypointPage:registerAndInject()
         settingsFrame.onFrameOpen = Utils.appendedFunction(
             settingsFrame.onFrameOpen,
             function(sf)
-                if self_ref.nfWpLayout ~= nil then
+                if self_ref.nfWpLayout ~= nil and self_ref.nfWpLayout.invalidateLayout ~= nil then
                     self_ref.nfWpLayout:invalidateLayout()
                 end
             end
@@ -385,7 +407,7 @@ end
 
 function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
     if settingsFrame ~= nil then
-        settingsFrame:updateAbsolutePosition()
+        if settingsFrame.updateAbsolutePosition ~= nil then settingsFrame:updateAbsolutePosition() end
         -- Header-Text direkt überschreiben (HEADER_TITLES-Lookup uppercased intern)
         local lang = g_languageShort or "en"
         local title = (lang == "de") and "Wegpunkte" or "Waypoints"
@@ -395,7 +417,7 @@ function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
                 settingsFrame[name]:setText(title)
             end
         end
-        if self.nfWpLayout ~= nil then
+        if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then
             self.nfWpLayout:invalidateLayout()
         end
     end
@@ -405,10 +427,12 @@ function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
         self._updateAlternating(self.nfWpLayout)
     end
     -- Scrollbar auf unseren Layout zeigen
-    if settingsFrame ~= nil and settingsFrame.settingsSlider ~= nil and self.nfWpLayout ~= nil then
+    if settingsFrame ~= nil and settingsFrame.settingsSlider ~= nil and self.nfWpLayout ~= nil
+       and settingsFrame.settingsSlider.setDataElement ~= nil then
         settingsFrame.settingsSlider:setDataElement(self.nfWpLayout)
     end
-    if settingsFrame ~= nil and self.nfWpLayout ~= nil then
+    if settingsFrame ~= nil and self.nfWpLayout ~= nil and settingsFrame.subCategoryPaging ~= nil
+       and self.nfWpLayout.findFirstFocusable ~= nil and self.nfWpLayout.elements ~= nil then
         local layout = self.nfWpLayout
         local first  = layout:findFirstFocusable(true)
         local last   = layout.elements[#layout.elements]
@@ -497,8 +521,7 @@ function NachbarFelderWaypointPage:refreshWpInfo()
     if self.nfWpMapShow ~= nil and mgr ~= nil then
         local STATE_YES_V = BinaryOptionElement ~= nil and BinaryOptionElement.STATE_RIGHT or 2
         local mapState  = (mgr._wpHotspotsEnabled ~= false) and STATE_YES_V or 1
-        self.nfWpMapShow.texts = {"Nein", "Ja"}
-        self.nfWpMapShow:setState(mapState)
+        nfSetOptionState(self.nfWpMapShow, mapState)
     end
 
     -- Fahrzeugkategorie-Toggles
@@ -515,8 +538,7 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         for _, r in ipairs(catRows) do
             if r.elem ~= nil then
                 local enabled = cats[r.key] ~= false
-                r.elem.texts = {"Nein", "Ja"}
-                r.elem:setState(enabled and STATE_YES_V or 1)
+                nfSetOptionState(r.elem, enabled and STATE_YES_V or 1)
             end
         end
     end

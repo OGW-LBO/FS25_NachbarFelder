@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 159
+NachbarFelderManager.BUILD = 160
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -992,8 +992,10 @@ function NachbarFelderManager:installHooks()
     -- Referenz FWA (newFile.lua): stoppt beim Delete nur die Agents.
     FSBaseMission.delete = Utils.overwrittenFunction(FSBaseMission.delete,
         function(mission, superFunc, ...)
-            g_NachbarFelderManager.isShuttingDown = true
-            g_NachbarFelderManager:prepareForShutdown()
+            if g_NachbarFelderManager ~= nil then
+                g_NachbarFelderManager.isShuttingDown = true
+                g_NachbarFelderManager:prepareForShutdown()
+            end
             return superFunc(mission, ...)
         end)
 
@@ -3207,8 +3209,15 @@ end
 --- Traktor zur Seite (Test 01.10.: Lintrac 130 / Vario 500 kippten beim Ankuppeln).
 --- Mindestens 5 cm ueber dem Boden.
 function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex, implement, inputJointIndex)
-    local aj = attacher:getAttacherJoints()[attacherJointIndex]
-    local ij = implement:getInputAttacherJoints()[inputJointIndex]
+    -- Build 160: jede Spielfunktion vorher auf Existenz pruefen
+    if attacher == nil or implement == nil or attacher.getAttacherJoints == nil
+       or implement.getInputAttacherJoints == nil then
+        return
+    end
+    local ajs = attacher:getAttacherJoints()
+    local ijs = implement:getInputAttacherJoints()
+    local aj = ajs ~= nil and attacherJointIndex ~= nil and ajs[attacherJointIndex] or nil
+    local ij = ijs ~= nil and inputJointIndex ~= nil and ijs[inputJointIndex] or nil
     if aj ~= nil and aj.jointTransform ~= nil and ij ~= nil then
         local offset = ij.jointOrigOffsetComponent or { 0, 0, 0 }
         local x, y, z = localToWorld(aj.jointTransform, unpack(offset))
@@ -3220,10 +3229,15 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
             local dirX, _, dirZ = localDirectionToWorld(aj.jointTransform, 1, 0, 0)
             rx, ry, rz = 0, MathUtil.getYRotationFromDirection(dirX, dirZ), 0
         end
-        local terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
-        implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, rx, ry, rz)
+        local terrainY = y
+        if g_terrainNode ~= nil then
+            terrainY = getTerrainHeightAtWorldPos(g_terrainNode, x, 0, z)
+        end
+        if implement.setAbsolutePosition ~= nil then
+            implement:setAbsolutePosition(x, math.max(y, terrainY + 0.05), z, rx, ry, rz)
+        end
     end
-    if not implement.isAddedToPhysics then implement:addToPhysics() end
+    if not implement.isAddedToPhysics and implement.addToPhysics ~= nil then implement:addToPhysics() end
 end
 
 --- Geraet ankuppeln (Build 156): an die Kupplung setzen, dann WEICH kuppeln wie ein Spieler
@@ -4066,7 +4080,8 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     schritt()
 
     -- Motor sicherstellen (nach fehlgeschlagener Feldarbeit kann Motor aus sein)
-    if vehicle.startMotor ~= nil and not vehicle:getIsMotorStarted() then
+    if vehicle.startMotor ~= nil and vehicle.getIsMotorStarted ~= nil
+       and not vehicle:getIsMotorStarted() then
         vehicle:startMotor(true)
     end
 
@@ -5541,30 +5556,34 @@ end
 -- Speichern / Laden
 -- ============================================================
 function NachbarFelderManager:saveToXMLFile()
-    local path = g_currentMission.missionInfo.savegameDirectory
-    if path == nil then return end
+    -- Build 160: laeuft vor ItemSystem.save mit - ein Fehler hier wuerde ohne
+    -- Absicherung das Speichern des Spielstands abbrechen. Darum alles vorher pruefen.
+    local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
+    local path = mi ~= nil and mi.savegameDirectory or nil
+    if path == nil or g_NachbarFelderManager == nil or g_NachbarFelderManager.getSettingsState == nil then return end
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.create("NachbarFelder", modSaveDir, baseXmlKey, xmlSchema)
+    if xmlFile == nil then return end
     -- Build 150: keine Feldauftraege mehr - nur noch die Einstellungen speichern
     if g_NachbarFelderManager.vehicleType ~= nil then
         -- Settings-Block (Build 67): kompletter Einstellungs-Stand ins
         -- Savegame - server-autoritativ, ueberlebt Neustarts.
-        local st = g_NachbarFelderManager:getSettingsState()
-        xmlFile:setBool(baseXmlKey .. ".settings#active",             st.active)
-        xmlFile:setInt( baseXmlKey .. ".settings#maxWorkers",         st.maxWorkers)
-        xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       st.trafficLimit)
-        xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", st.trafficTrailerSize)
-        xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap)
+        local st = g_NachbarFelderManager:getSettingsState() or {}
+        xmlFile:setBool(baseXmlKey .. ".settings#active",             st.active ~= false)
+        xmlFile:setInt( baseXmlKey .. ".settings#maxWorkers",         math.floor(tonumber(st.maxWorkers) or 0))
+        xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       math.floor(tonumber(st.trafficLimit) or 0))
+        xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", math.floor(tonumber(st.trafficTrailerSize) or 0))
+        xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap ~= false)
         local j = 0
-        for mName, mActive in pairs(st.missions) do
+        for mName, mActive in pairs(st.missions or {}) do
             local mKey = ("%s.settings.mission(%d)"):format(baseXmlKey, j)
-            xmlFile:setString(mKey .. "#type",   mName)
-            xmlFile:setBool(  mKey .. "#active", mActive)
+            xmlFile:setString(mKey .. "#type",   tostring(mName))
+            xmlFile:setBool(  mKey .. "#active", mActive == true)
             j = j + 1
         end
         xmlFile:save(false, false)
-        xmlFile:delete()
     end
+    xmlFile:delete()
 end
 
 function NachbarFelderManager:loadFromXML()
@@ -5661,7 +5680,10 @@ function NachbarFelderManager:setupMapDrawHook()
             local hss = mgr._wpMapHotspots
             for i = 1, #hss do
                 local hs = hss[i]
-                local sx, sy = hs:getLastScreenPosition()
+                local sx, sy = nil, nil
+                if hs ~= nil and hs.getLastScreenPosition ~= nil then
+                    sx, sy = hs:getLastScreenPosition()
+                end
                 if sx ~= nil and sy ~= nil then
                     local w = hs.width  or 0.008
                     local h = hs.height or 0.008
