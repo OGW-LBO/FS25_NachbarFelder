@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 142 (01.10.): gesperrte Ladeplätze dauerhaft je Karte + Kipp-Erkennung** — Datei
+>   `modSettings/FS25_NachbarFelder/NachbarFelderLadeplaetze_<KartenId>.xml`; umgekippte Gespanne werden nach 3 s
+>   entfernt (Ladeplatz gesperrt). Abschnitt Build 142.
 > - **Build 141 (01.10.): Anfahrt über freien Feldrand + Abbruchgrund der Feldarbeit im Log** — Zielpunkt ist jetzt
 >   die Randstelle mit der nächsten KI-Straße, deren Weg kein fremdes Feld / keine Weide kreuzt (`getFeldZugang`).
 >   Offen: Lohnunternehmer-Auftrag auf eigenem Feld 47 endete nach 0 s — Grund steht ab 141 im Log. Abschnitt Build 141.
@@ -976,4 +979,29 @@ Nächster Test: Auftrag auf eigenem Feld, Zeilen `FIELDWORK Feld=` und `Feldarbe
   den Einstellungen wirklich aus, der User hat sie zwischen den Anfragen im ESC-Menü eingeschaltet (User 01.10.).
 - Helfer startete an einer Weide: selbst gesetzter Shop-Trigger hatte den Lieferplatz (`storeSpawnPlaces[1]`) verschoben —
   gewollt seit Build 96. Abhilfe für den User: Spawnpunkt setzen (hat Vorrang).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 142: Ladeplatz-Sperren dauerhaft, Kipp-Erkennung
+
+Anlass (User-Test Build 141, Screenshot): Lohnunternehmer-Helfer für Feld 47 lag am Ladeplatz im Shop-Hof auf dem Dach
+(zwischen Zaun, Baum und Ausstellungsfahrzeugen). Log: `wird direkt an der KI-Strasse geladen (70 m vom Shop-Platz)`,
+60 s später `steht 60 s ohne Bewegung … bei x=-473 z=12`, `Ladeplatz x=-478 z=11 taugt nicht (Stillstand)`.
+Derselbe Platz war schon in der Sitzung davor gesperrt worden (`… taugt nicht (Anfahrt abgebrochen)`) — die Sperre galt
+nur je Session, nach dem Neustart wurde er wieder genommen. Die Werkstatt-Drehung (`Spawn-Blickrichtung`) ist es nicht:
+bei Ladung an der KI-Straße wird sie nur berechnet/geloggt, nicht angewendet (`aufStrasse`).
+
+**Fix:**
+- `merkeSpawnFehlschlag` schreibt gesperrte Ladeplätze (x, z, Grund) in
+  `modSettings/FS25_NachbarFelder/NachbarFelderLadeplaetze_<KartenId>.xml` (Schema `lpXmlSchema`, Muster wie die
+  Wegpunkt-Datei); `ladeLadeplatzSperre` liest sie einmal je Sitzung (Server). Admin-Spawnpunkte werden weiterhin nie
+  gesperrt. Wieder freigeben: Datei löschen.
+- Kipp-Erkennung im `update`: Hochachse des Traktors (`localDirectionToWorld(root, 0, 1, 0)`) < `KIPP_GRENZE` = 0,3
+  länger als 3 s → Log `… ist umgekippt bei x z (Status s) - wird entfernt`, Ladeplatz sperren (nur wenn ≤ 10 m vom
+  Ladeplatz), Job stoppen, Status 100. Gilt für Feldhelfer und Verkehr.
+
+**Test:** echte Funktionen (lupa, XMLFile nachgebaut): Sperre geschrieben, nach „Neustart“ (neue Instanz) geladen,
+Platz gesperrt, anderer Platz frei. Strukturcheck und Vollparse sauber.
+
+**Hinweis:** Die Sperrliste wächst nur; Verkehrs-Abweisungen sperren ebenfalls. Werden zu viele Plätze gesperrt, lädt die
+Mod wie bisher am Shop-Platz des Spiels (`Kein freier Strassenplatz …`). Zuverlässigster Weg: eigener Spawnpunkt.
 

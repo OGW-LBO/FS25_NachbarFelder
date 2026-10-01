@@ -8,8 +8,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 141` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 141)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 142` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 142)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -111,6 +111,8 @@ Beides liegt im Profil unter `modSettings/FS25_NachbarFelder/`:
   kategorien, `logLevel` 1 oder 2 für ausführliche Diagnose).
 - `NachbarFelderWaypoints_<KartenId>.xml` — Wegpunkte je Karte. Seit Build 132 pro Karte getrennt,
   damit nach einem Kartenwechsel keine alten Punkte übrig bleiben.
+- `NachbarFelderLadeplaetze_<KartenId>.xml` — Ladeplätze an der KI-Straße, an denen Fahrzeuge nicht wegkamen oder
+  umgekippt sind. Sie werden auf dieser Karte nicht mehr benutzt. Zum Freigeben die Datei löschen.
 
 ## Prüfskripte für neue Karten
 

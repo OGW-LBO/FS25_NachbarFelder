@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 141
+NachbarFelderManager.BUILD = 142
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -29,6 +29,14 @@ wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTractorM",   "CatTrac
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTractorL",   "CatTractorL")
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catLoader",     "CatLoader")
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTeleLoader", "CatTeleLoader")
+
+-- Build 142: gesperrte Ladeplaetze je Karte dauerhaft merken (vorher nur je Session -
+-- derselbe schlechte Platz im Shop-Hof wurde nach jedem Neustart wieder genommen)
+local lpXmlSchema = XMLSchema.new("NachbarFelderLadeplatzSchema")
+local lpXmlKey    = "NachbarFelderLadeplaetze"
+lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#x",     "LadeplatzX")
+lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#z",     "LadeplatzZ")
+lpXmlSchema:register(XMLValueType.STRING, lpXmlKey .. ".platz(?)#grund", "Grund der Sperre")
 
 --- Kennung der geladenen Karte fuer Dateinamen (Build 132).
 --- missionInfo.mapId steht im Spielstand als <mapId> (z.B.
@@ -2460,6 +2468,34 @@ function NachbarFelderManager:update(dt)
         end
     end
 
+    -- Build 142: umgekipptes Gespann sofort erkennen statt 60 s Stillstand abzuwarten
+    -- (Log 01.10.: Helfer lag am Ladeplatz im Shop-Hof auf dem Dach).
+    for _, k in pairs(self.vehicleType) do
+        local w = k.NachbarFelderWorker
+        if w ~= nil and w.status ~= nil and w.status < 100 then
+            local veh = w.vehiclesToLoad and w.vehiclesToLoad[1]
+            if self:getIsVehicleAlive(veh) then
+                local _, upY, _ = localDirectionToWorld(veh.rootNode, 0, 1, 0)
+                if upY < NachbarFelderManager.KIPP_GRENZE then
+                    w.kippSeit = w.kippSeit or g_time
+                    if g_time - w.kippSeit > 3000 then
+                        local x, _, z = getWorldTranslation(veh.rootNode)
+                        print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
+                            w.isPatrol and "[TRAFFIC] Fahrzeug" or ("Feldhelfer fuer Feld " .. tostring(w.fieldId)),
+                            tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
+                        self:merkeSpawnFehlschlag(w, x, z, "umgekippt")
+                        self:stopAIJobSafely(veh)
+                        w.kippSeit  = nil
+                        w.status    = 100
+                        w.needTimer = true
+                    end
+                else
+                    w.kippSeit = nil
+                end
+            end
+        end
+    end
+
     -- Build 121: Stillstand-Waechter fuer Feldhelfer auf der Anfahrt zum Feld.
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
@@ -3595,13 +3631,66 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
         end
         return
     end
-    self.spawnPlatzSperre = self.spawnPlatzSperre or {}
-    table.insert(self.spawnPlatzSperre, { sp.x, sp.z })
-    print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - fuer diese Session gesperrt (%d Plaetze gesperrt)",
-        math.floor(sp.x), math.floor(sp.z), tostring(grund), #self.spawnPlatzSperre))
+    self:ladeLadeplatzSperre()
+    table.insert(self.spawnPlatzSperre, { sp.x, sp.z, tostring(grund) })
+    self:speichereLadeplatzSperre()
+    print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
+        " (%d Plaetze gesperrt, Datei %s)", math.floor(sp.x), math.floor(sp.z), tostring(grund),
+        #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
+end
+
+--- Datei der gesperrten Ladeplaetze fuer die geladene Karte (Build 142), nil ohne Kartenkennung.
+function NachbarFelderManager:getLadeplatzDatei()
+    local kennung = nfGetKartenKennung()
+    if kennung == nil then return nil end
+    return modSettingDirectory .. "NachbarFelderLadeplaetze_" .. kennung .. ".xml"
+end
+
+--- Gesperrte Ladeplaetze einmal je Sitzung aus der Kartendatei lesen (Build 142).
+--- Wieder freigeben: Datei loeschen (oder Eintrag entfernen) und neu laden.
+function NachbarFelderManager:ladeLadeplatzSperre()
+    if self.spawnPlatzSperre ~= nil then return end
+    self.spawnPlatzSperre = {}
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = self:getLadeplatzDatei()
+    if pfad == nil then return end
+    pcall(function()
+        local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", pfad, lpXmlSchema)
+        if xmlFile == nil then return end
+        xmlFile:iterate(lpXmlKey .. ".platz", function(_, key)
+            local x = xmlFile:getValue(key .. "#x")
+            local z = xmlFile:getValue(key .. "#z")
+            if x ~= nil and z ~= nil then
+                table.insert(self.spawnPlatzSperre, { x, z, xmlFile:getValue(key .. "#grund") or "?" })
+            end
+        end)
+        xmlFile:delete()
+    end)
+    if #self.spawnPlatzSperre > 0 then
+        print(string.format("NachbarFelder: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
+    end
+end
+
+function NachbarFelderManager:speichereLadeplatzSperre()
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local pfad = self:getLadeplatzDatei()
+    if pfad == nil then return end
+    pcall(function()
+        local xmlFile = XMLFile.create("NachbarFelderLadeplaetze", pfad, lpXmlKey, lpXmlSchema)
+        if xmlFile == nil then return end
+        for i, p in ipairs(self.spawnPlatzSperre or {}) do
+            local key = ("%s.platz(%d)"):format(lpXmlKey, i - 1)
+            xmlFile:setFloat(key .. "#x", p[1])
+            xmlFile:setFloat(key .. "#z", p[2])
+            xmlFile:setString(key .. "#grund", p[3] or "?")
+        end
+        xmlFile:save(false, false)
+        xmlFile:delete()
+    end)
 end
 
 function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
+    self:ladeLadeplatzSperre()
     for _, p in ipairs(self.spawnPlatzSperre or {}) do
         if MathUtil.vector2Length(x - p[1], z - p[2]) < 15 then return true end
     end
@@ -5025,6 +5114,8 @@ NachbarFelderManager.BEBAUT_MIN_TIEFE = 1.0   -- m, so weit muss ein Hindernis i
 -- Build 139: Messpunkte fuer den Feldzustand (getFeldAktion) muessen so weit
 -- im Feldumriss liegen - am Rand liegen Vorgewende, Grasnarbe, Nachbarflaechen.
 NachbarFelderManager.MESSPUNKT_RANDABSTAND = 2.0
+-- Build 142: Hochachse des Traktors zeigt weniger als so weit nach oben (cos ~72 Grad) = umgekippt
+NachbarFelderManager.KIPP_GRENZE = 0.3
 NachbarFelderManager.BEBAUT_RASTER    = 8.0   -- m, max. Punktabstand auf Grundflaechen/Zaeunen
 NachbarFelderManager.BEBAUT_ZELLE     = 50    -- m, Kantenlaenge des Suchrasters
 
