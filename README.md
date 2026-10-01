@@ -26,6 +26,19 @@ eingetragen werden, sonst fehlen sie in der ZIP.
 
 Der Ordner selbst darf nicht gezippt werden: `modDesc.xml` muss in der ZIP ganz oben liegen.
 
+### Release auf GitHub
+
+Ein Tag `build<N>` (passend zu `NachbarFelderManager.BUILD`) startet den Workflow
+`.github/workflows/release.yml`: Er baut die ZIP mit `build.py` und hängt sie an ein GitHub-Release
+zum Tag. Passt der Tag nicht zur Build-Nummer, bricht der Lauf ab.
+
+```bash
+git tag build139
+git push origin build139
+```
+
+Die ZIP heißt immer `FS25_NachbarFelder.zip` – das Spiel verwendet den Dateinamen als Mod-Namen.
+
 ## Aufbau
 
 | Datei | Inhalt |
