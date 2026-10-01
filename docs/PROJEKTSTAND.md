@@ -849,6 +849,12 @@ Feld zu bearbeiten, auch wenn es ihm selbst gehört. Eingabe-Aktion plus Zeile i
 
 **Kartenunabhängig:** keine Koordinaten, keine Feldnummern; Feldsuche nur über Farmland-Karte und Feldumrisse.
 
+**Feldnummer in Meldungen:** Angezeigt wird `field:getId()` (`NachbarFelderAuftrag.getFeldNummer`) — dieselbe Nummer
+wie auf der Karte und in den Vertragsmeldungen des Spiels (`AbstractFieldMission`). Fallback auf den Index aus
+`getFields()`, wenn `getId` fehlt. Intern (Schlüssel in `vehicleType`, `createMission`, Savegame `worker#fieldId`)
+bleibt der Index. Log: `Feld 12 (Index 7)`, wenn beide abweichen. Die Antwort an den Client trägt die Nummer, nicht
+den Index.
+
 **Verifiziert** (LUADOC-Repo `umbraprior/FS25-Community-LUADOC`, die Webseite war gesperrt):
 `FarmlandManager:getFarmlandAtWorldPosition` / `getFarmlandOwner` / `NO_OWNER_FARM_ID`, `Farmland.field` und
 `FieldManager:loadMapData` (`farmland:setField(field)`), `Field.new` (kein id-Feld → `NachbarFelderAuftrag.getFeldId`
