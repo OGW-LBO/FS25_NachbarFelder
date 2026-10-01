@@ -26,6 +26,7 @@ Features:
 - Um Fahrzeuge zu Spawnen, sollte der Shop noch ausreichend frei Plätze haben.
 
 Wegpunkte und Spawnpunkte setzt du unter ESC > Einstellungen > Wegpunkte.
+Lohnunternehmer: Stell dich an ein Feld und drücke Strg + Alt + J (oder ESC > Einstellungen > Wegpunkte > Lohnunternehmer) - die Nachbarn pflügen bzw. grubbern genau dieses Feld, auch dein eigenes.
 Alle Nachbar-Fahrzeuge lassen sich mit Strg + Alt + L entfernen (Tasten änderbar in der Steuerung, Einträge „NachbarFelder: …“).
 
 PS: Es ist ratsam, den Verkehr auszuschalten, aber kein Muss!
@@ -49,6 +50,7 @@ Features:
 - To spawn vehicles, the shop must still have sufficient free slots.
 
 Waypoints and spawn points are set in ESC > Settings > Waypoints.
+Contractor: stand at a field and press Ctrl + Alt + J (or ESC > Settings > Waypoints > Contractor) - the neighbours plow or cultivate exactly this field, your own as well.
 All neighbour vehicles can be removed with Ctrl + Alt + L (keys can be changed in the controls, entries "NachbarFelder: …").
 
 PS: It is recommended to disable traffic, but it’s not required!
@@ -72,6 +74,7 @@ Fonctionnalités :
 - Pour que des véhicules puissent apparaître, le magasin doit encore disposer de suffisamment d'espace libre.
 
 Les points de passage et les points d’apparition se placent dans ÉCHAP > Paramètres > Waypoints.
+Entrepreneur : place-toi près d’un champ et appuie sur « Ctrl » + « Alt » + « J » (ou ÉCHAP > Paramètres > Waypoints > Contractor) - les voisins labourent ou cultivent exactement ce champ, même le tien.
 Tous les véhicules voisins peuvent être supprimés avec « Ctrl » + « Alt » + « L » (touches modifiables dans les commandes, entrées « NachbarFelder: … »).
 
 PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obligatoire !
@@ -103,6 +106,10 @@ PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obliga
         <actionBinding action="NF_MANAGE_WAYPOINTS">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_c" />
         </actionBinding>
+        <!-- Build 139: Auftrag an den Lohnunternehmer (Feld an der eigenen Position) -->
+        <actionBinding action="NF_ORDER_FIELD">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_j" />
+        </actionBinding>
     </inputBinding>
     <actions>
         <action name="NF_DELETE_HELPER" />
@@ -110,5 +117,6 @@ PS : Il est conseillé de désactiver la circulation, mais ce n’est pas obliga
         <action name="NF_ADD_WAYPOINT" />
         <action name="NF_REMOVE_WAYPOINT" />
         <action name="NF_MANAGE_WAYPOINTS" />
+        <action name="NF_ORDER_FIELD" />
     </actions>
 </modDesc>

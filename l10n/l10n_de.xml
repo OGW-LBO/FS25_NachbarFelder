@@ -74,5 +74,36 @@
         <text name="NF_wpCatLoader_long" text="Radlader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)"/>
         <text name="NF_wpCatTeleLoader_short" text="Teleskoplader"/>
         <text name="NF_wpCatTeleLoader_long" text="Teleskoplader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)"/>
+        <!-- Build 139: Auftrag an den Lohnunternehmer -->
+        <text name="input_NF_ORDER_FIELD" text="NachbarFelder: Lohnunternehmer für dieses Feld beauftragen"/>
+        <text name="NF_auftrag_section_title" text="Lohnunternehmer"/>
+        <text name="NF_auftragHier_short" text="Dieses Feld bearbeiten lassen"/>
+        <text name="NF_auftragHier_long" text="Die Nachbar-Helfer pflügen oder grubbern das Feld, an dem du gerade stehst (bis 25 m vom Feldrand) - auch dein eigenes. Eigene Felder: Recht 'Helfer einstellen' nötig. Freie Felder: nur Admin. Felder anderer Farmen und Felder mit stehender Frucht werden abgelehnt."/>
+        <text name="NF_auftragBtn" text="Beauftragen"/>
+        <text name="NF_auftrag_ok" text="Auftrag angenommen - Feld %s wird %s. Der Helfer startet am Händler."/>
+        <text name="NF_auftrag_arbeitPflug" text="gepflügt"/>
+        <text name="NF_auftrag_arbeitGrubber" text="gegrubbert"/>
+        <text name="NF_auftrag_gesendet" text="Auftrag an den Server gesendet ..."/>
+        <text name="NF_auftrag_keinePosition" text="Auftrag nicht möglich - deine Position ist nicht bekannt."/>
+        <text name="NF_auftrag_keinFeld" text="Kein Feld in der Nähe - stell dich ins Feld oder höchstens 25 m an den Feldrand."/>
+        <text name="NF_auftrag_fremd" text="Feld %s gehört einer anderen Farm - kein Auftrag möglich."/>
+        <text name="NF_auftrag_keinRecht" text="Feld %s: dir fehlt das Recht 'Helfer einstellen' für deine Farm."/>
+        <text name="NF_auftrag_nurAdmin" text="Feld %s gehört niemandem - Aufträge für freie Felder nur als Admin."/>
+        <text name="NF_auftrag_belegt" text="Auf Feld %s arbeitet bereits ein Nachbar-Helfer."/>
+        <text name="NF_auftrag_gesperrt" text="Feld %s ist für die Nachbar-Helfer gesperrt (Konsole: nachbarFelderSperre)."/>
+        <text name="NF_auftrag_vertrag" text="Auf Feld %s läuft ein angenommener Vertrag."/>
+        <text name="NF_auftrag_bebaut" text="Feld %s: Gebäude oder Zaun im Feld - zu riskant für den Helfer."/>
+        <text name="NF_auftrag_weide" text="Feld %s liegt in einer eingezäunten Weide."/>
+        <text name="NF_auftrag_klein" text="Feld %s ist kleiner als 0,3 ha - zu klein für den Helfer."/>
+        <text name="NF_auftrag_gruenland" text="Feld %s ist Grünland - der Lohnunternehmer pflügt und grubbert nur."/>
+        <text name="NF_auftrag_frucht" text="Auf Feld %s steht Frucht - erst ernten, dann beauftragen."/>
+        <text name="NF_auftrag_bearbeitet" text="Feld %s ist schon bearbeitet - nichts zu tun."/>
+        <text name="NF_auftrag_unklar" text="Der Zustand von Feld %s ist nicht eindeutig - kein Auftrag."/>
+        <text name="NF_auftrag_arbeitAus" text="Pflügen und Grubbern sind in den Einstellungen abgeschaltet."/>
+        <text name="NF_auftrag_voll" text="Alle Nachbar-Helfer sind beschäftigt - später erneut beauftragen."/>
+        <text name="NF_auftrag_keineFarm" text="Keine Helfer-Farm verfügbar - siehe log.txt des Servers."/>
+        <text name="NF_auftrag_inaktiv" text="NachbarFelder ist in den Einstellungen ausgeschaltet."/>
+        <text name="NF_auftrag_platz" text="Feld %s: der Händlerplatz ist gerade belegt - in einer Minute erneut beauftragen."/>
+        <text name="NF_auftrag_fehler" text="Auftrag konnte nicht gestartet werden - siehe log.txt des Servers."/>
     </texts>
 </l10n>

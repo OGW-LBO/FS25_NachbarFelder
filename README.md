@@ -8,8 +8,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.1.42.0`
-- Interner Stand: `NachbarFelderManager.BUILD = 138` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 138)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 139` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 139)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -32,6 +32,7 @@ Der Ordner selbst darf nicht gezippt werden: `modDesc.xml` muss in der ZIP ganz 
 |---|---|
 | `NachbarFelder.lua` | Einstiegspunkt aus `extraSourceFiles`, lädt die übrigen Lua-Dateien per `source()`, registriert die Tasten |
 | `NachbarFelderManager.lua` | Kern: Spawn-Logik, Feldauswahl, Verkehr, Wegpunkte, Server-Konfiguration, Konsolenbefehle |
+| `NachbarFelderAuftrag.lua` | Auftrag an den Lohnunternehmer: Feld an der Spielerposition, Prüfung, Start, Netzwerk-Event |
 | `NachbarFelderWorker.lua` | Status-Maschine eines einzelnen Helfers (Fahrt, Feldarbeit, Rettung) |
 | `NachbarFelderSettingsPage.lua` | Einstellungen im ESC-Menü |
 | `NachbarFelderWaypointPage.lua` | Reiter „Wegpunkte" im ESC-Menü |
@@ -52,9 +53,22 @@ Tasten laut `modDesc.xml` (im Spiel unter Einstellungen → Steuerung änderbar)
 | `Strg+Alt+O` | Wegpunkt an der eigenen Position setzen |
 | `Strg+Alt+U` | Zuletzt gesetzten Wegpunkt entfernen |
 | `Strg+Alt+C` | Wegpunkte verwalten |
+| `Strg+Alt+J` | Lohnunternehmer: das Feld an der eigenen Position bearbeiten lassen |
 
 Wegpunkte lassen sich auch ohne Tasten pflegen: ESC → Einstellungen → Reiter **Wegpunkte**.
 Dort gibt es Schaltflächen zum Setzen, Ändern des Typs, Löschen und Teleportieren.
+
+### Auftrag an den Lohnunternehmer
+
+An ein Feld stellen (im Feld oder höchstens 25 m vom Rand) und `Strg+Alt+J` drücken oder im Reiter
+**Wegpunkte** unter **Lohnunternehmer** auf „Beauftragen“ klicken. Die Nachbar-Helfer pflügen oder grubbern
+dann genau dieses Feld – auch ein eigenes.
+
+- Eigenes Feld: Recht „Helfer einstellen“ der eigenen Farm nötig.
+- Freies Feld: nur Admin.
+- Feld einer anderen Farm, Feld mit stehender Frucht, Grünland, bebaute Felder und Weiden: abgelehnt.
+
+Die Antwort des Servers erscheint als Meldung und in der Infozeile des Reiters.
 
 Wegpunkt-Typen: 0 Normal, 1 Kurz, 2 Lang, 3 Durchfahrt, 4 Spawnpunkt. Ein Spawnpunkt wird am besten
 im Fahrzeug auf der rechten Spur gesetzt, Front in Fahrtrichtung.
