@@ -1,0 +1,26 @@
+name: Vorschlag (Feature request)
+description: Idee für eine neue Funktion oder eine Verbesserung
+labels: ["vorschlag"]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Worum geht es?
+      description: Was soll die Mod können, was sie heute nicht kann?
+    validations:
+      required: true
+
+  - type: textarea
+    id: warum
+    attributes:
+      label: Warum wäre das nützlich?
+      description: Welche Situation im Spiel wird dadurch besser?
+
+  - type: dropdown
+    id: spielart
+    attributes:
+      label: Betrifft vor allem
+      options:
+        - Einzelspieler
+        - Multiplayer / Dedicated Server
+        - Beides

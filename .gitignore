@@ -1,0 +1,15 @@
+# Bau-Ergebnis (entsteht beim Aufruf von build.py)
+*.zip
+
+# Sicherungen und Arbeitsdateien
+*.bak
+*_sicherung*
+*_backup*
+__pycache__/
+*.pyc
+
+# Windows / Editoren
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

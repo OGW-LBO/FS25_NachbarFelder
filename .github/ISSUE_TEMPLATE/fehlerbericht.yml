@@ -1,0 +1,84 @@
+name: Fehler melden (Bug report)
+description: Etwas funktioniert nicht wie erwartet / Something does not work as expected
+labels: ["fehler"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung! Bitte **keine persönlichen Daten** einfügen.
+        Log-Dateien enthalten Benutzernamen und Pfade — bitte vorher ersetzen, zum Beispiel
+        `C:\Users\Max\...` durch `%USERPROFILE%\...`.
+
+        Thanks for reporting. Please remove personal data from logs before posting.
+
+  - type: input
+    id: build
+    attributes:
+      label: Build-Nummer
+      description: Steht im Log beim Start, Zeile "NachbarFelder: loadMap auf SERVER (Build …)"
+      placeholder: "138"
+    validations:
+      required: true
+
+  - type: input
+    id: karte
+    attributes:
+      label: Karte
+      description: Name der Karte, auf der es passiert
+      placeholder: "Bergisch Land"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: spielart
+    attributes:
+      label: Spielart
+      options:
+        - Einzelspieler
+        - Multiplayer (eigener Host)
+        - Dedicated Server
+    validations:
+      required: true
+
+  - type: textarea
+    id: was
+    attributes:
+      label: Was passiert?
+      description: Was hast du gemacht, was ist dann passiert?
+      placeholder: |
+        1. Helfer per Strg+Alt+E gestartet
+        2. Fahrzeug spawnt am Shop
+        3. Fahrzeug bleibt stehen und fährt nicht los
+    validations:
+      required: true
+
+  - type: textarea
+    id: erwartet
+    attributes:
+      label: Was hättest du erwartet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log-Auszug
+      description: |
+        Die Zeilen, die mit "NachbarFelder:" beginnen, rund um das Problem.
+        Log liegt unter `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\log.txt`,
+        beim Dedicated Server im Serverprofil.
+      render: text
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Andere Mods
+      description: Welche weiteren Script-Mods laufen mit? (Bauernhof-Pakete und Fahrzeuge sind meist egal)
+
+  - type: checkboxes
+    id: datenschutz
+    attributes:
+      label: Vor dem Absenden
+      options:
+        - label: Ich habe Benutzernamen und persönliche Pfade aus dem Log entfernt.
+          required: true

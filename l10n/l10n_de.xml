@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <texts>
+        <text name="NachbarFelder" text="NachbarFelder"/>
+        <text name="NF_setting_title" text="Aktivitaet auf fremden Feldern"/>
+        <text name="NF_active_short" text="Aktivitaet auf fremden Feldern"/>
+        <text name="NF_active_long" text="Aktiviert/Deaktiviert die Aktivitaet auf fremden Feldern"/>
+        <text name="NF_MAX_ASSISTANT_WORKERS_short" text="Anzahl Arbeiter"/>
+        <text name="NF_MAX_ASSISTANT_WORKERS_long" text="Wie viele Arbeiter koennen maximal parallel arbeiten?"/>
+        <text name="NF_trafficLimit_short" text="Traffic-Fahrzeuge"/>
+        <text name="NF_trafficLimit_long" text="Wie viele KI-Verkehrsfahrzeuge fahren gleichzeitig auf der Karte? (1-8). Wegpunkte und Spawnpunkte setzt du im Reiter 'Wegpunkte'."/>
+        <text name="NF_trafficTrailerSize_short" text="Anbaugeraete"/>
+        <text name="NF_trafficTrailerSize_long" text="Anbaugeraete fuer Traffic-Fahrzeuge. 0 = Keine Anbaugeraete | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Maehwerk, Zinkenrotor, Rechen, Saemaschine)"/>
+        <text name="NF_engeMap_short" text="Enge Karte"/>
+        <text name="NF_engeMap_long" text="Fuer enge Karten und kleine Haendler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugeraet (Wender, Schwader, bis 3 t), und die Feldarbeit bekommt immer die kleinste Fahrzeuggruppe - kurze Gespanne passen auf kurze Spawn-Plaetze. Grosstraktoren, Radlader und Teleskoplader bleiben draussen. Aus = wie bisher, alles erlaubt."/>
+        <text name="NF_plowMission_short" text="Pfluegen"/>
+        <text name="NF_plowMission_long" text="Pflugmission generieren"/>
+        <text name="NF_cultivateMission_short" text="Grubbern"/>
+        <text name="NF_cultivateMission_long" text="Grubbermission generieren"/>
+        <text name="NF_sowMission_short" text="Saeen"/>
+        <text name="NF_sowMission_long" text="Saatmission generieren"/>
+        <text name="NF_harvestMission_short" text="Ernten"/>
+        <text name="NF_harvestMission_long" text="Erntemission generieren"/>
+        <text name="NF_hoeMission_short" text="Hacken"/>
+        <text name="NF_hoeMission_long" text="Hackmission generieren"/>
+        <text name="NF_weedMission_short" text="Unkraut entfernen"/>
+        <text name="NF_weedMission_long" text="Unkrautmission generieren"/>
+        <text name="NF_herbicideMission_short" text="Spritzen"/>
+        <text name="NF_herbicideMission_long" text="Herbizid-Spritzmission generieren"/>
+        <text name="NF_fertilizeMission_short" text="Duengen"/>
+        <text name="NF_fertilizeMission_long" text="Duengemission generieren"/>
+        <text name="input_NF_DELETE_HELPER" text="NachbarFelder: Alle Nachbar-Fahrzeuge entfernen"/>
+        <text name="input_NF_START_NOW" text="NachbarFelder: Helfer sofort starten"/>
+        <text name="input_NF_ADD_WAYPOINT" text="NachbarFelder: Wegpunkt setzen"/>
+        <text name="input_NF_REMOVE_WAYPOINT" text="NachbarFelder: Letzten Wegpunkt entfernen"/>
+        <text name="input_NF_MANAGE_WAYPOINTS" text="NachbarFelder: Wegpunkte nacheinander anzeigen"/>
+        <text name="NF_wpPage_tabTitle" text="Wegpunkte"/>
+        <text name="NF_WPPAGE_TABTITLE" text="Wegpunkte"/>
+        <text name="NF_wpActions_title" text="Aktionen"/>
+        <text name="NF_wpMap_section_title" text="Karte"/>
+        <text name="NF_wpMapShow_short" text="WP auf Karte zeigen"/>
+        <text name="NF_wpMapShow_long" text="Wegpunkte als Marker auf der Ingame-Karte anzeigen (Kategorie: SONSTIGES)"/>
+        <text name="NF_wp_section_title" text="Wegpunkt-Manager"/>
+        <text name="NF_wp_info_title" text="Wegpunktinformation"/>
+        <text name="NF_wpPrev_short" text="Vorheriger Wegpunkt"/>
+        <text name="NF_wpPrev_long" text="Vorherigen Wegpunkt anzeigen"/>
+        <text name="NF_wpNext_short" text="Nächster Wegpunkt"/>
+        <text name="NF_wpNext_long" text="Nächsten Wegpunkt anzeigen"/>
+        <text name="NF_wpTeleport_short" text="Zum Wegpunkt teleportieren"/>
+        <text name="NF_wpType_short" text="Typ ändern"/>
+        <text name="NF_wpType_long" text="Kategorie wechseln: Normal (20-60s) | Kurz (5-20s) | Lang (2-5 Min) | Spawnpunkt. Neue Spawnpunkte besser mit 'Spawnpunkt hier setzen' anlegen - ältere Punkte haben keine verlässliche Richtung."/>
+        <text name="NF_wpTeleport_long" text="Zum angezeigten Wegpunkt teleportieren"/>
+        <text name="NF_wpDelete_short" text="Wegpunkt löschen"/>
+        <text name="NF_wpDelete_long" text="Den angezeigten Wegpunkt löschen"/>
+        <text name="NF_wpBtn_prev" text="&lt; Zurück"/>
+        <text name="NF_wpBtn_next" text="Weiter &gt;"/>
+        <text name="NF_wpBtn_teleport" text="Teleportieren"/>
+        <text name="NF_wpBtn_delete" text="Löschen"/>
+        <text name="NF_wpBtn_set" text="Setzen"/>
+        <text name="NF_wpNew_section_title" text="Neuer Punkt an deiner Position"/>
+        <text name="NF_wpAddHere_short" text="Wegpunkt hier setzen"/>
+        <text name="NF_wpAddHere_long" text="Setzt einen normalen Wegpunkt an deiner Position (im Fahrzeug: an der Fahrzeugposition). Mindestens 10 m Abstand zu anderen Punkten."/>
+        <text name="NF_wpAddSpawnHere_short" text="Spawnpunkt hier setzen"/>
+        <text name="NF_wpAddSpawnHere_long" text="Neue Nachbar-Fahrzeuge starten hier. Im Traktor mit der Front in Abfahrtrichtung stehen (zu Fuß zählt die Blickrichtung). Frei sein müssen etwa 4 m Breite von 3 m vor bis 14 m hinter dem Punkt. Danach wegfahren - solange dein Fahrzeug dort steht, gilt der Punkt als belegt."/>
+        <text name="NF_wpNone" text="Keine Wegpunkte - unten 'Wegpunkt hier setzen' oder 'Spawnpunkt hier setzen'"/>
+        <text name="NF_wpVehicles_section_title" text="Fahrzeugtypen"/>
+        <text name="NF_wpCatTractorS_short" text="Kleine Traktoren"/>
+        <text name="NF_wpCatTractorS_long" text="Kleine Traktoren (bis ca. 100 PS) als Traffic-Fahrzeuge spawnen"/>
+        <text name="NF_wpCatTractorM_short" text="Mittlere Traktoren"/>
+        <text name="NF_wpCatTractorM_long" text="Mittlere Traktoren (ca. 100-200 PS) als Traffic-Fahrzeuge spawnen"/>
+        <text name="NF_wpCatTractorL_short" text="Grosse Traktoren"/>
+        <text name="NF_wpCatTractorL_long" text="Grosse Traktoren (200+ PS) als Traffic-Fahrzeuge spawnen"/>
+        <text name="NF_wpCatLoader_short" text="Radlader"/>
+        <text name="NF_wpCatLoader_long" text="Radlader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)"/>
+        <text name="NF_wpCatTeleLoader_short" text="Teleskoplader"/>
+        <text name="NF_wpCatTeleLoader_long" text="Teleskoplader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)"/>
+    </texts>
+</l10n>
