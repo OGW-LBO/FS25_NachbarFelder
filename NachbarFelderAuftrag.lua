@@ -275,7 +275,15 @@ end
 --- @return string angezeigter Text
 function NachbarFelderAuftrag.zeigeAntwort(ok, textKey, feldNr, arbeitKey)
     local vorlage = g_i18n:getText(textKey or NachbarFelderAuftrag.TEXT.FEHLER)
-    local arbeit  = (arbeitKey ~= nil and arbeitKey ~= "") and g_i18n:getText(arbeitKey) or ""
+    -- zweiter Platzhalter: l10n-Key ("NF_...", z.B. die Arbeit) oder fertiger Text (z.B. "GRASS waechst")
+    local arbeit  = ""
+    if arbeitKey ~= nil and arbeitKey ~= "" then
+        if string.sub(arbeitKey, 1, 3) == "NF_" then
+            arbeit = g_i18n:getText(arbeitKey)
+        else
+            arbeit = arbeitKey
+        end
+    end
     local feld    = (feldNr ~= nil and feldNr >= 0) and tostring(feldNr) or "?"
     local text    = vorlage
     pcall(function()
@@ -390,7 +398,8 @@ end
 -- ============================================================
 -- Server: Rechte und Feldzustand pruefen
 -- @param pruefeRechte false bei gespeicherten Auftraegen (schon angenommen)
--- @return number|nil aktion (missionHelper-Index), string textKey
+-- @return number|nil aktion (missionHelper-Index), string textKey,
+--         string zusatz (zweiter Platzhalter der Meldung), string|nil Messwerte fuers Log
 -- ============================================================
 function NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, pruefeRechte)
     local T = NachbarFelderAuftrag.TEXT
@@ -455,14 +464,15 @@ function NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, pr
         return nil, T.GRUENLAND
     end
 
-    local aktion, grund = mgr:getFeldAktion(field)
+    -- info = Messwerte fuers Log, frucht = z.B. "GRASS waechst" fuer die Meldung
+    local aktion, grund, info, frucht = mgr:getFeldAktion(field)
     if aktion == nil then
         if grund == "frucht" or grund == "waechst" or grund == "erntereif" then
-            return nil, T.FRUCHT
+            return nil, T.FRUCHT, frucht or "?", info
         elseif grund == "bearbeitet" then
-            return nil, T.BEARBEITET
+            return nil, T.BEARBEITET, "", info
         end
-        return nil, T.UNKLAR
+        return nil, T.UNKLAR, "", info
     end
     -- Pfluegen abgeschaltet -> Grubbern (wie isFieldUseful)
     if aktion == 3 and not (mgr.missionHelper[3] ~= nil and mgr.missionHelper[3].active) then
@@ -535,11 +545,11 @@ function NachbarFelderAuftrag.ausfuehren(mgr, x, z, farmId, connection)
     -- es gibt nur eine Feldnummer: fieldId ist field:getId()
     local feldLog = "Feld " .. tostring(fieldId)
 
-    local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, true)
+    local aktion, textKey, zusatz, info = NachbarFelderAuftrag.pruefe(mgr, field, fieldId, farmId, connection, true)
     if aktion == nil then
-        print(string.format("NachbarFelder: [AUFTRAG] %s (%.0f m) abgelehnt fuer Farm %d: %s",
-            feldLog, abstand or 0, farmId or 0, tostring(textKey)))
-        return false, textKey, fieldId, ""
+        print(string.format("NachbarFelder: [AUFTRAG] %s (%.0f m) abgelehnt fuer Farm %d: %s%s",
+            feldLog, abstand or 0, farmId or 0, tostring(textKey), info ~= nil and (" | " .. info) or ""))
+        return false, textKey, fieldId, zusatz or ""
     end
 
     local gestartet, startKey = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, farmId)
@@ -562,11 +572,11 @@ function NachbarFelderAuftrag.starteGespeichert(mgr, eintrag)
     local fieldId = eintrag.fieldId
     local field   = fieldId ~= nil and g_fieldManager:getFieldById(fieldId) or nil
     local feldLog = "Feld " .. tostring(fieldId)
-    local aktion, textKey = NachbarFelderAuftrag.pruefe(mgr, field, fieldId,
+    local aktion, textKey, _, info = NachbarFelderAuftrag.pruefe(mgr, field, fieldId,
         eintrag.auftragFarmId or 0, nil, false)
     if aktion == nil then
         print("NachbarFelder: [AUFTRAG] Gespeicherter Auftrag auf " .. feldLog ..
-            " verworfen: " .. tostring(textKey))
+            " verworfen: " .. tostring(textKey) .. (info ~= nil and (" | " .. info) or ""))
         return false, true
     end
     local gestartet, startKey = NachbarFelderAuftrag.starte(mgr, fieldId, aktion, eintrag.auftragFarmId or 0)

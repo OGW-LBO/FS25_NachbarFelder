@@ -96,7 +96,7 @@
         <text name="NF_auftrag_weide" text="Feld %s liegt in einer eingezäunten Weide."/>
         <text name="NF_auftrag_klein" text="Feld %s ist kleiner als 0,3 ha - zu klein für den Helfer."/>
         <text name="NF_auftrag_gruenland" text="Feld %s ist Grünland - der Lohnunternehmer pflügt und grubbert nur."/>
-        <text name="NF_auftrag_frucht" text="Auf Feld %s steht Frucht - erst ernten, dann beauftragen."/>
+        <text name="NF_auftrag_frucht" text="Auf Feld %s steht Frucht (%s) - erst ernten, dann beauftragen."/>
         <text name="NF_auftrag_bearbeitet" text="Feld %s ist schon bearbeitet - nichts zu tun."/>
         <text name="NF_auftrag_unklar" text="Der Zustand von Feld %s ist nicht eindeutig - kein Auftrag."/>
         <text name="NF_auftrag_arbeitAus" text="Pflügen und Grubbern sind in den Einstellungen abgeschaltet."/>

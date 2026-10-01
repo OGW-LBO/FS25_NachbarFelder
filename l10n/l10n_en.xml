@@ -96,7 +96,7 @@
         <text name="NF_auftrag_weide" text="Field %s lies inside a fenced pasture."/>
         <text name="NF_auftrag_klein" text="Field %s is smaller than 0.3 ha - too small for the helper."/>
         <text name="NF_auftrag_gruenland" text="Field %s is grassland - the contractor only plows and cultivates."/>
-        <text name="NF_auftrag_frucht" text="There is a crop on field %s - harvest first, then hire."/>
+        <text name="NF_auftrag_frucht" text="There is a crop on field %s (%s) - harvest first, then hire."/>
         <text name="NF_auftrag_bearbeitet" text="Field %s is already worked - nothing to do."/>
         <text name="NF_auftrag_unklar" text="The state of field %s is unclear - no order."/>
         <text name="NF_auftrag_arbeitAus" text="Plowing and cultivating are disabled in the settings."/>
