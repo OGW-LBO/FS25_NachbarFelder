@@ -8,7 +8,7 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
-> - **Build 157 (01.10.): Kein Helfer-Symbol auf der Karte** — Nachbar-Fahrzeuge (Besitzer = Helfer-Farm) werden in
+> - **Build 157 (01.10.): Kein Helfer-Symbol auf der Karte — im Spiel bestätigt, freigegeben** — Nachbar-Fahrzeuge (Besitzer = Helfer-Farm) werden in
 >   `IngameMap:drawHotspot` übersprungen (Minimap + große Karte); Helfer-Farm per Settings-Sync an die Clients. Abschnitt Build 157.
 > - **Build 156 (01.10.): Kippen beim Ankuppeln — im Spiel bestätigt** — Test 155: Traktor landet sauber, kippt aber beim Montieren des Geräts
 >   zur Seite. Ursache: Kuppeln mit `noSmoothAttach = true` + Gerät nur gierrichtig gesetzt. Jetzt drehrichtig setzen
@@ -1460,4 +1460,6 @@ ist das **Helfer-Symbol auf der Karte** (Minimap und ESC-Karte). Der KI-Verkehr 
 
 **Tests:** Mock: vor dem Sync sichtbar, danach Nachbar-Traktor und sein Gerät ausgeblendet, eigenes Fahrzeug und
 Hotspot ohne Fahrzeug gezeichnet; Server liefert `helferFarmId` 14; Stream-Rundlauf des Sync-Events. Strukturcheck,
-Vollparse. **Unverifiziert im Spiel.**
+Vollparse.
+
+**Bestätigt im Spiel (User, 01.10.):** „Supi alles passt“ – Build 157 läuft, Stand freigegeben für PR/Release.
