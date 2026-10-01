@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 140
+NachbarFelderManager.BUILD = 141
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -4385,7 +4385,25 @@ function NachbarFelderManager:getFeldZielpunkt(fieldId, vehicle)
         end
     end)
 
+    -- Build 141: Feldrand mit dem kuerzesten FREIEN Weg von einer KI-Strasse.
+    -- Die KI faehrt uebers Strassennetz bis zum naechsten Punkt am Ziel und von
+    -- dort gerade hin. Bisher: Strassenpunkt naechst der FELDMITTE, gerade Linie
+    -- zur Mitte - dazwischen lagen oft fremde Felder oder Weiden (Feld 47:
+    -- 124 m querfeldein). Jetzt wird der Feldumriss abgetastet; gewonnen hat
+    -- die Randstelle mit der naechsten Strasse, deren Weg dorthin weder ein
+    -- fremdes Feld noch eine Weide kreuzt. Ohne Umriss: alte Logik unten.
+    local gefunden = false
     pcall(function()
+        local rx, rz, rw, weg, frei = self:getFeldZugang(field)
+        if rx == nil then return end
+        zx, zz, zw = rx, rz, rw
+        quelle = string.format("Feldrand nahe KI-Strasse (%.0f m von der Strasse, %s)", weg,
+            frei and "Weg frei" or "kein freier Weg - Weg kreuzt fremdes Feld/Weide")
+        gefunden = true
+    end)
+
+    pcall(function()
+        if gefunden then return end
         if self.getNearestRoadPoint == nil or FieldState == nil or FieldState.new == nil then return end
         local rx, rz = self:getNearestRoadPoint(cx, cz, 500, 0)
         if rx == nil then return end
@@ -4416,6 +4434,114 @@ function NachbarFelderManager:getFeldZielpunkt(fieldId, vehicle)
     print(string.format("NachbarFelder: Anfahrt Feld %s -> %s x=%.0f z=%.0f Richtung %.0f Grad",
         tostring(fieldId), quelle, zx, zz, math.deg(zw or 0)))
     return zx, zz, zw
+end
+
+-- Build 141: Zugang zum Feld von der KI-Strasse
+NachbarFelderManager.ZUGANG_RAND_SCHRITT  = 8      -- m, Abstand der Pruefstellen am Feldrand
+NachbarFelderManager.ZUGANG_MAX_STRASSE   = 250    -- m, so weit darf die Strasse hoechstens weg sein
+NachbarFelderManager.ZUGANG_KANDIDATEN    = 120    -- so viele naechste Randstellen auf freien Weg pruefen
+NachbarFelderManager.ZUGANG_TIEFE         = 10     -- m, Ziel so weit hinter dem Rand im Feld
+
+--- Randstelle eines Felds, die von einer KI-Strasse aus auf kuerzestem Weg
+--- erreichbar ist, ohne fremde Felder oder Weiden zu kreuzen (Build 141).
+--- @return number|nil zx, number zz Ziel (ZUGANG_TIEFE im Feld), number zw Ankunftsrichtung,
+---         number weg Abstand Strasse -> Feldrand, boolean frei Weg kreuzt nichts Fremdes
+function NachbarFelderManager:getFeldZugang(field)
+    local poly = self:getFeldPolygon(field)
+    if poly == nil or poly.n < 3 or self.getNearestRoadPoint == nil then
+        return nil
+    end
+    local inPoly, randAbst = self.nfPunktInPolygon, self.nfRandAbstand
+    local farmlandId = field.farmland ~= nil and field.farmland.id or nil
+
+    -- fremdes Feld (anderes Farmland) oder Weide an diesem Punkt?
+    local function fremd(px, pz)
+        if self:isPunktInWeide(px, pz) then
+            return true
+        end
+        if FieldState == nil or FieldState.new == nil then
+            return false
+        end
+        local probe = FieldState.new()
+        probe:update(px, pz)
+        return probe.isValid and farmlandId ~= nil and probe.farmlandId ~= farmlandId
+    end
+    local function wegFrei(rx, rz, px, pz)
+        local len = MathUtil.vector2Length(px - rx, pz - rz)
+        for d = 2, len - 2, 4 do
+            local t = d / len
+            if fremd(rx + (px - rx) * t, rz + (pz - rz) * t) then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- Feldrand abtasten, je Stelle die naechste KI-Strasse
+    local kandidaten = {}
+    local schritt = NachbarFelderManager.ZUGANG_RAND_SCHRITT
+    local j = poly.n
+    for i = 1, poly.n do
+        local ax, az, bx, bz = poly.x[j], poly.z[j], poly.x[i], poly.z[i]
+        local len = MathUtil.vector2Length(bx - ax, bz - az)
+        local n = math.max(1, math.floor(len / schritt))
+        for k = 0, n - 1 do
+            local px, pz = ax + (bx - ax) * k / n, az + (bz - az) * k / n
+            local rx, rz, _, d = self:getNearestRoadPoint(px, pz, NachbarFelderManager.ZUGANG_MAX_STRASSE, 0)
+            if rx ~= nil then
+                table.insert(kandidaten, { px = px, pz = pz, rx = rx, rz = rz, d = d or 0 })
+            end
+        end
+        j = i
+    end
+    if #kandidaten == 0 then
+        return nil
+    end
+    table.sort(kandidaten, function(a, b) return a.d < b.d end)
+
+    -- Ankunftsrichtung und Ziel ein Stueck im Feld, damit die KI nicht auf der
+    -- Grenze haelt. nil, wenn es an dieser Stelle nicht ins Feld geht (Ecke, Spitze).
+    local tiefen = { NachbarFelderManager.ZUGANG_TIEFE, 6, 3 }
+    local function zielAn(c)
+        local dx, dz = c.px - c.rx, c.pz - c.rz
+        local len = math.sqrt(dx * dx + dz * dz)
+        if len < 1 and field.posX ~= nil then
+            -- Strasse beruehrt den Rand: Richtung Feldmitte
+            dx, dz = field.posX - c.px, field.posZ - c.pz
+            len = math.sqrt(dx * dx + dz * dz)
+        end
+        if len < 0.01 then
+            return nil
+        end
+        dx, dz = dx / len, dz / len
+        for _, tief in ipairs(tiefen) do
+            local tx, tz = c.px + dx * tief, c.pz + dz * tief
+            if inPoly(tx, tz, poly) and randAbst(tx, tz, poly) >= 2 then
+                return tx, tz, dx, dz
+            end
+        end
+        return nil
+    end
+
+    -- naechste Randstelle mit freiem Weg und Ziel im Feld; sonst die naechste mit Ziel
+    local notX, notZ, notDx, notDz, notC = nil, nil, nil, nil, nil
+    local anzahl = math.min(#kandidaten, NachbarFelderManager.ZUGANG_KANDIDATEN)
+    for idx = 1, anzahl do
+        local c = kandidaten[idx]
+        local tx, tz, dx, dz = zielAn(c)
+        if tx ~= nil then
+            if wegFrei(c.rx, c.rz, c.px, c.pz) then
+                return tx, tz, MathUtil.getYRotationFromDirection(dx, dz), c.d, true
+            end
+            if notX == nil then
+                notX, notZ, notDx, notDz, notC = tx, tz, dx, dz, c
+            end
+        end
+    end
+    if notX == nil then
+        return nil
+    end
+    return notX, notZ, MathUtil.getYRotationFromDirection(notDx, notDz), notC.d, false
 end
 
 function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
@@ -4748,8 +4874,34 @@ function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
     self:markVehiclesAsHelper(vehicle)
 
     self.vehicleType[fieldId].NachbarFelderWorker.fieldWorkStartedAt = g_time
+
+    -- Build 141: Abbruchgrund der Feldarbeit merken (wie beim GOTO in driveToField) -
+    -- nur job:stop sieht die AIMessage. Feld 47 endete nach 0 s ohne erkennbaren Grund.
+    local nfWFeld = self.vehicleType[fieldId].NachbarFelderWorker
+    nfWFeld.lastFieldStopMsg = nil
+    if job.stop ~= nil then
+        local origStop = job.stop
+        job.stop = function(jSelf, aiMessage)
+            nfWFeld.lastFieldStopMsg = nfAIMessageName(aiMessage)
+            return origStop(jSelf, aiMessage)
+        end
+    end
+    -- Wo steht das Gespann beim Start, und wo hat findClosestField das Feld erkannt?
+    local startInfo = ""
+    pcall(function()
+        local vx, _, vz = getWorldTranslation(vehicle.rootNode)
+        local poly = self:getFeldPolygon(field)
+        local imFeld = "?"
+        if poly ~= nil then
+            imFeld = self.nfPunktInPolygon(vx, vz, poly) and "ja" or
+                string.format("nein, %.0f m vom Rand", self.nfRandAbstand(vx, vz, poly))
+        end
+        startInfo = string.format(" | Gespann x=%.0f z=%.0f im Feld: %s | Felderkennung x=%.0f z=%.0f",
+            vx, vz, imFeld, self.fieldDetectionX or 0, self.fieldDetectionZ or 0)
+    end)
+
     g_currentMission.aiSystem:startJob(job, self.farmId)
-    print("NachbarFelder: FIELDWORK Feld=" .. tostring(fieldId) .. " (" .. tostring(missionTypeName) .. ")")
+    print("NachbarFelder: FIELDWORK Feld=" .. tostring(fieldId) .. " (" .. tostring(missionTypeName) .. ")" .. startInfo)
 
     -- Feldbesitz NICHT sofort zurücksetzen!
     -- Die KI prüft während der Arbeit wiederholt FieldCourse.findClosestField →

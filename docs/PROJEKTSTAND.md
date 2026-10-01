@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 141 (01.10.): Anfahrt über freien Feldrand + Abbruchgrund der Feldarbeit im Log** — Zielpunkt ist jetzt
+>   die Randstelle mit der nächsten KI-Straße, deren Weg kein fremdes Feld / keine Weide kreuzt (`getFeldZugang`).
+>   Offen: Lohnunternehmer-Auftrag auf eigenem Feld 47 endete nach 0 s — Grund steht ab 141 im Log. Abschnitt Build 141.
 > - **Build 140 (01.10.): „Frucht steht“ auf abgeernteten Feldern behoben** — Messpunkte von `getFeldAktion` lagen
 >   neben dem Feld (Grasstreifen gleiches Farmland). Jetzt nur Punkte im Feldumriss, ≥ 2 m vom Rand. Abschnitt Build 140.
 > - **Build 139 (01.10.): Auftrag an den Lohnunternehmer** — Spieler steht an einem Feld und beauftragt die Helfer
@@ -938,4 +941,39 @@ waechst) …“, das Auftrags-Log hängt die Messwerte an (`… abgelehnt …: N
 
 **Falls es weiter auftritt:** die Log-Zeile `[AUFTRAG] Feld n … abgelehnt …` enthält jetzt Fruchtname und Messpunkt —
 die liefern.
+
+
+# ERGÄNZUNG 2026-10-01 — Build 141: Anfahrt über freien Feldrand, Abbruchgrund der Feldarbeit
+
+Anlass (User-Test Build 140, Bergisch Land, Einzelspieler, Helfer-Farm 14): Auftrag Feld 47 (eigenes Feld, 2,49 ha,
+Triticale abgeerntet). Der Helfer fuhr über fremde Felder/Weide zum Feld, kam an — und die Feldarbeit endete nach 0 s
+(`Feldarbeit beendet Feld 47 (Laufzeit: 0s)`, Grubber `aresXL` gesperrt), danach Rückfahrt/Entfernen. Für den User sah
+das aus wie „am Feld vorbeigefahren“.
+
+**1. Anfahrt (behoben):** `getFeldZielpunkt` nahm den Straßenpunkt nächst der **Feldmitte** und fuhr gerade zur Mitte;
+dazwischen lagen fremde Felder und eine Weide („Feldrand zur Strasse (124 m von der Strasse)“). Laut LUADOC nutzt die
+KI-Fahrt die Besitz-Hooks nicht (`getIsOwnedByFarmAlongLine` nur in PlaceablePlacement, `getCanAccessLand…` im
+Leveler) — der Weg wird über das Straßennetz bis zum Punkt nahe am Ziel und dann gerade gefahren. Also entscheidet
+der Zielpunkt. Neu `getFeldZugang(field)`: Feldumriss alle `ZUGANG_RAND_SCHRITT` = 8 m abtasten, je Stelle die nächste
+KI-Straße (≤ `ZUGANG_MAX_STRASSE` = 250 m), nach Abstand sortiert; gewählt wird die erste Stelle (max.
+`ZUGANG_KANDIDATEN` = 120), deren gerader Weg Straße → Rand weder ein fremdes Feld (FieldState anderes Farmland) noch
+eine Weide (`isPunktInWeide`) kreuzt und an der ein Ziel `ZUGANG_TIEFE` = 10 m (sonst 6/3 m) im Feld mit ≥ 2 m
+Randabstand liegt. Kein freier Weg → nächste Stelle trotzdem, Log „kein freier Weg“. Ohne Umriss alte Logik.
+Log: `Anfahrt Feld n -> Feldrand nahe KI-Strasse (x m von der Strasse, Weg frei)`.
+Test (lupa, echte Funktionen): Feld mit fremdem Feld zwischen Südstraße und Feld → alt quer durch das fremde Feld,
+neu Zugang von der Oststraße (160 m, frei, Ziel 10 m im Feld); zusätzlich Weide im Osten → Fallback Süd, „kein freier Weg“.
+Zuerst prüfte der Code nur 25 Kandidaten — alle lagen an der blockierten Seite; deshalb 120.
+
+**2. Feldarbeit 0 s (offen, Diagnose eingebaut):** Kein Grund im Log. Ausgeschlossen per LUADOC: `AIJobFieldWork:validate`
+prüft nur das Fahrzeug, `AIVehicleUtil.getIsAreaOwned` fragt `getIsOwnedByFarmAtWorldPosition` und
+`getIsMissionWorkAllowed` — beide liefern über unsere Hooks true. Neu: `setAIOnField` hängt wie `driveToField` einen
+`job.stop`-Wrapper an (`lastFieldStopMsg` = AIMessage-Klasse), `onAIFieldWorkerEnd` loggt `Grund: …`; die Zeile
+`FIELDWORK Feld=n` nennt Gespann-Position, ob sie im Feldumriss liegt, und die Felderkennung (`findClosestField`).
+Nächster Test: Auftrag auf eigenem Feld, Zeilen `FIELDWORK Feld=` und `Feldarbeit beendet … Grund:` liefern.
+
+**3. Nebenbefunde:**
+- „Pflügen und Grubbern abgeschaltet“ bei der ersten Anfrage, danach ging es: **kein Fehler** — beide Arbeiten waren in
+  den Einstellungen wirklich aus, der User hat sie zwischen den Anfragen im ESC-Menü eingeschaltet (User 01.10.).
+- Helfer startete an einer Weide: selbst gesetzter Shop-Trigger hatte den Lieferplatz (`storeSpawnPlaces[1]`) verschoben —
+  gewollt seit Build 96. Abhilfe für den User: Spawnpunkt setzen (hat Vorrang).
 
