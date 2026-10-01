@@ -8,6 +8,9 @@
 > **ARBEITSGRUNDLAGE — Stand 2026-10-01 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Stand**
+> - **Build 146 (01.10.): Anfahrt mit Ausweich-Zugängen** — Zugänge nach Wegklasse (frei / über fremdes Feld / über
+>   Weide); bei „GOTO kein Pfad“ bis zu 3 andere Zugänge, zuletzt die alte Zielwahl, statt den Helfer zu entfernen.
+>   Build 145 bestätigt: Pflug-Gespann Series TJW 4,6 t + Juwel 6 1,1 t kippt nicht. Abschnitt Build 146.
 > - **Build 145 (01.10.): Gewichtsregel Feldgerät ≤ 40 % Traktor (vorher 50 %)** — belegt: Ares XL 3,1 t an Arion 6,6 t
 >   (47 %) kippte bei jedem Laden. Kippen sperrt nur noch das Gespann, nicht den Ladeplatz. Abschnitt Build 145.
 > - **Build 144 (01.10.): Kippen liegt am Gespann, nicht am Platz** — Arion 550 + Ares XL kippte auf zwei verschiedenen
@@ -1088,4 +1091,29 @@ nach Stufe 1), Gespann dauerhaft gesperrt, Auftrag neu eingeplant — Log endet 
 **Folge auf Bergisch Land:** Für Grubbern gab es nur dieses eine Gespann — jetzt evtl. gar keins; der Lohnunternehmer
 pflügt dann (Build 144). Ob es ein Pflug-Gespann ≤ 40 % gibt, zeigt das nächste Log (`Eigenes Feldgespann fuer
 plowMission … t` bzw. `Kein eigenes Feldgespann …`).
+
+
+# ERGÄNZUNG 2026-10-01 — Build 146: Ausweich-Zugänge bei „kein Pfad“
+
+Test Build 145 (Log 15:13): 40-%-Regel greift — `Kein eigenes Feldgespann fuer cultivateMission … keine Kombination
+passt`, Auftrag weicht aufs Pflügen aus: `seriesTJW.xml (123 PS, 4.6 t) + juwel6.xml (Bedarf 110 PS, 1.1 t)` (24 %),
+**kein Kippen**. Die 3 alten Kipp-Sperren der Ladeplätze wurden aufgehoben. Neues Problem: `Anfahrt Feld 47 -> Feldrand
+nahe KI-Strasse (19 m …, kein freier Weg …) x=-428 z=-423` → `GOTO kein Pfad (3044ms, AIMessageErrorNotReachable) …
+Fahrzeug wird am Shop entfernt`. Feld 47 hat keinen freien Zugang; Build 141 nahm dann die straßennächste Stelle, deren
+Weg offenbar über eine Weide (Zaun) führt. Mit der alten Zielwahl (Build 140) war der Helfer bis Feld 47 gekommen.
+
+**Fix:**
+- `getFeldZugang(field, ausschluss)` stuft jeden Zugang ein: 0 = Weg frei, 1 = kreuzt nur fremde Felder (befahrbar),
+  2 = kreuzt eine Weide (`isPunktInWeide`). Gewählt wird die niedrigste Klasse, darin die nächste Straße. Ziele im
+  Umkreis `ZUGANG_AUSSCHLUSS_M` = 80 m um schon gescheiterte Ziele werden übersprungen.
+- `getFeldZielpunkt` liest den Ausschluss vom Worker (`zugangAusschluss`), merkt das gewählte Ziel (`zugangZiel`);
+  ohne Kandidat greift wie bisher die alte Zielwahl (Straße nächst der Feldmitte). Log nennt die Wegklasse und
+  `(Zugang-Versuch n)`.
+- `NachbarFelderWorker:onAIJobFinished`, Zweig „GOTO kein Pfad“: Feldhelfer mit `zugangZiel` und weniger als
+  `ZUGANG_MAX_VERSUCHE` = 3 Versuchen → Ziel in den Ausschluss, Status 1 + Timer (wie „neuer Anlauf“), die
+  Update-Schleife plant mit dem nächsten Zugang neu. Log `GOTO kein Pfad … - anderer Zugang wird versucht (n/3)`.
+  Erst danach wie bisher entfernen + Feld-Cooldown.
+
+**Tests (lupa, echte Funktionen):** freier Zugang → Klasse 0; Ost über Weide, Süd über fremdes Feld → Süd (Klasse 1);
+Folge mit Ausschluss: Süd → Süd andere Ecke → Ost (Klasse 2) → alte Zielwahl. Strukturcheck und Vollparse sauber.
 

@@ -373,6 +373,24 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         tt.fieldGotoStartedAt = nil
                         return
                     end
+                    -- Build 146: kein Pfad zu diesem Feldrand -> naechsten Zugang probieren
+                    -- (andere Seite, andere Wegklasse, zuletzt die alte Zielwahl), hoechstens
+                    -- ZUGANG_MAX_VERSUCHE mal. Vorher wurde der Helfer sofort entfernt.
+                    local maxZugang = (NachbarFelderManager ~= nil and NachbarFelderManager.ZUGANG_MAX_VERSUCHE) or 3
+                    if not tt.isPatrol and m ~= nil and tt.zugangZiel ~= nil
+                       and (tt.zugangVersuche or 0) < maxZugang then
+                        tt.zugangVersuche = (tt.zugangVersuche or 0) + 1
+                        tt.zugangAusschluss = tt.zugangAusschluss or {}
+                        table.insert(tt.zugangAusschluss, tt.zugangZiel)
+                        print(string.format("NachbarFelder: GOTO kein Pfad (%dms%s) zu Feld %s bei x=%.0f z=%.0f" ..
+                            " - anderer Zugang wird versucht (%d/%d)", math.floor(gotoElapsed), msgInfo,
+                            tostring(tt.fieldId), tt.zugangZiel[1], tt.zugangZiel[2], tt.zugangVersuche, maxZugang))
+                        tt.zugangZiel = nil
+                        tt.fieldGotoStartedAt = nil
+                        tt.status    = 1
+                        tt.needTimer = true
+                        return
+                    end
                     if not tt.isPatrol then
                         print("NachbarFelder: GOTO kein Pfad (" ..
                             tostring(math.floor(gotoElapsed)) .. "ms" .. msgInfo .. ") zu Feld " ..

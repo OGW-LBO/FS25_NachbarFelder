@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 145
+NachbarFelderManager.BUILD = 146
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -4588,13 +4588,19 @@ function NachbarFelderManager:getFeldZielpunkt(fieldId, vehicle)
     -- 124 m querfeldein). Jetzt wird der Feldumriss abgetastet; gewonnen hat
     -- die Randstelle mit der naechsten Strasse, deren Weg dorthin weder ein
     -- fremdes Feld noch eine Weide kreuzt. Ohne Umriss: alte Logik unten.
+    -- Build 146: Ziele, zu denen die KI keinen Pfad fand, merkt sich der Worker
+    -- (zugangAusschluss); sie werden uebersprungen, die alte Logik ist der letzte Versuch.
+    local entry = self.vehicleType[fieldId]
+    local wk = entry ~= nil and entry.NachbarFelderWorker or nil
+    local ausschluss = wk ~= nil and wk.zugangAusschluss or nil
     local gefunden = false
     pcall(function()
-        local rx, rz, rw, weg, frei = self:getFeldZugang(field)
+        local rx, rz, rw, weg, klasse = self:getFeldZugang(field, ausschluss)
         if rx == nil then return end
         zx, zz, zw = rx, rz, rw
+        local klassenText = { [0] = "Weg frei", [1] = "Weg kreuzt fremdes Feld", [2] = "Weg kreuzt Weide" }
         quelle = string.format("Feldrand nahe KI-Strasse (%.0f m von der Strasse, %s)", weg,
-            frei and "Weg frei" or "kein freier Weg - Weg kreuzt fremdes Feld/Weide")
+            klassenText[klasse] or "?")
         gefunden = true
     end)
 
@@ -4627,8 +4633,12 @@ function NachbarFelderManager:getFeldZielpunkt(fieldId, vehicle)
         end
     end)
 
-    print(string.format("NachbarFelder: Anfahrt Feld %s -> %s x=%.0f z=%.0f Richtung %.0f Grad",
-        tostring(fieldId), quelle, zx, zz, math.deg(zw or 0)))
+    if wk ~= nil then
+        wk.zugangZiel = { zx, zz }   -- Build 146: fuer den Ausschluss bei "kein Pfad"
+    end
+    print(string.format("NachbarFelder: Anfahrt Feld %s -> %s x=%.0f z=%.0f Richtung %.0f Grad%s",
+        tostring(fieldId), quelle, zx, zz, math.deg(zw or 0),
+        (wk ~= nil and (wk.zugangVersuche or 0) > 0) and string.format(" (Zugang-Versuch %d)", wk.zugangVersuche + 1) or ""))
     return zx, zz, zw
 end
 
@@ -4637,12 +4647,16 @@ NachbarFelderManager.ZUGANG_RAND_SCHRITT  = 8      -- m, Abstand der Pruefstelle
 NachbarFelderManager.ZUGANG_MAX_STRASSE   = 250    -- m, so weit darf die Strasse hoechstens weg sein
 NachbarFelderManager.ZUGANG_KANDIDATEN    = 120    -- so viele naechste Randstellen auf freien Weg pruefen
 NachbarFelderManager.ZUGANG_TIEFE         = 10     -- m, Ziel so weit hinter dem Rand im Feld
+NachbarFelderManager.ZUGANG_AUSSCHLUSS_M  = 80     -- Build 146: gescheitertes Ziel - Umkreis meiden (andere Feldseite)
+NachbarFelderManager.ZUGANG_MAX_VERSUCHE  = 3      -- Build 146: so oft nach "kein Pfad" einen anderen Zugang probieren
 
---- Randstelle eines Felds, die von einer KI-Strasse aus auf kuerzestem Weg
---- erreichbar ist, ohne fremde Felder oder Weiden zu kreuzen (Build 141).
+--- Randstelle eines Felds mit Zugang von einer KI-Strasse (Build 141, Klassen seit Build 146).
+--- Rangfolge: 0 = Weg frei, 1 = Weg kreuzt nur fremde Felder (befahrbar), 2 = Weg kreuzt eine
+--- Weide (Zaun). Innerhalb einer Klasse gewinnt die naechste Strasse.
+--- @param ausschluss table|nil Liste {x, z} schon gescheiterter Ziele (Umkreis ZUGANG_AUSSCHLUSS_M)
 --- @return number|nil zx, number zz Ziel (ZUGANG_TIEFE im Feld), number zw Ankunftsrichtung,
----         number weg Abstand Strasse -> Feldrand, boolean frei Weg kreuzt nichts Fremdes
-function NachbarFelderManager:getFeldZugang(field)
+---         number weg Abstand Strasse -> Feldrand, number klasse 0/1/2
+function NachbarFelderManager:getFeldZugang(field, ausschluss)
     local poly = self:getFeldPolygon(field)
     if poly == nil or poly.n < 3 or self.getNearestRoadPoint == nil then
         return nil
@@ -4650,27 +4664,40 @@ function NachbarFelderManager:getFeldZugang(field)
     local inPoly, randAbst = self.nfPunktInPolygon, self.nfRandAbstand
     local farmlandId = field.farmland ~= nil and field.farmland.id or nil
 
-    -- fremdes Feld (anderes Farmland) oder Weide an diesem Punkt?
+    -- 0 = nichts Fremdes, 1 = fremdes Feld (anderes Farmland), 2 = Weide
     local function fremd(px, pz)
         if self:isPunktInWeide(px, pz) then
-            return true
+            return 2
         end
         if FieldState == nil or FieldState.new == nil then
-            return false
+            return 0
         end
         local probe = FieldState.new()
         probe:update(px, pz)
-        return probe.isValid and farmlandId ~= nil and probe.farmlandId ~= farmlandId
+        if probe.isValid and farmlandId ~= nil and probe.farmlandId ~= farmlandId then
+            return 1
+        end
+        return 0
     end
-    local function wegFrei(rx, rz, px, pz)
+    local function wegKlasse(rx, rz, px, pz)
         local len = MathUtil.vector2Length(px - rx, pz - rz)
+        local klasse = 0
         for d = 2, len - 2, 4 do
             local t = d / len
-            if fremd(rx + (px - rx) * t, rz + (pz - rz) * t) then
-                return false
+            klasse = math.max(klasse, fremd(rx + (px - rx) * t, rz + (pz - rz) * t))
+            if klasse == 2 then
+                return 2
             end
         end
-        return true
+        return klasse
+    end
+    local function ausgeschlossen(x, z)
+        for _, a in ipairs(ausschluss or {}) do
+            if MathUtil.vector2Length(x - a[1], z - a[2]) < NachbarFelderManager.ZUGANG_AUSSCHLUSS_M then
+                return true
+            end
+        end
+        return false
     end
 
     -- Feldrand abtasten, je Stelle die naechste KI-Strasse
@@ -4719,25 +4746,29 @@ function NachbarFelderManager:getFeldZugang(field)
         return nil
     end
 
-    -- naechste Randstelle mit freiem Weg und Ziel im Feld; sonst die naechste mit Ziel
-    local notX, notZ, notDx, notDz, notC = nil, nil, nil, nil, nil
+    -- je Klasse die naechste Randstelle mit Ziel im Feld (nicht ausgeschlossen)
+    local beste = {}
     local anzahl = math.min(#kandidaten, NachbarFelderManager.ZUGANG_KANDIDATEN)
     for idx = 1, anzahl do
         local c = kandidaten[idx]
         local tx, tz, dx, dz = zielAn(c)
-        if tx ~= nil then
-            if wegFrei(c.rx, c.rz, c.px, c.pz) then
-                return tx, tz, MathUtil.getYRotationFromDirection(dx, dz), c.d, true
-            end
-            if notX == nil then
-                notX, notZ, notDx, notDz, notC = tx, tz, dx, dz, c
+        if tx ~= nil and not ausgeschlossen(tx, tz) then
+            local kl = wegKlasse(c.rx, c.rz, c.px, c.pz)
+            if beste[kl] == nil then
+                beste[kl] = { tx, tz, dx, dz, c.d }
+                if kl == 0 then
+                    break
+                end
             end
         end
     end
-    if notX == nil then
-        return nil
+    for kl = 0, 2 do
+        local b = beste[kl]
+        if b ~= nil then
+            return b[1], b[2], MathUtil.getYRotationFromDirection(b[3], b[4]), b[5], kl
+        end
     end
-    return notX, notZ, MathUtil.getYRotationFromDirection(notDx, notDz), notC.d, false
+    return nil
 end
 
 function NachbarFelderManager:setAIOnField(NachbarFelderWorker)
