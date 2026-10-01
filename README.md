@@ -1,5 +1,7 @@
 # Lebendige Straßen (FS25_NachbarFelder)
 
+![Lebendige Straßen – KI-Verkehr für den Landwirtschafts-Simulator 25](docs/bilder/banner.png)
+
 Angezeigter Name seit Build 151: **Lebendige Straßen** (en „Living Roads“, fr „Routes Vivantes“). Technisch heißt die
 Mod weiter `FS25_NachbarFelder` – ZIP-Name, Ordner `modSettings/FS25_NachbarFelder/`, Spielstände und Tastenbelegungen
 bleiben dadurch gültig.
