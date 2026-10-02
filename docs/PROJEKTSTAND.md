@@ -5,17 +5,18 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-01, Build 163 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-02, Build 164 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 163`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 164`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
->   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert.
+>   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
+>   bestätigt, PR → Release **build164**.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1511,3 +1512,25 @@ belegt; `getHasGroupFlagSet` im Callback geprüft).
   GitHub-Social-Preview (Settings → General → Social preview).
 - Kein Lua-Code geändert; `BUILD` nur hochgezählt, damit der Release-Workflow ein neues Release `build163` mit dem neuen
   Icon baut (`build162` existiert schon und würde übersprungen).
+
+---
+
+# ERGÄNZUNG 2026-10-02 — Build 164: Mindesttempo für Verkehrsfahrzeuge
+
+**Problem (User, Screenshot):** Ein kleiner blauer Raupen-Kompakttraktor fuhr viel zu langsam und blieb an einer
+Kreuzung stehen, obwohl nichts im Weg war.
+
+**Ursache:** Die Fahrzeugliste filterte nur nach Kategorie `TRACTORSS` und Gewicht (≤ 7 t). Mini- und Raupentraktoren
+(10–20 km/h) passten durch.
+
+**Fix:**
+- `nfGetItemMaxSpeed(item)`: `specs.maxSpeed` in km/h (Store-Spec `maxSpeed`, `Motorized.loadSpecValueMaxSpeed`:
+  storeData-Wert, Motor-Konfiguration oder aus den Gängen berechnet).
+- `buildTrafficVehicleList`: Fahrzeuge unter `NF_MIN_VEH_SPEED_KMH` = 30 fallen raus, jedes mit Name und Tempo im Log
+  (`[TRAFFIC]   zu langsam (12 km/h): …`); Zusammenfassung zählt sie mit. Unbekanntes Tempo gilt nicht als zu langsam.
+- Stammfahrzeug, das nicht mehr in der Liste steht, wird durch ein zufälliges aus der Liste ersetzt.
+- Die Liste wird beim Start gebaut – Fahrzeuge, die schon im Pool schlafen, bleiben bis zum Neustart.
+
+**Tests:** Mock `nfGetItemMaxSpeed` (Zahl, Text, fehlend); Strukturcheck, Vollparse, kein `pcall`.
+
+**Bestätigt im Spiel (User, 02.10.):** „ist erledigt, hat funktioniert“.
