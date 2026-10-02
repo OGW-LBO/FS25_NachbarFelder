@@ -2,7 +2,7 @@ NachbarFelderManager = {}
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 163
+NachbarFelderManager.BUILD = 164
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -4417,6 +4417,19 @@ local function nfGetItemWorkingWidth(item)
     return (type(w) == "number" and w > 0) and w or nil
 end
 
+-- Build 164: Hoechstgeschwindigkeit laut Shop in km/h, nil wenn unbekannt.
+-- specs.maxSpeed (Motorized.loadSpecValueMaxSpeed: storeData-Wert, Motor-Konfiguration
+-- oder aus den Gaengen berechnet).
+local function nfGetItemMaxSpeed(item)
+    nfLoadSpecs(item)
+    local specs = item ~= nil and item.specs or nil
+    if type(specs) ~= "table" then
+        return nil
+    end
+    local v = tonumber(specs.maxSpeed)
+    return (type(v) == "number" and v > 0) and v or nil
+end
+
 -- Nutzlast aus StoreItem-Specs (in Litern, nil wenn nicht verfügbar).
 local function nfGetItemCapacity(item)
     local cap = nil
@@ -4445,6 +4458,10 @@ local NF_ENG_MAX_VEH_WEIGHT_KG  = 12000
 -- Build 105: Kleintraktoren wiegen 3-6 t; 7 t faengt Ausreisser ab, die
 -- faelschlich in TRACTORSS einsortiert sind.
 local NF_KLEIN_MAX_VEH_WEIGHT_KG = 7000
+-- Build 164: Mini- und Raupen-Kompakttraktoren fahren nur 10-20 km/h, halten den
+-- Verkehr auf und blieben im Test ohne Hindernis stehen. Darunter kein Verkehr.
+-- Unbekanntes Tempo zaehlt nicht als zu langsam.
+local NF_MIN_VEH_SPEED_KMH = 30
 -- Auch innerhalb der leichten Kategorien gibt es Brocken: ein 8-m-Schwader
 -- zaehlt als RAKES, ist aber breiter als der halbe Feldweg. Die Arbeitsbreite
 -- steht nicht in den StoreItem-Specs (nur item.specs.weight ist dort belegt),
@@ -4507,6 +4524,7 @@ function NachbarFelderManager:buildTrafficVehicleList()
 
     local maxGewicht  = NF_KLEIN_MAX_VEH_WEIGHT_KG
     local ohneGewicht = {}
+    local zuLangsam   = 0
 
     for _, item in pairs(allItems) do
         if item ~= nil and item.xmlFilename ~= nil
@@ -4514,8 +4532,14 @@ function NachbarFelderManager:buildTrafficVehicleList()
            and not nfIsWaterVehicle(item.xmlFilename)
            and not (self.trafficVehicleBlacklist and self.trafficVehicleBlacklist[item.xmlFilename]) then
             local w = nfGetItemWeight(item)
+            local tempo = nfGetItemMaxSpeed(item)
+            -- Build 164: zu langsame Fahrzeuge (Mini-/Raupentraktoren) aussortieren
+            if tempo ~= nil and tempo < NF_MIN_VEH_SPEED_KMH then
+                zuLangsam = zuLangsam + 1
+                print(string.format("NachbarFelder: [TRAFFIC]   zu langsam (%.0f km/h): %s", tempo,
+                    tostring(string.match(item.xmlFilename, "[^/\\]+$") or item.xmlFilename)))
             -- Build 105: unbekanntes Gewicht wird nicht mehr durchgewunken.
-            if w ~= nil and w <= maxGewicht then
+            elseif w ~= nil and w <= maxGewicht then
                 table.insert(self.trafficVehicleList, {
                     filename  = item.xmlFilename,
                     category  = item.categoryName or "",
@@ -4541,8 +4565,8 @@ function NachbarFelderManager:buildTrafficVehicleList()
         print("NachbarFelder: [TRAFFIC] Warnung: kein Traktorgewicht lesbar - Liste nur nach Kategorie")
     end
     print(string.format("NachbarFelder: [TRAFFIC] Fahrzeugliste: %d Kleintraktoren bis %.0f t" ..
-        " (%d ohne lesbares Gewicht)", #self.trafficVehicleList,
-        NF_KLEIN_MAX_VEH_WEIGHT_KG / 1000, #ohneGewicht))
+        " (%d ohne lesbares Gewicht, %d unter %d km/h aussortiert)", #self.trafficVehicleList,
+        NF_KLEIN_MAX_VEH_WEIGHT_KG / 1000, #ohneGewicht, zuLangsam, NF_MIN_VEH_SPEED_KMH))
 end
 
 -- ============================================================
@@ -5238,9 +5262,14 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     local vehInfo
     if forcedVehicleXML ~= nil then
         -- Stammfahrzeug: erzwungenes XML (Wiederkehrender Nachbar)
-        vehInfo = { filename = forcedVehicleXML, category = "" }
+        -- Build 164: steht das Stammfahrzeug nicht mehr in der Liste (z. B. zu langsam),
+        -- kommt ein anderes Fahrzeug aus der Liste
+        vehInfo = nil
         for _, v in ipairs(self.trafficVehicleList) do
             if v.filename == forcedVehicleXML then vehInfo = v; break end
+        end
+        if vehInfo == nil then
+            vehInfo = self.trafficVehicleList[math.random(1, #self.trafficVehicleList)]
         end
     else
         vehInfo = self.trafficVehicleList[math.random(1, #self.trafficVehicleList)]
