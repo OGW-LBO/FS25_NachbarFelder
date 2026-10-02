@@ -15,8 +15,8 @@
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
->   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) wartet
->   auf Test im Spiel.
+>   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
+>   bestätigt, PR → Release **build164**.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1532,3 +1532,5 @@ Kreuzung stehen, obwohl nichts im Weg war.
 - Die Liste wird beim Start gebaut – Fahrzeuge, die schon im Pool schlafen, bleiben bis zum Neustart.
 
 **Tests:** Mock `nfGetItemMaxSpeed` (Zahl, Text, fehlend); Strukturcheck, Vollparse, kein `pcall`.
+
+**Bestätigt im Spiel (User, 02.10.):** „ist erledigt, hat funktioniert“.
