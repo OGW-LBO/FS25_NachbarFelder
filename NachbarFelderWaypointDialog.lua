@@ -17,6 +17,9 @@ end
 
 
 NachbarFelderWaypointDialog = {}
+
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
 local NachbarFelderWaypointDialog_mt = Class(NachbarFelderWaypointDialog, DialogElement)
 
 local modDirectory = g_currentModDirectory

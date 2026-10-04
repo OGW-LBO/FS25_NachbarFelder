@@ -1,8 +1,11 @@
 NachbarFelderManager = {}
 
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
+
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 164
+NachbarFelderManager.BUILD = 165
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -124,6 +127,7 @@ function NachbarFelderManager.new()
     self.trafficPaused = false      -- nachbarFelderTrafficStop/Start Console-Befehl
     self.trafficTrailerSize = 2     -- 0=keine Anhänger  1=klein(≤4kL)  2=mittel(≤8kL)  3=alle(≤15kL)
     self.engeMap        = true      -- enge Karte: nur Kleintraktoren + leichte Anbaugeraete
+    self.debugLog       = false     -- Build 165: ausfuehrliches Log (Einstellungen / logLevel=2)
     self.spawnBereichRadius = 25    -- Umkreis um den Shop-Spawn, der frei sein muss (m)
     self.spawnLookAt    = nil       -- gecachter Zielpunkt der Spawn-Blickrichtung {x=,z=,quelle=}
     self.trafficPool = {}           -- Fahrzeug-Pool (Build 65): schlafende Patrol-Fahrzeuge
@@ -189,6 +193,7 @@ function NachbarFelderManager.new()
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#trafficLimit",       "TrafficLimit")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#trafficTrailerSize", "TrafficTrailerSize")
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#engeMap",            "EngeMap")
+    xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#debugLog",           "DebugLog")
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".settings.mission(?)#type",   "MissionType")
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings.mission(?)#active", "MissionActive")
     -- Vorfrucht-Gedaechtnis (Build 68): welche Frucht stand zuletzt auf dem Feld
@@ -219,6 +224,7 @@ function NachbarFelderManager:getSettingsState()
         trafficLimit       = self.trafficLimit or 4,
         trafficTrailerSize = self.trafficTrailerSize or 2,
         engeMap            = self.engeMap ~= false,
+        debugLog           = self.debugLog == true,   -- Build 165
         missions           = missions,
         -- Build 157: Helfer-Farm fuer die Clients (Karten-Symbole ausblenden); 0 = noch unbekannt
         helferFarmId       = self:getHelferFarmIdAnzeige(),
@@ -256,6 +262,9 @@ function NachbarFelderManager:applySettingsState(state)
             self.trafficTrailerList = nil
         end
         self.engeMap = neu
+    end
+    if state.debugLog ~= nil then   -- Build 165
+        self:setDebugLog(state.debugLog == true)
     end
     if state.missions ~= nil then
         for name, act in pairs(state.missions) do
@@ -295,6 +304,8 @@ function NachbarFelderManager:applySettingEdit(name, value)
     elseif name == "trafficTrailerSize" then
         self.trafficTrailerSize = math.max(0, math.min(3, asInt(value)))
         self.trafficTrailerList = nil
+    elseif name == "debugLog" then   -- Build 165
+        self:setDebugLog(asBool(value))
     elseif name == "engeMap" then
         self.engeMap = asBool(value)
         self.trafficVehicleList = nil
@@ -783,6 +794,8 @@ function NachbarFelderManager:loadServerConfig()
         self.patrolHopsMax         = readInt("patrolHopsMax",      20, 1, 99)
         -- Log-Stufe: 1 = normal (ohne Hop-/GOTO-Dauerzeilen), 2 = Debug
         self.logLevel              = readInt("logLevel",           1, 1, 2)
+        -- Build 165: logLevel=2 schaltet das Debug-Log ein (Einstellung im Spiel geht vor)
+        self:setDebugLog(self.logLevel >= 2)
         -- Build 138: Helfer-Farm, 0 = automatisch (siehe getEffectiveFarmId)
         self.cfgFarmId             = readInt("farmId",             0, 0, 16)
         if self.patrolHopsMax < self.patrolHopsMin then
@@ -2006,6 +2019,21 @@ local NF_CAT_NAMES = { [0]="Normal", [1]="Kurz", [2]="Lang", [3]="Durchfahrt", [
 -- Für Fehlersuche in der ServerConfig logLevel=2 setzen.
 -- Fehler/Lebenszyklus loggen immer.
 -- ============================================================
+--- Debug-Log an/aus (Build 165). Steuert NachbarFelderLog.debug (alle Log-Zeilen
+--- der Mod) und die alte Log-Stufe (Dauerschreiber nur auf Stufe 2).
+function NachbarFelderManager:setDebugLog(an)
+    an = an == true
+    local vorher = self.debugLog == true
+    self.debugLog = an
+    self.logLevel = an and 2 or 1
+    if NachbarFelderLog ~= nil then
+        NachbarFelderLog.debug = an
+    end
+    if an ~= vorher then
+        print("NachbarFelder: Debug-Log " .. (an and "an" or "aus"))
+    end
+end
+
 function NachbarFelderManager:log(lvl, msg)
     if (self.logLevel or 1) >= lvl then
         print(msg)
@@ -5633,6 +5661,7 @@ function NachbarFelderManager:saveToXMLFile()
         xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       math.floor(tonumber(st.trafficLimit) or 0))
         xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", math.floor(tonumber(st.trafficTrailerSize) or 0))
         xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap ~= false)
+        xmlFile:setBool(baseXmlKey .. ".settings#debugLog",           st.debugLog == true)
         local j = 0
         for mName, mActive in pairs(st.missions or {}) do
             local mKey = ("%s.settings.mission(%d)"):format(baseXmlKey, j)
@@ -5663,6 +5692,7 @@ function NachbarFelderManager:loadFromXML()
             trafficLimit       = xmlFile:getValue(baseXmlKey .. ".settings#trafficLimit"),
             trafficTrailerSize = xmlFile:getValue(baseXmlKey .. ".settings#trafficTrailerSize"),
             engeMap            = xmlFile:getValue(baseXmlKey .. ".settings#engeMap"),
+            debugLog           = xmlFile:getValue(baseXmlKey .. ".settings#debugLog"),   -- Build 165
             missions           = {},
         }
         xmlFile:iterate(baseXmlKey .. ".settings.mission", function(_, mKey)
