@@ -3,6 +3,32 @@ g_currentModName = "FS25_NachbarFelder"
 local modName = g_currentModName
 
 -- ============================================================
+-- Debug-Log (Build 165)
+-- Alle Log-Zeilen der Mod laufen ueber NachbarFelderLog.print. Ist das
+-- Debug-Log aus (Standard), landen nur Warnungen, Fehler und die Startzeile
+-- mit der Build-Nummer im Log. Schalter: ESC > Einstellungen > Lebendige
+-- Strassen > "Debug-Log" (Admin, wird an alle Clients synchronisiert) oder
+-- logLevel=2 in der Server-Konfig.
+-- ============================================================
+NachbarFelderLog = { debug = false }
+local NF_LOG_IMMER = { "WARNUNG", "Warnung", "Fehler", "FEHLER", "fehlgeschlagen",
+                       "nicht verfuegbar", "loadMap auf", "Debug-Log" }
+function NachbarFelderLog.print(msg)
+    if NachbarFelderLog.debug then
+        print(msg)
+        return
+    end
+    local text = tostring(msg)
+    for i = 1, #NF_LOG_IMMER do
+        if string.find(text, NF_LOG_IMMER[i], 1, true) ~= nil then
+            print(text)
+            return
+        end
+    end
+end
+local print = NachbarFelderLog.print
+
+-- ============================================================
 -- Network-Events: Client → Server
 -- ============================================================
 NachbarFelderDeleteEvent = {}
@@ -157,6 +183,8 @@ function NachbarFelderSettingsSyncEvent:writeStream(streamId, connection)
     end
     -- Build 157: Helfer-Farm (Karten-Symbole der Nachbarn ausblenden), 0 = unbekannt
     streamWriteUInt8(streamId, math.max(0, math.min(255, st.helferFarmId or 0)))
+    -- Build 165: Debug-Log an/aus
+    streamWriteUInt8(streamId, (st.debugLog == true) and 1 or 0)
 end
 function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     local state = {}
@@ -173,6 +201,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
         state.missions[mName] = mActive
     end
     state.helferFarmId = streamReadUInt8(streamId)   -- Build 157
+    state.debugLog     = streamReadUInt8(streamId) == 1   -- Build 165
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
         g_NachbarFelderManager:applySettingsState(state)

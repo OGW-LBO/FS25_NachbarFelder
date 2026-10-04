@@ -43,6 +43,9 @@ local function nfSetOptionState(elem, state)
 end
 
 NachbarFelderWaypointPage = {}
+
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
 local NachbarFelderWaypointPage_mt = Class(NachbarFelderWaypointPage, FrameElement)
 local modDirectory = g_currentModDirectory
 

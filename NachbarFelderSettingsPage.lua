@@ -1,4 +1,7 @@
 ﻿NachbarFelderSettingsPage = {}
+
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
 local NachbarFelderSettingsPage_mt = Class(NachbarFelderSettingsPage, FrameElement)
 
 
@@ -22,6 +25,7 @@ function NachbarFelderSettingsPage.new(NachbarFelderManager)
 	self.settings["trafficLimit"] = NachbarFelderManager.trafficLimit
 	self.settings["trafficTrailerSize"] = NachbarFelderManager.trafficTrailerSize
 	self.settings["engeMap"] = NachbarFelderManager.engeMap
+	self.settings["debugLog"] = NachbarFelderManager.debugLog == true   -- Build 165
 
 	createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.BOOL, baseXmlKey .. ".mod#active", "Mod_active")
@@ -43,6 +47,7 @@ function NachbarFelderSettingsPage:init()
 		{ name = "trafficLimit", autoBind = true, min = 1, max = 8, step = 1, nillable = false, value = self.settings["trafficLimit"]},
 		{ name = "trafficTrailerSize", autoBind = true, min = 0, max = 3, step = 1, nillable = false, value = self.settings["trafficTrailerSize"]},
 		{ name = "engeMap", autoBind = true, nillable = false },
+		{ name = "debugLog", autoBind = true, nillable = false },   -- Build 165
     }
 
 	-- Build 150: Feldarbeit entfernt - keine Regler mehr fuer "Anzahl Arbeiter" und die
@@ -76,7 +81,10 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
 				NachbarFelderSettingsEditEvent.new(a.name, num))
 	end
 
-	if self.NachbarFelderManager[a.name] ~= nil then
+	if a.name == "debugLog" then
+		-- Build 165: ueber den Setter, damit das Log-Filter mitschaltet
+		self.NachbarFelderManager:setDebugLog(b == true)
+	elseif self.NachbarFelderManager[a.name] ~= nil then
 		self.NachbarFelderManager[a.name] = b
 		-- Trailer-Cache invalidieren wenn Größeneinstellung geändert wurde
 		if a.name == "trafficTrailerSize" then
@@ -113,6 +121,7 @@ function NachbarFelderSettingsPage:refreshFromManager()
 	self.settings["trafficLimit"]          = m.trafficLimit or 4
 	self.settings["trafficTrailerSize"]    = m.trafficTrailerSize or 2
 	self.settings["engeMap"]               = m.engeMap ~= false
+	self.settings["debugLog"] = m.debugLog == true   -- Build 165
 	for _, v in pairs(m.missionHelper or {}) do
 		if not v.skip then
 			self.settings[v.name] = v.active == true
@@ -154,6 +163,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 		self.settings["trafficLimit"]          = m.trafficLimit or 4
 		self.settings["trafficTrailerSize"]    = m.trafficTrailerSize or 2
 		self.settings["engeMap"]               = m.engeMap ~= false
+		self.settings["debugLog"] = m.debugLog == true   -- Build 165
 		for _, v in pairs(properties) do
 			if v.name == "MAX_ASSISTANT_WORKERS" then
 				v.value = self.settings["MAX_ASSISTANT_WORKERS"]
@@ -227,6 +237,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 		self.NachbarFelderManager.trafficTrailerList = nil
 	end
 	self.settings["engeMap"] = self.NachbarFelderManager.engeMap ~= false
+	self.settings["debugLog"] = self.NachbarFelderManager.debugLog == true   -- Build 165
 
 	print("loadFromXml")
 	

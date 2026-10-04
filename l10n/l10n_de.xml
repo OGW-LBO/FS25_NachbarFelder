@@ -11,6 +11,8 @@
         <text name="NF_trafficTrailerSize_long" text="Anbaugeräte für Traffic-Fahrzeuge. 0 = Keine Anbaugeräte | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Mähwerk, Zinkenrotor, Rechen, Sämaschine)"/>
         <text name="NF_engeMap_short" text="Enge Karte"/>
         <text name="NF_engeMap_long" text="Für enge Karten und kleine Händler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugerät (Wender, Schwader, bis 3 t). Großtraktoren, Radlader und Teleskoplader bleiben draußen. Aus = alles erlaubt."/>
+        <text name="NF_debugLog_short" text="Debug-Log"/>
+        <text name="NF_debugLog_long" text="Ausführliches Log für die Fehlersuche: jede Fahrt, jeder Spawn und jede Diagnose landet in der log.txt. Aus = nur Warnungen und Fehler. Nur für Admins, gilt für Server und alle Spieler."/>
         <text name="input_NF_DELETE_HELPER" text="Lebendige Straßen: Alle Nachbar-Fahrzeuge entfernen"/>
         <text name="input_NF_ADD_WAYPOINT" text="Lebendige Straßen: Wegpunkt setzen"/>
         <text name="input_NF_REMOVE_WAYPOINT" text="Lebendige Straßen: Letzten Wegpunkt entfernen"/>
@@ -68,7 +70,7 @@
         <text name="NF_help_wegpunkte_text2" text="Typen: Normal (20–60 s Halt), Kurz (5–20 s), Lang (2–5 Min.) und Spawnpunkt. An Spawnpunkten werden neue Fahrzeuge geladen. Am besten im Traktor auf der rechten Spur setzen, Front in Fahrtrichtung, mit etwas Platz nach vorn. Ohne Spawnpunkt sucht die Mod selbst einen freien Platz an einer KI-Straße."/>
         <text name="NF_help_wegpunkte_text3" text="Unter „Fahrzeugtypen“ legst du fest, welche Fahrzeuge die Nachbarn benutzen (kleine, mittlere, große Traktoren, Radlader, Teleskoplader). Mit „WP auf Karte zeigen“ erscheinen die Punkte als Marker auf der Karte."/>
         <text name="NF_help_page_einstellungen_title" text="Einstellungen"/>
-        <text name="NF_help_einstellungen_text1" text="Die Einstellungen findest du unter ESC &gt; Einstellungen im Abschnitt „Lebendige Straßen“ (nur Admin ändert): Mod an/aus, Anzahl der Verkehrsfahrzeuge (1–8), Größe der Anbaugeräte und „Enge Karte“ (nur kleine Traktoren mit leichten Geräten)."/>
+        <text name="NF_help_einstellungen_text1" text="Die Einstellungen findest du unter ESC &gt; Einstellungen im Abschnitt „Lebendige Straßen“ (nur Admin ändert): Mod an/aus, Anzahl der Verkehrsfahrzeuge (1–8), Größe der Anbaugeräte und „Enge Karte“ (nur kleine Traktoren mit leichten Geräten). „Debug-Log“ schreibt für die Fehlersuche ausführlich in die log.txt; aus = nur Warnungen und Fehler."/>
         <text name="NF_help_einstellungen_text2" text="Auf einem Server gibt es zusätzlich die Datei modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, z. B. für Spawn-Abstände, Parkzeiten, Pool-Größe, Gespann-Anteil und „spielverkehrAnmelden“. Änderungen dort wirken nach einem Neustart."/>
         <text name="NF_help_page_tasten_title" text="Tasten und Konsole"/>
         <text name="NF_help_tasten_text1" text="Standardtasten (unter Einstellungen &gt; Steuerung änderbar, Einträge „Lebendige Straßen: …“): Strg + Alt + O Wegpunkt setzen, Strg + Alt + U letzten Wegpunkt entfernen, Strg + Alt + C Wegpunkte nacheinander anzeigen, Strg + Alt + L alle Nachbar-Fahrzeuge entfernen (nur Admin)."/>

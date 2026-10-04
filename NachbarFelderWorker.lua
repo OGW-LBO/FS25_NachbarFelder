@@ -1,5 +1,8 @@
 NachbarFelderWorker = {}
 
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
+
 local NachbarFelderWorker_class = Class(NachbarFelderWorker)
 
 function NachbarFelderWorker.new(vehiclesToLoad, mission, status, fieldId, x, y, z, angle)
@@ -364,7 +367,10 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         -- Findet sich auch in 150 m keine KI-Strasse, geht es zurueck
                         -- zum Shop-Spawn. Das ist ein sichtbarer Sprung, aber die
                         -- Alternative ist ein Fahrzeug, das nie wieder faehrt.
-                        if tt.gotoRejects == 2 and not tt.roadSnapped
+                        -- Build 166: schon beim ERSTEN Fehlschlag. Logs 04.10.: nach dem
+                        -- Versetzen fuhr das Fahrzeug fast immer los - der erste Versuch
+                        -- vom alten Standort aus war nur verlorene Zeit (+1 neuer Auftrag).
+                        if tt.gotoRejects >= 1 and not tt.roadSnapped
                            and veh0 ~= nil and veh0.rootNode ~= nil
                            and mgr.getNearestRoadPoint ~= nil then
                             nfRoadSnap(tt, mgr, veh0)

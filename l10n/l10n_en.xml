@@ -11,6 +11,8 @@
         <text name="NF_trafficTrailerSize_long" text="Implements for traffic vehicles. 0 = None | 1 = Small | 2 = Medium | 3 = All (plows, cultivators, mowers, tedders, rakes, seed drills)"/>
         <text name="NF_engeMap_short" text="Narrow map"/>
         <text name="NF_engeMap_long" text="For narrow maps and cramped dealer areas: neighbours only use small and medium tractors (up to 12 t) with light implements (tedders, rakes, up to 3 t). Large tractors, wheel loaders and telehandlers stay out. Off = everything allowed."/>
+        <text name="NF_debugLog_short" text="Debug log"/>
+        <text name="NF_debugLog_long" text="Detailed log for troubleshooting: every trip, spawn and diagnosis goes into log.txt. Off = warnings and errors only. Admins only, applies to the server and all players."/>
         <text name="input_NF_DELETE_HELPER" text="Living Roads: Remove all neighbour vehicles"/>
         <text name="input_NF_ADD_WAYPOINT" text="Living Roads: Set waypoint"/>
         <text name="input_NF_REMOVE_WAYPOINT" text="Living Roads: Remove last waypoint"/>
@@ -68,7 +70,7 @@
         <text name="NF_help_wegpunkte_text2" text="Types: Normal (20–60 s stop), Short (5–20 s), Long (2–5 min) and spawn point. New vehicles are loaded at spawn points. Best set them from a tractor on the right lane, front facing the driving direction, with some room ahead. Without a spawn point the mod looks for a free spot on an AI road itself."/>
         <text name="NF_help_wegpunkte_text3" text="Under &quot;Vehicle types&quot; you choose which vehicles the neighbours use (small, medium, large tractors, wheel loaders, telehandlers). &quot;Show WP on map&quot; displays the points as map markers."/>
         <text name="NF_help_page_einstellungen_title" text="Settings"/>
-        <text name="NF_help_einstellungen_text1" text="The settings are in ESC &gt; Settings, section &quot;Living Roads&quot; (only admins can change them): mod on/off, number of traffic vehicles (1–8), implement size and &quot;Narrow map&quot; (small tractors with light implements only)."/>
+        <text name="NF_help_einstellungen_text1" text="The settings are in ESC &gt; Settings, section &quot;Living Roads&quot; (only admins can change them): mod on/off, number of traffic vehicles (1–8), implement size and &quot;Narrow map&quot; (small tractors with light implements only). &quot;Debug log&quot; writes detailed information to log.txt for troubleshooting; off = warnings and errors only."/>
         <text name="NF_help_einstellungen_text2" text="On a server there is also the file modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, e.g. for spawn intervals, parking times, pool size, implement share and &quot;spielverkehrAnmelden&quot;. Changes there take effect after a restart."/>
         <text name="NF_help_page_tasten_title" text="Keys and console"/>
         <text name="NF_help_tasten_text1" text="Default keys (changeable in Settings &gt; Controls, entries &quot;Living Roads: …&quot;): Ctrl + Alt + O set waypoint, Ctrl + Alt + U remove last waypoint, Ctrl + Alt + C show waypoints one by one, Ctrl + Alt + L remove all neighbour vehicles (admin only)."/>

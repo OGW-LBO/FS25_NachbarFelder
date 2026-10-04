@@ -17,8 +17,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.0.0.0` (für den ModHub zurückgesetzt, `descVersion` 113)
-- Interner Stand: `NachbarFelderManager.BUILD = 164` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 164)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 167` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 167)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -142,8 +142,10 @@ Das Log liegt unter `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\log.t
 Server im Profil des Servers. **Bitte vor dem Einfügen persönliche Daten entfernen** — Logs enthalten
 Benutzernamen, Pfade und im Multiplayer auch Spielernamen.
 
-Für längere Diagnosen lässt sich die Mod gesprächiger stellen: in der
-`NachbarFelderServerConfig.xml` den Wert `logLevel` auf `2` setzen.
+Standardmäßig schreibt die Mod nur Warnungen, Fehler und die Startzeile mit der Build-Nummer ins Log.
+Für Fehlersuche: **ESC → Einstellungen → Lebendige Straßen → „Debug-Log“** einschalten (Admin; gilt für
+Server und alle Spieler, wird im Spielstand gespeichert). Alternativ `logLevel` = `2` in der
+`NachbarFelderServerConfig.xml` (wirkt beim Serverstart, die Einstellung im Spiel geht vor).
 
 ## Lizenz und Nutzung
 

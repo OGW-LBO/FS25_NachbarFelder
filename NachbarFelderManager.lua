@@ -1,10 +1,19 @@
 NachbarFelderManager = {}
 
+-- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+local print = NachbarFelderLog.print
+
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 164
+NachbarFelderManager.BUILD = 167
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
+
+-- Build 166: Begegnung zweier Nachbar-Fahrzeuge (siehe loeseBegegnung)
+NachbarFelderManager.BEGEGNUNG_RADIUS  = 100     -- m, so nah muss der stehende Nachbar sein
+NachbarFelderManager.BEGEGNUNG_NAH     = 20      -- m, bis hier zaehlt jede Richtung, darueber nur "vor mir"
+NachbarFelderManager.BEGEGNUNG_STEHT_MS = 15000  -- so lange muss auch er schon stehen
+NachbarFelderManager.BEGEGNUNG_MAX     = 3       -- Ausweichen je Fahrzeug, danach normale Stufen
 
 local modSettingDirectory = g_currentModSettingsDirectory
 local modName = g_currentModName
@@ -124,6 +133,7 @@ function NachbarFelderManager.new()
     self.trafficPaused = false      -- nachbarFelderTrafficStop/Start Console-Befehl
     self.trafficTrailerSize = 2     -- 0=keine Anhänger  1=klein(≤4kL)  2=mittel(≤8kL)  3=alle(≤15kL)
     self.engeMap        = true      -- enge Karte: nur Kleintraktoren + leichte Anbaugeraete
+    self.debugLog       = false     -- Build 165: ausfuehrliches Log (Einstellungen / logLevel=2)
     self.spawnBereichRadius = 25    -- Umkreis um den Shop-Spawn, der frei sein muss (m)
     self.spawnLookAt    = nil       -- gecachter Zielpunkt der Spawn-Blickrichtung {x=,z=,quelle=}
     self.trafficPool = {}           -- Fahrzeug-Pool (Build 65): schlafende Patrol-Fahrzeuge
@@ -189,6 +199,7 @@ function NachbarFelderManager.new()
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#trafficLimit",       "TrafficLimit")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#trafficTrailerSize", "TrafficTrailerSize")
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#engeMap",            "EngeMap")
+    xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#debugLog",           "DebugLog")
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".settings.mission(?)#type",   "MissionType")
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings.mission(?)#active", "MissionActive")
     -- Vorfrucht-Gedaechtnis (Build 68): welche Frucht stand zuletzt auf dem Feld
@@ -219,6 +230,7 @@ function NachbarFelderManager:getSettingsState()
         trafficLimit       = self.trafficLimit or 4,
         trafficTrailerSize = self.trafficTrailerSize or 2,
         engeMap            = self.engeMap ~= false,
+        debugLog           = self.debugLog == true,   -- Build 165
         missions           = missions,
         -- Build 157: Helfer-Farm fuer die Clients (Karten-Symbole ausblenden); 0 = noch unbekannt
         helferFarmId       = self:getHelferFarmIdAnzeige(),
@@ -256,6 +268,9 @@ function NachbarFelderManager:applySettingsState(state)
             self.trafficTrailerList = nil
         end
         self.engeMap = neu
+    end
+    if state.debugLog ~= nil then   -- Build 165
+        self:setDebugLog(state.debugLog == true)
     end
     if state.missions ~= nil then
         for name, act in pairs(state.missions) do
@@ -295,6 +310,8 @@ function NachbarFelderManager:applySettingEdit(name, value)
     elseif name == "trafficTrailerSize" then
         self.trafficTrailerSize = math.max(0, math.min(3, asInt(value)))
         self.trafficTrailerList = nil
+    elseif name == "debugLog" then   -- Build 165
+        self:setDebugLog(asBool(value))
     elseif name == "engeMap" then
         self.engeMap = asBool(value)
         self.trafficVehicleList = nil
@@ -783,6 +800,8 @@ function NachbarFelderManager:loadServerConfig()
         self.patrolHopsMax         = readInt("patrolHopsMax",      20, 1, 99)
         -- Log-Stufe: 1 = normal (ohne Hop-/GOTO-Dauerzeilen), 2 = Debug
         self.logLevel              = readInt("logLevel",           1, 1, 2)
+        -- Build 165: logLevel=2 schaltet das Debug-Log ein (Einstellung im Spiel geht vor)
+        self:setDebugLog(self.logLevel >= 2)
         -- Build 138: Helfer-Farm, 0 = automatisch (siehe getEffectiveFarmId)
         self.cfgFarmId             = readInt("farmId",             0, 0, 16)
         if self.patrolHopsMax < self.patrolHopsMin then
@@ -2006,6 +2025,21 @@ local NF_CAT_NAMES = { [0]="Normal", [1]="Kurz", [2]="Lang", [3]="Durchfahrt", [
 -- Für Fehlersuche in der ServerConfig logLevel=2 setzen.
 -- Fehler/Lebenszyklus loggen immer.
 -- ============================================================
+--- Debug-Log an/aus (Build 165). Steuert NachbarFelderLog.debug (alle Log-Zeilen
+--- der Mod) und die alte Log-Stufe (Dauerschreiber nur auf Stufe 2).
+function NachbarFelderManager:setDebugLog(an)
+    an = an == true
+    local vorher = self.debugLog == true
+    self.debugLog = an
+    self.logLevel = an and 2 or 1
+    if NachbarFelderLog ~= nil then
+        NachbarFelderLog.debug = an
+    end
+    if an ~= vorher then
+        print("NachbarFelder: Debug-Log " .. (an and "an" or "aus"))
+    end
+end
+
 function NachbarFelderManager:log(lvl, msg)
     if (self.logLevel or 1) >= lvl then
         print(msg)
@@ -2396,6 +2430,7 @@ function NachbarFelderManager:update(dt)
                     w.patrolWdLastX, w.patrolWdLastZ, w.patrolWdSince = x, z, g_time
                     w.patrolWdStage = 0
                     w.wdRettungen   = nil   -- Build 107
+                    w.begegnungen   = nil   -- Build 166: faehrt wieder
                 else
                     local stuckMs = g_time - (w.patrolWdSince or g_time)
                     local stage   = w.patrolWdStage or 0
@@ -2403,6 +2438,16 @@ function NachbarFelderManager:update(dt)
                     local zielDist = math.huge
                     if w.patrolTargetX ~= nil and w.patrolTargetZ ~= nil then
                         zielDist = MathUtil.vector2Length(x - w.patrolTargetX, z - w.patrolTargetZ)
+                    end
+
+                    -- Build 167: Steht ein frisch geladenes Fahrzeug nach 30 s noch auf
+                    -- seinem Ladeplatz, taugt der Platz nicht. Log 04.10. 14:01-14:12: vier
+                    -- von fuenf Fahrzeugen kamen vom Ladeplatz ~78 m vor dem Shop nie weg
+                    -- (Motor an, Auftrag aktiv, 0 km/h). Bisher zaehlte nur ein sofort
+                    -- abgewiesener Start als Fehlschlag. merkeSpawnFehlschlag wirkt nur bis
+                    -- 10 m vom Ladeplatz und nur einmal je Fahrzeug.
+                    if stuckMs > 30000 and stage == 0 and zielDist >= 15 then
+                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still")
                     end
 
                     if stuckMs > 12000 and zielDist < 15 then
@@ -2426,6 +2471,11 @@ function NachbarFelderManager:update(dt)
                         self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %.0f m vor Ziel WP%s still -" ..
                             " gilt als angekommen, parkt (patrolId=%s)",
                             zielDist, tostring(w.patrolDestIdx), tostring(w.fieldId)))
+
+                    elseif stuckMs > 30000 and stage == 0 and self:loeseBegegnung(k, veh, x, z) then
+                        -- Build 166: zwei Nachbar-Fahrzeuge warten aufeinander - dieses
+                        -- weicht aus (siehe loeseBegegnung), das andere faehrt weiter
+                        w.patrolWdStage = 1
 
                     elseif stuckMs > 30000 and stage == 0 then
                         -- Stufe 1: neues zufaelliges Ziel
@@ -3405,7 +3455,7 @@ end
 function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
     self:ladeLadeplatzSperre()
     for _, p in ipairs(self.spawnPlatzSperre or {}) do
-        if MathUtil.vector2Length(x - p[1], z - p[2]) < 15 then return true end
+        if MathUtil.vector2Length(x - p[1], z - p[2]) < NachbarFelderManager.LADEPLATZ_SPERR_RADIUS then return true end
     end
     return false
 end
@@ -3738,6 +3788,10 @@ NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
 NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
 NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
 NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
+-- Build 167: Sperrradius um einen gescheiterten Ladeplatz (vorher 15 m). Log 04.10.: nach der
+-- Sperre von x=-363 z=29 wurde der naechste Platz wenige Meter daneben gewaehlt - dasselbe
+-- Strassenstueck, das die KI nicht erreicht (NotReachable), die Fahrzeuge kamen wieder nicht weg.
+NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
@@ -4859,6 +4913,90 @@ function NachbarFelderManager:rettungAufStrasse(veh, x, z)
     return ok
 end
 
+--- Steht ein anderes Nachbar-Fahrzeug in der Naehe ebenfalls still? (Build 166)
+--- Log 04.10.: series6M und arion550 standen 14 m auseinander gleichzeitig 30 s fest,
+--- bekamen beide neue Ziele und standen eine Minute spaeter 4 m auseinander wieder.
+--- Zwei KI-Fahrzeuge warten aufeinander - das loest sich nicht von selbst.
+--- @return table|nil Eintrag aus vehicleType des stehenden Nachbarn
+function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius, fx, fz)
+    -- Build 166: Screenshot 04.10.: der Claas stand quer zum Wenden, der Gegenverkehr
+    -- wartete weit ueber 30 m entfernt. Darum bis 100 m - ab 20 m aber nur, wenn der
+    -- Nachbar grob vor dem Fahrzeug steht (innerhalb 60 Grad zur Fahrtrichtung fx/fz).
+    for _, k2 in pairs(self.vehicleType or {}) do
+        local w2 = k2 ~= eigenerEintrag and k2.NachbarFelderWorker or nil
+        if w2 ~= nil and w2.isPatrol and w2.status == 1 and w2.patrolWdLastX ~= nil
+           and g_time - (w2.patrolWdSince or g_time) > NachbarFelderManager.BEGEGNUNG_STEHT_MS then
+            local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
+            if self:getIsVehicleAlive(v2) then
+                local x2, _, z2 = getWorldTranslation(v2.rootNode)
+                local d = MathUtil.vector2Length(x2 - x, z2 - z)
+                if d <= radius then
+                    local vorMir = true
+                    if d > NachbarFelderManager.BEGEGNUNG_NAH and fx ~= nil and fz ~= nil and d > 0.01 then
+                        vorMir = ((x2 - x) * fx + (z2 - z) * fz) / d > 0.5
+                    end
+                    if vorMir then
+                        return k2
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- Begegnung zweier stehender Nachbar-Fahrzeuge aufloesen (Build 166).
+--- Dieses Fahrzeug (dessen Waechter zuerst ausloest) weicht aus: Auftrag stoppen, neues
+--- Ziel, und in Richtung des neuen Ziels mind. 25 m weiter auf die KI-Strasse setzen.
+--- Der Nachbar behaelt sein Ziel und bekommt neue 30 s, um durch die frei gewordene
+--- Stelle zu fahren. Ohne freien Ausweichplatz passiert nichts (normaler Ablauf).
+--- @return boolean true, wenn ausgewichen
+function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
+    local w = eintrag ~= nil and eintrag.NachbarFelderWorker or nil
+    if w == nil or w.waypoints == nil or #w.waypoints < 2 or self.getRoadPointInRichtung == nil then
+        return false
+    end
+    if (w.begegnungen or 0) >= NachbarFelderManager.BEGEGNUNG_MAX then return false end
+    local fx, fz = nil, nil
+    if veh.rootNode ~= nil and localDirectionToWorld ~= nil then
+        local dx, _, dz = localDirectionToWorld(veh.rootNode, 0, 0, 1)
+        local l = math.sqrt(dx * dx + dz * dz)
+        if l > 0.001 then fx, fz = dx / l, dz / l end
+    end
+    local partner = self:getStehenderNachbar(eintrag, x, z, NachbarFelderManager.BEGEGNUNG_RADIUS, fx, fz)
+    if partner == nil then return false end
+
+    local curDest = w.patrolDestIdx or 1
+    local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest
+    local tx, tz = w.waypoints[newDest][1], w.waypoints[newDest][2]
+    local rx, rz, rry, rdist = self:getRoadPointInRichtung(x, z, 150, 25, tx - x, tz - z)
+    if rx == nil or self:isSpotBlockedByAnyVehicle(rx, rz, 8, veh) then return false end
+    if g_currentMission == nil or g_currentMission.teleportVehicle == nil then return false end
+
+    self:stopAIJobSafely(veh)
+    w.fieldGotoStartedAt = nil
+    w.patrolWdLastX = nil
+    g_currentMission:teleportVehicle(veh, rx, rz, rry or 0)
+    w.roadSnapped   = true
+    w.begegnungen   = (w.begegnungen or 0) + 1
+    w.waypointIdx   = curDest
+    w.patrolDestIdx = newDest
+    w.patrolTargetX = tx
+    w.patrolTargetZ = tz
+    w.parkSecs      = self:scaleParkSecs(math.random(20, 60))
+    w.status        = 1
+    w.needTimer     = true
+
+    -- Nachbar: Uhr neu starten, er soll jetzt durchfahren statt selbst auszuweichen
+    local w2 = partner.NachbarFelderWorker
+    w2.patrolWdSince = g_time
+    local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
+    local name2 = v2 ~= nil and (string.match(v2.configFileName or "", "[^/\\]+$") or "?") or "?"
+    print(string.format("NachbarFelder: [TRAFFIC] Begegnung mit %s - weicht %.0f m auf die KI-Strasse aus," ..
+        " neues Ziel WP%s (patrolId=%s)", name2, rdist or 0, tostring(newDest), tostring(w.fieldId)))
+    return true
+end
+
 --- Naechstes Fahrzeug zu (x, z), das nicht zum eigenen Gespann gehoert (Build 107).
 --- @return number|nil Abstand in m, string|nil Dateiname des Fahrzeugs
 function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
@@ -5633,6 +5771,7 @@ function NachbarFelderManager:saveToXMLFile()
         xmlFile:setInt( baseXmlKey .. ".settings#trafficLimit",       math.floor(tonumber(st.trafficLimit) or 0))
         xmlFile:setInt( baseXmlKey .. ".settings#trafficTrailerSize", math.floor(tonumber(st.trafficTrailerSize) or 0))
         xmlFile:setBool(baseXmlKey .. ".settings#engeMap",            st.engeMap ~= false)
+        xmlFile:setBool(baseXmlKey .. ".settings#debugLog",           st.debugLog == true)
         local j = 0
         for mName, mActive in pairs(st.missions or {}) do
             local mKey = ("%s.settings.mission(%d)"):format(baseXmlKey, j)
@@ -5663,6 +5802,7 @@ function NachbarFelderManager:loadFromXML()
             trafficLimit       = xmlFile:getValue(baseXmlKey .. ".settings#trafficLimit"),
             trafficTrailerSize = xmlFile:getValue(baseXmlKey .. ".settings#trafficTrailerSize"),
             engeMap            = xmlFile:getValue(baseXmlKey .. ".settings#engeMap"),
+            debugLog           = xmlFile:getValue(baseXmlKey .. ".settings#debugLog"),   -- Build 165
             missions           = {},
         }
         xmlFile:iterate(baseXmlKey .. ".settings.mission", function(_, mKey)
