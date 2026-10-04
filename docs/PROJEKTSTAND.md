@@ -5,19 +5,19 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 166 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 167 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 166`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 167`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1589,3 +1589,18 @@ nicht in `vehicleSystem.vehicles`, eine verifizierte Abfrage gibt es nicht.
 
 **Tests:** Mock `loeseBegegnung` (Partner steht 30 s → weicht aus, Partner-Uhr neu; Partner erst 5 s → nein;
 Partner 50 m vorn → ja, 50 m hinten → nein, 150 m → nein); Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-04 — Build 167: Stillstand am Ladeplatz zählt als Fehlschlag
+
+**Befund (Log 04.10. 14:01–14:12, Build 166):** keine Fehler, das frühere Versetzen griff zweimal sofort. Aber vier
+von fünf Fahrzeugen, die am automatischen Ladeplatz ~78 m vor dem Shop (x≈-363 z≈29) geladen wurden, kamen dort nie
+weg (Motor an, Auftrag aktiv, 0 km/h, nach 30 s Wächter Stufe 1). Der Platz wurde nicht gesperrt, weil bisher nur ein
+sofort abgewiesener Start (Worker) oder ein Umkippen als Fehlschlag galt. In der Nähe standen abgestellte Geräte des
+Spielers (hr6040RCS ~60 m, jump320 ~56 m) – möglicherweise blockieren sie die Ausfahrt.
+
+**Fix:** Im Patrol-Wächter ruft der 30-s-Stillstand (Stufe 0, nicht am Ziel) `merkeSpawnFehlschlag(w, x, z,
+"steht nach dem Start still")`. Die Funktion wirkt wie bisher nur, wenn das Fahrzeug höchstens 10 m vom Ladeplatz
+steht, und nur einmal je Fahrzeug: automatischer Platz → dauerhaft gesperrt (Ladeplatz-Datei) + einmaliger Hinweis
+„Spawnpunkt setzen“; Admin-Spawnpunkt → nur Hinweis im Log. Der Wächter läuft danach normal weiter.
+
+**Tests:** Strukturcheck, Vollparse, kein `pcall`.

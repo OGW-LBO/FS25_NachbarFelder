@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 166
+NachbarFelderManager.BUILD = 167
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2438,6 +2438,16 @@ function NachbarFelderManager:update(dt)
                     local zielDist = math.huge
                     if w.patrolTargetX ~= nil and w.patrolTargetZ ~= nil then
                         zielDist = MathUtil.vector2Length(x - w.patrolTargetX, z - w.patrolTargetZ)
+                    end
+
+                    -- Build 167: Steht ein frisch geladenes Fahrzeug nach 30 s noch auf
+                    -- seinem Ladeplatz, taugt der Platz nicht. Log 04.10. 14:01-14:12: vier
+                    -- von fuenf Fahrzeugen kamen vom Ladeplatz ~78 m vor dem Shop nie weg
+                    -- (Motor an, Auftrag aktiv, 0 km/h). Bisher zaehlte nur ein sofort
+                    -- abgewiesener Start als Fehlschlag. merkeSpawnFehlschlag wirkt nur bis
+                    -- 10 m vom Ladeplatz und nur einmal je Fahrzeug.
+                    if stuckMs > 30000 and stage == 0 and zielDist >= 15 then
+                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still")
                     end
 
                     if stuckMs > 12000 and zielDist < 15 then
