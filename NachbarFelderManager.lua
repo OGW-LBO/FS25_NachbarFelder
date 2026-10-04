@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 167
+NachbarFelderManager.BUILD = 168
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -1964,6 +1964,63 @@ function NachbarFelderManager:applyRueckwaertsPlanen(vehicle)
     end
 end
 
+--- Fahrerfigur bleibt im Fahrzeug, bis es geloescht wird (Build 168).
+---
+--- Das Spiel entlaedt die Figur bei jedem Auftragsende (restoreVehicleCharacter ->
+--- deleteVehicleCharacter, wenn niemand drinsitzt) und laedt beim naechsten Start eine
+--- neue (setRandomVehicleCharacter -> setVehicleCharacter -> loadCharacter). Nachbar-
+--- Fahrzeuge bekommen bei jedem Ziel, Parkende und Waechter-Schritt einen neuen Auftrag -
+--- jedes Mal Figur weg und neu laden = Ruckler beim Spieler. Jetzt: nach dem ersten
+--- Laden werden Loeschen und Neuladen fuer dieses Fahrzeug uebersprungen, solange kein
+--- Spieler drinsitzt. Beim Loeschen des Fahrzeugs raeumt Enterable:onDelete die Figur
+--- direkt ab (spec.vehicleCharacter:delete(), ohne deleteVehicleCharacter) - nichts bleibt
+--- liegen. Die Figur ist sichtbar wie bisher (Sichtbarkeit nur nach Kamera-Abstand,
+--- VehicleCharacter:updateVisibility), also auch beim Parken.
+---
+--- Laeuft auf Server und Clients: die Clients laden ihre Figur selbst (Build 95). Auf dem
+--- Client wird ein Nachbar-Fahrzeug wie bei den Karten-Symbolen (Build 157) an der
+--- Helfer-Farm erkannt (pruefeFahrerfiguren). Mit fahrerfigurenAufServer=false bleibt es
+--- auf dem Server beim Weglassen der Figur (applyServerDriverFigure).
+function NachbarFelderManager:applyFahrerBleibt(vehicle)
+    if vehicle == nil or vehicle.nf_fahrerBleibt or vehicle.nf_keineFigur then return end
+    if vehicle.spec_enterable == nil or vehicle.setVehicleCharacter == nil
+       or vehicle.deleteVehicleCharacter == nil then return end
+    vehicle.nf_fahrerBleibt = true
+    local origSet = vehicle.setVehicleCharacter
+    local origDelete = vehicle.deleteVehicleCharacter
+    local function spielerDrin(v)
+        return v.getIsControlled ~= nil and v:getIsControlled()
+    end
+    vehicle.setVehicleCharacter = function(v, ...)
+        if v.nf_figurGeladen and not spielerDrin(v) then return end
+        -- Merker erst danach setzen: origSet ruft selbst deleteVehicleCharacter
+        origSet(v, ...)
+        v.nf_figurGeladen = true
+    end
+    vehicle.deleteVehicleCharacter = function(v, ...)
+        if v.nf_figurGeladen and not spielerDrin(v) then return end
+        v.nf_figurGeladen = false
+        return origDelete(v, ...)
+    end
+end
+
+--- Nachbar-Fahrzeuge auf Server und Client mit applyFahrerBleibt versehen (Build 168).
+--- Alle 2 s; Kennzeichen wie bei den Karten-Symbolen: Besitzer-Farm = Helfer-Farm.
+function NachbarFelderManager:pruefeFahrerfiguren()
+    if g_time == nil or (self.fahrerPruefungAm or 0) > g_time then return end
+    self.fahrerPruefungAm = g_time + 2000
+    local fid = self:getHelferFarmIdAnzeige()
+    if fid == 0 or g_currentMission == nil or g_currentMission.vehicleSystem == nil then return end
+    local liste = g_currentMission.vehicleSystem.vehicles
+    if liste == nil then return end
+    for _, v in pairs(liste) do
+        if type(v) == "table" and v.isDeleted ~= true and not v.nf_fahrerBleibt and v.spec_enterable ~= nil
+           and v.getOwnerFarmId ~= nil and v:getOwnerFarmId() == fid then
+            self:applyFahrerBleibt(v)
+        end
+    end
+end
+
 function NachbarFelderManager:applyServerDriverFigure(vehicle)
     if self.fahrerfigurenAufServer ~= false then return end
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
@@ -2117,6 +2174,8 @@ function NachbarFelderManager:update(dt)
             self._dtAvg = self._dtAvg * 0.98 + dt * 0.02
         end
     end
+    -- Build 168: Fahrerfiguren der Nachbar-Fahrzeuge bleiben sitzen (Server und Client)
+    self:pruefeFahrerfiguren()
     -- Build 98: Strassen-Stuetzpunkte vorberechnen, solange niemand online ist -
     -- dann trifft die einmalige Rechenzeit keinen Spieler. Ohne Splines
     -- (noch nicht geladen / Karte ohne) ist der Aufruf nur ein Tabellen-Check.
@@ -3085,6 +3144,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
             vehicle.isVehicleSaved = false
             self:applyServerDriverFigure(vehicle)   -- Build 95
             self:applyRueckwaertsPlanen(vehicle)    -- Build 108
+            self:applyFahrerBleibt(vehicle)         -- Build 168
             if vehicle.addWearAmount ~= nil then
                 vehicle:addWearAmount(math.random() * 0.3 + 0.1)
             end

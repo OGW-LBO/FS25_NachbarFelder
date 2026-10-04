@@ -5,19 +5,19 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 167 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 168 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 167`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 168`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1610,3 +1610,22 @@ demselben Straßenstück, das die KI offenbar nicht ans Netz angebunden sieht. S
 `LADEPLATZ_SPERR_RADIUS` = 40 m.
 
 **Tests:** Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-04 — Build 168: Fahrerfigur bleibt im Fahrzeug
+
+**Anlass (User):** „Warum bleiben die Fahrerfiguren nicht einfach im Fahrzeug, bis das Fahrzeug gelöscht wird? Das ist
+doch Performance besser und es entstehen weniger Ruckler.“ Das Spiel entlädt die Figur bei jedem Auftragsende
+(`restoreVehicleCharacter` → `deleteVehicleCharacter`, wenn niemand drinsitzt) und lädt beim nächsten Start eine neue
+(`setRandomVehicleCharacter` → `setVehicleCharacter` → `VehicleCharacter:loadCharacter`). Nachbar-Fahrzeuge bekommen bei
+jedem Ziel, Parkende und Wächter-Schritt einen neuen Auftrag.
+
+**Fix:** `applyFahrerBleibt(vehicle)` überschreibt pro Fahrzeug `setVehicleCharacter`/`deleteVehicleCharacter`: Nach dem
+ersten Laden werden Löschen und Neuladen übersprungen, solange kein Spieler drinsitzt (`getIsControlled`). Beim Löschen
+des Fahrzeugs räumt `Enterable:onDelete` die Figur direkt ab (`spec.vehicleCharacter:delete()`). Sichtbarkeit bleibt
+nur abstandsabhängig (`VehicleCharacter:updateVisibility`) – die Figur sitzt also auch beim Parken drin.
+Server: in `onSpawnedVehicle`. Server und Clients: `pruefeFahrerfiguren()` alle 2 s im `update` (Kennzeichen
+Besitzer-Farm = Helfer-Farm wie Build 157), weil die Clients ihre Figur selbst laden. Mit `fahrerfigurenAufServer=false`
+bleibt es auf dem Server beim Weglassen (Build 95, `nf_keineFigur` hat Vorrang).
+
+**Tests:** Mock (NF-Fahrzeug: 5 Aufträge → 1× geladen, Figur bleibt; fremdes Fahrzeug: 5× geladen, danach ohne Figur;
+Spieler steigt ein → seine Figur wird geladen); Strukturcheck, Vollparse, kein `pcall`.
