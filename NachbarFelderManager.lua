@@ -10,7 +10,8 @@ NachbarFelderManager.BUILD = 166
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
 -- Build 166: Begegnung zweier Nachbar-Fahrzeuge (siehe loeseBegegnung)
-NachbarFelderManager.BEGEGNUNG_RADIUS  = 30      -- m, so nah muss der stehende Nachbar sein
+NachbarFelderManager.BEGEGNUNG_RADIUS  = 100     -- m, so nah muss der stehende Nachbar sein
+NachbarFelderManager.BEGEGNUNG_NAH     = 20      -- m, bis hier zaehlt jede Richtung, darueber nur "vor mir"
 NachbarFelderManager.BEGEGNUNG_STEHT_MS = 15000  -- so lange muss auch er schon stehen
 NachbarFelderManager.BEGEGNUNG_MAX     = 3       -- Ausweichen je Fahrzeug, danach normale Stufen
 
@@ -4903,7 +4904,10 @@ end
 --- bekamen beide neue Ziele und standen eine Minute spaeter 4 m auseinander wieder.
 --- Zwei KI-Fahrzeuge warten aufeinander - das loest sich nicht von selbst.
 --- @return table|nil Eintrag aus vehicleType des stehenden Nachbarn
-function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius)
+function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius, fx, fz)
+    -- Build 166: Screenshot 04.10.: der Claas stand quer zum Wenden, der Gegenverkehr
+    -- wartete weit ueber 30 m entfernt. Darum bis 100 m - ab 20 m aber nur, wenn der
+    -- Nachbar grob vor dem Fahrzeug steht (innerhalb 60 Grad zur Fahrtrichtung fx/fz).
     for _, k2 in pairs(self.vehicleType or {}) do
         local w2 = k2 ~= eigenerEintrag and k2.NachbarFelderWorker or nil
         if w2 ~= nil and w2.isPatrol and w2.status == 1 and w2.patrolWdLastX ~= nil
@@ -4911,8 +4915,15 @@ function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius)
             local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
             if self:getIsVehicleAlive(v2) then
                 local x2, _, z2 = getWorldTranslation(v2.rootNode)
-                if MathUtil.vector2Length(x2 - x, z2 - z) <= radius then
-                    return k2
+                local d = MathUtil.vector2Length(x2 - x, z2 - z)
+                if d <= radius then
+                    local vorMir = true
+                    if d > NachbarFelderManager.BEGEGNUNG_NAH and fx ~= nil and fz ~= nil and d > 0.01 then
+                        vorMir = ((x2 - x) * fx + (z2 - z) * fz) / d > 0.5
+                    end
+                    if vorMir then
+                        return k2
+                    end
                 end
             end
         end
@@ -4932,7 +4943,13 @@ function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
         return false
     end
     if (w.begegnungen or 0) >= NachbarFelderManager.BEGEGNUNG_MAX then return false end
-    local partner = self:getStehenderNachbar(eintrag, x, z, NachbarFelderManager.BEGEGNUNG_RADIUS)
+    local fx, fz = nil, nil
+    if veh.rootNode ~= nil and localDirectionToWorld ~= nil then
+        local dx, _, dz = localDirectionToWorld(veh.rootNode, 0, 0, 1)
+        local l = math.sqrt(dx * dx + dz * dz)
+        if l > 0.001 then fx, fz = dx / l, dz / l end
+    end
+    local partner = self:getStehenderNachbar(eintrag, x, z, NachbarFelderManager.BEGEGNUNG_RADIUS, fx, fz)
     if partner == nil then return false end
 
     local curDest = w.patrolDestIdx or 1

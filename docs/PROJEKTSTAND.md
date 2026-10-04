@@ -1575,7 +1575,8 @@ Kreuzung stehen, obwohl nichts im Weg war.
 
 **Fix:**
 - `getStehenderNachbar(eintrag, x, z, radius)`: anderes Patrol-Fahrzeug (Status 1, Wächter misst) im Umkreis
-  `BEGEGNUNG_RADIUS` = 30 m, das selbst schon `BEGEGNUNG_STEHT_MS` = 15 s steht.
+  `BEGEGNUNG_RADIUS` = 100 m (ab `BEGEGNUNG_NAH` = 20 m nur, wenn er innerhalb 60° vor dem Fahrzeug steht –
+  Screenshot 04.10.: Claas quer zum Wenden, Gegenverkehr weit über 30 m entfernt), das selbst schon `BEGEGNUNG_STEHT_MS` = 15 s steht.
 - `loeseBegegnung(eintrag, veh, x, z)`: vor Stufe 1. Das Fahrzeug, dessen Wächter zuerst auslöst, weicht aus:
   Auftrag stoppen, neues Ziel (`pickPatrolWaypoint`), mit `getRoadPointInRichtung` (Richtung neues Ziel, mind. 25 m,
   Platz frei geprüft) auf die KI-Straße setzen, `roadSnapped = true`. Der Nachbar behält sein Ziel, seine Wächter-Uhr
@@ -1587,4 +1588,4 @@ Kreuzung stehen, obwohl nichts im Weg war.
 nicht in `vehicleSystem.vehicles`, eine verifizierte Abfrage gibt es nicht.
 
 **Tests:** Mock `loeseBegegnung` (Partner steht 30 s → weicht aus, Partner-Uhr neu; Partner erst 5 s → nein;
-Partner 50 m → nein); Strukturcheck, Vollparse, kein `pcall`.
+Partner 50 m vorn → ja, 50 m hinten → nein, 150 m → nein); Strukturcheck, Vollparse, kein `pcall`.
