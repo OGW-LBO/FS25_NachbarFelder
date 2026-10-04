@@ -3455,7 +3455,7 @@ end
 function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
     self:ladeLadeplatzSperre()
     for _, p in ipairs(self.spawnPlatzSperre or {}) do
-        if MathUtil.vector2Length(x - p[1], z - p[2]) < 15 then return true end
+        if MathUtil.vector2Length(x - p[1], z - p[2]) < NachbarFelderManager.LADEPLATZ_SPERR_RADIUS then return true end
     end
     return false
 end
@@ -3788,6 +3788,10 @@ NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
 NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
 NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
 NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
+-- Build 167: Sperrradius um einen gescheiterten Ladeplatz (vorher 15 m). Log 04.10.: nach der
+-- Sperre von x=-363 z=29 wurde der naechste Platz wenige Meter daneben gewaehlt - dasselbe
+-- Strassenstueck, das die KI nicht erreicht (NotReachable), die Fahrzeuge kamen wieder nicht weg.
+NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)

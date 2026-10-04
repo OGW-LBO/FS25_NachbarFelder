@@ -1603,4 +1603,10 @@ Spielers (hr6040RCS ~60 m, jump320 ~56 m) – möglicherweise blockieren sie die
 steht, und nur einmal je Fahrzeug: automatischer Platz → dauerhaft gesperrt (Ladeplatz-Datei) + einmaliger Hinweis
 „Spawnpunkt setzen“; Admin-Spawnpunkt → nur Hinweis im Log. Der Wächter läuft danach normal weiter.
 
+**Nachtrag (Screenshot 04.10.):** Der Händlerhof ist groß und leer – die abgestellten Geräte (56–63 m) sind nicht
+die Ursache. Der Platz x=-363 z=29 wurde schon 14:05 gesperrt („Verkehr sofort abgewiesen“, `NotReachable`), danach
+wurden aber wieder Fahrzeuge „78 m vom Shop-Platz“ geladen: knapp außerhalb des alten Sperrradius von 15 m auf
+demselben Straßenstück, das die KI offenbar nicht ans Netz angebunden sieht. Sperrradius jetzt
+`LADEPLATZ_SPERR_RADIUS` = 40 m.
+
 **Tests:** Strukturcheck, Vollparse, kein `pcall`.
