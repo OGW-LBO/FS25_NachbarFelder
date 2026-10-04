@@ -5,9 +5,14 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 165
+NachbarFelderManager.BUILD = 166
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
+
+-- Build 166: Begegnung zweier Nachbar-Fahrzeuge (siehe loeseBegegnung)
+NachbarFelderManager.BEGEGNUNG_RADIUS  = 30      -- m, so nah muss der stehende Nachbar sein
+NachbarFelderManager.BEGEGNUNG_STEHT_MS = 15000  -- so lange muss auch er schon stehen
+NachbarFelderManager.BEGEGNUNG_MAX     = 3       -- Ausweichen je Fahrzeug, danach normale Stufen
 
 local modSettingDirectory = g_currentModSettingsDirectory
 local modName = g_currentModName
@@ -2424,6 +2429,7 @@ function NachbarFelderManager:update(dt)
                     w.patrolWdLastX, w.patrolWdLastZ, w.patrolWdSince = x, z, g_time
                     w.patrolWdStage = 0
                     w.wdRettungen   = nil   -- Build 107
+                    w.begegnungen   = nil   -- Build 166: faehrt wieder
                 else
                     local stuckMs = g_time - (w.patrolWdSince or g_time)
                     local stage   = w.patrolWdStage or 0
@@ -2454,6 +2460,11 @@ function NachbarFelderManager:update(dt)
                         self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %.0f m vor Ziel WP%s still -" ..
                             " gilt als angekommen, parkt (patrolId=%s)",
                             zielDist, tostring(w.patrolDestIdx), tostring(w.fieldId)))
+
+                    elseif stuckMs > 30000 and stage == 0 and self:loeseBegegnung(k, veh, x, z) then
+                        -- Build 166: zwei Nachbar-Fahrzeuge warten aufeinander - dieses
+                        -- weicht aus (siehe loeseBegegnung), das andere faehrt weiter
+                        w.patrolWdStage = 1
 
                     elseif stuckMs > 30000 and stage == 0 then
                         -- Stufe 1: neues zufaelliges Ziel
@@ -4885,6 +4896,74 @@ function NachbarFelderManager:rettungAufStrasse(veh, x, z)
             rdist or 0))
     end
     return ok
+end
+
+--- Steht ein anderes Nachbar-Fahrzeug in der Naehe ebenfalls still? (Build 166)
+--- Log 04.10.: series6M und arion550 standen 14 m auseinander gleichzeitig 30 s fest,
+--- bekamen beide neue Ziele und standen eine Minute spaeter 4 m auseinander wieder.
+--- Zwei KI-Fahrzeuge warten aufeinander - das loest sich nicht von selbst.
+--- @return table|nil Eintrag aus vehicleType des stehenden Nachbarn
+function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius)
+    for _, k2 in pairs(self.vehicleType or {}) do
+        local w2 = k2 ~= eigenerEintrag and k2.NachbarFelderWorker or nil
+        if w2 ~= nil and w2.isPatrol and w2.status == 1 and w2.patrolWdLastX ~= nil
+           and g_time - (w2.patrolWdSince or g_time) > NachbarFelderManager.BEGEGNUNG_STEHT_MS then
+            local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
+            if self:getIsVehicleAlive(v2) then
+                local x2, _, z2 = getWorldTranslation(v2.rootNode)
+                if MathUtil.vector2Length(x2 - x, z2 - z) <= radius then
+                    return k2
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- Begegnung zweier stehender Nachbar-Fahrzeuge aufloesen (Build 166).
+--- Dieses Fahrzeug (dessen Waechter zuerst ausloest) weicht aus: Auftrag stoppen, neues
+--- Ziel, und in Richtung des neuen Ziels mind. 25 m weiter auf die KI-Strasse setzen.
+--- Der Nachbar behaelt sein Ziel und bekommt neue 30 s, um durch die frei gewordene
+--- Stelle zu fahren. Ohne freien Ausweichplatz passiert nichts (normaler Ablauf).
+--- @return boolean true, wenn ausgewichen
+function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
+    local w = eintrag ~= nil and eintrag.NachbarFelderWorker or nil
+    if w == nil or w.waypoints == nil or #w.waypoints < 2 or self.getRoadPointInRichtung == nil then
+        return false
+    end
+    if (w.begegnungen or 0) >= NachbarFelderManager.BEGEGNUNG_MAX then return false end
+    local partner = self:getStehenderNachbar(eintrag, x, z, NachbarFelderManager.BEGEGNUNG_RADIUS)
+    if partner == nil then return false end
+
+    local curDest = w.patrolDestIdx or 1
+    local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest
+    local tx, tz = w.waypoints[newDest][1], w.waypoints[newDest][2]
+    local rx, rz, rry, rdist = self:getRoadPointInRichtung(x, z, 150, 25, tx - x, tz - z)
+    if rx == nil or self:isSpotBlockedByAnyVehicle(rx, rz, 8, veh) then return false end
+    if g_currentMission == nil or g_currentMission.teleportVehicle == nil then return false end
+
+    self:stopAIJobSafely(veh)
+    w.fieldGotoStartedAt = nil
+    w.patrolWdLastX = nil
+    g_currentMission:teleportVehicle(veh, rx, rz, rry or 0)
+    w.roadSnapped   = true
+    w.begegnungen   = (w.begegnungen or 0) + 1
+    w.waypointIdx   = curDest
+    w.patrolDestIdx = newDest
+    w.patrolTargetX = tx
+    w.patrolTargetZ = tz
+    w.parkSecs      = self:scaleParkSecs(math.random(20, 60))
+    w.status        = 1
+    w.needTimer     = true
+
+    -- Nachbar: Uhr neu starten, er soll jetzt durchfahren statt selbst auszuweichen
+    local w2 = partner.NachbarFelderWorker
+    w2.patrolWdSince = g_time
+    local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
+    local name2 = v2 ~= nil and (string.match(v2.configFileName or "", "[^/\\]+$") or "?") or "?"
+    print(string.format("NachbarFelder: [TRAFFIC] Begegnung mit %s - weicht %.0f m auf die KI-Strasse aus," ..
+        " neues Ziel WP%s (patrolId=%s)", name2, rdist or 0, tostring(newDest), tostring(w.fieldId)))
+    return true
 end
 
 --- Naechstes Fahrzeug zu (x, z), das nicht zum eigenen Gespann gehoert (Build 107).

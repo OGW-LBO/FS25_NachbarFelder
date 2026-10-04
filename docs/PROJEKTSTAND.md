@@ -5,18 +5,19 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 165 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 166 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 165`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 166`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
->   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) wartet auf Test im Spiel.
+>   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1560,3 +1561,30 @@ Kreuzung stehen, obwohl nichts im Weg war.
 
 **Tests:** Mock Log-Filter (DIAG weg, WARNUNG und loadMap bleiben, mit Debug alles); Strukturcheck, Vollparse, kein
 `pcall`, keine `print`-Nutzung vor dem Filter; l10n-XML gültig.
+
+---
+
+# ERGÄNZUNG 2026-10-04 — Build 166: Begegnungen und früheres Versetzen
+
+**Befund (Logs 04.10., Build 164/165):**
+- Zwei Nachbar-Fahrzeuge warten aufeinander: series6M und arion550 standen 11:03 14 m auseinander gleichzeitig
+  30 s fest, bekamen beide neue Ziele und standen 11:04 4 m auseinander wieder fest. Der Wächter behandelte das wie
+  jeden Stillstand (Stufe 1 = neues Ziel vom Fleck) – das Patt blieb.
+- Nach einem Stillstand wurde das neue Ziel fast immer zweimal sofort abgewiesen (~50 ms, `NotReachable`); erst
+  nach dem Versetzen auf die KI-Straße (bisher beim 2. Fehlschlag) fuhr das Fahrzeug meist los.
+
+**Fix:**
+- `getStehenderNachbar(eintrag, x, z, radius)`: anderes Patrol-Fahrzeug (Status 1, Wächter misst) im Umkreis
+  `BEGEGNUNG_RADIUS` = 30 m, das selbst schon `BEGEGNUNG_STEHT_MS` = 15 s steht.
+- `loeseBegegnung(eintrag, veh, x, z)`: vor Stufe 1. Das Fahrzeug, dessen Wächter zuerst auslöst, weicht aus:
+  Auftrag stoppen, neues Ziel (`pickPatrolWaypoint`), mit `getRoadPointInRichtung` (Richtung neues Ziel, mind. 25 m,
+  Platz frei geprüft) auf die KI-Straße setzen, `roadSnapped = true`. Der Nachbar behält sein Ziel, seine Wächter-Uhr
+  startet neu (`patrolWdSince = g_time`). Höchstens `BEGEGNUNG_MAX` = 3 mal je Fahrzeug, Zähler `begegnungen` wird
+  bei echter Bewegung zurückgesetzt. Ohne freien Platz: normale Stufe 1. Log: `Begegnung mit … - weicht … aus`.
+- Worker: Versetzen auf die KI-Straße (`nfRoadSnap`) schon beim **ersten** Sofort-Fehlschlag statt beim zweiten.
+
+**Offen:** Ob ein Auto des Spielverkehrs vor dem Fahrzeug steht, lässt sich nicht prüfen – Verkehrsautos stehen
+nicht in `vehicleSystem.vehicles`, eine verifizierte Abfrage gibt es nicht.
+
+**Tests:** Mock `loeseBegegnung` (Partner steht 30 s → weicht aus, Partner-Uhr neu; Partner erst 5 s → nein;
+Partner 50 m → nein); Strukturcheck, Vollparse, kein `pcall`.
