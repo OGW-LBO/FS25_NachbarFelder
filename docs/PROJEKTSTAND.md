@@ -5,19 +5,21 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-04, Build 168 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-05, Build 169 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 168`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 169`.
+> - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
+>   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
 >   Tagesrhythmus, Stammfahrzeuge, Spawnpunkte. Feldhelfer und Lohnunternehmer sind seit Build 150 **entfernt**
 >   (alle Abschnitte zu Feldarbeit, Builds ≤ 149, sind nur noch Historie).
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt („Figuren bleiben erhalten“). Builds 165–168 noch ohne PR.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc, ModHub-Regeln) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1629,3 +1631,23 @@ bleibt es auf dem Server beim Weglassen (Build 95, `nf_keineFigur` hat Vorrang).
 
 **Tests:** Mock (NF-Fahrzeug: 5 Aufträge → 1× geladen, Figur bleibt; fremdes Fahrzeug: 5× geladen, danach ohne Figur;
 Spieler steigt ein → seine Figur wird geladen); Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-05 — Build 169: Übersetzungen inline in der modDesc
+
+**Anlass:** Der User hat die ModHub-Beanstandungen aus seinen anderen Mods geliefert (jetzt `docs/MODHUB_REGELN.md`)
+samt Prüfskript `_modhub_check.py`. Das Skript fand bei dieser Mod **keine Fehler**: descVersion 113, Version 1.0.0.0,
+Titel groß, EN/DE/FR, Icon 131200 Byte DXT1 ohne Mipmaps auf dunklem FS25-Grund (RGB 51–60), kein `pcall`/`xpcall`/
+`loadstring`/`collectgarbage`, kein leerer `HEADER_SLICES`-Eintrag, keine `.png` in der ZIP. Die drei Treffer
+„Ersatzschreibung“ in `l10n_de.xml` standen nur in Schlüsselnamen (`NF_gui_loeschen` …), nicht in Texten.
+
+**Offen war nur:** separater Ordner `l10n/` – den flaggt der ObsoleteFiles-Check von GIANTS (bei FarmOverview trotz
+literaler Schlüssel). **Fix:** alle 107 Schlüssel als `<l10n><text name="…"><en/><de/><fr/></text></l10n>` in die
+`modDesc.xml` (ohne `filenamePrefix`), Ordner `l10n/` gelöscht, `build.py` (13 Dateien). `$l10n_`-Verweise in
+`gui/` und `help/` sowie `g_i18n:getText` bleiben unverändert. Gegenprobe per Skript: alle Texte in allen drei Sprachen
+identisch mit den alten Dateien.
+Danach meldete das Skript „Änderung“ in den Texten (jetzt in der modDesc, Risiko `excessChangelog` bei 1.0.0.0):
+`NF_help_einstellungen_text2` (de) umformuliert – „Was dort eingetragen wird, gilt nach einem Neustart.“ Endstand
+`_modhub_check.py`: 0 Fehler, nur die zwei Info-Hinweise zu `$l10n_`-Verweisen in `gui/` (laut Regeln in Ordnung).
+
+**Regel ab jetzt:** neue Texte nur noch im `l10n`-Block der `modDesc.xml` (de + en + fr); vor einer Einreichung
+`docs/MODHUB_REGELN.md` Abschnitt 8 abarbeiten.

@@ -302,7 +302,7 @@ function NachbarFelderWaypointPage:registerAndInject()
         end
 
         table.insert(slices, position, slice)
-        -- Key stammt aus externer l10n-Datei (l10n/l10n_de.xml) → in globalem g_i18n verfügbar
+        -- Key steht im l10n-Block der modDesc → in g_i18n der Mod verfügbar
         table.insert(InGameMenuSettingsFrame.HEADER_TITLES, position, "NF_wpPage_tabTitle")
 
         settingsFrame:updateAbsolutePosition()

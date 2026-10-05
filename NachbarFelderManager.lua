@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 168
+NachbarFelderManager.BUILD = 169
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -1133,7 +1133,7 @@ end
 --- Ingame-Hilfe laden (Build 153). Gleiches Format und gleicher Weg wie die
 --- Hilfe des Spiels: HelpLineManager:loadFromXML liest <helpLines>/<category>/<page>
 --- (so laedt z. B. Courseplay FS25 seine Hilfe); die $l10n_-Texte kommen aus
---- l10n_*.xml. Nur mit Spieler (nicht auf dem reinen Dedi), einmal je Sitzung.
+--- dem l10n-Block der modDesc. Nur mit Spieler (nicht auf dem reinen Dedi), einmal je Sitzung.
 function NachbarFelderManager:ladeHilfe()
     if self.hilfeGeladen or g_client == nil then return end
     self.hilfeGeladen = true

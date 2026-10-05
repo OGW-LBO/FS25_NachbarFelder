@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!-- Build 153: Ingame-Hilfe (ESC > Hilfe). Geladen in NachbarFelderManager:ladeHilfe()
      ueber g_helpLineManager:loadFromXML - gleiches Format wie die Hilfe des Spiels.
-     Texte stehen in l10n/l10n_*.xml (Schluessel NF_help_*). -->
+     Texte stehen im l10n-Block der modDesc (Schluessel NF_help_*). -->
 <helpLines>
     <category title="$l10n_NF_help_title" subTitle="$l10n_NF_help_subTitle">
         <page title="$l10n_NF_help_page_ueberblick_title">
