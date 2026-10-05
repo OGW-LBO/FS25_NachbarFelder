@@ -17,8 +17,8 @@ Die Mod ist **kartenunabhängig** und läuft auf einem Dedicated Server im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.0.0.0` (für den ModHub zurückgesetzt, `descVersion` 113)
-- Interner Stand: `NachbarFelderManager.BUILD = 168` (erscheint beim Start im Log als
-  `NachbarFelder: loadMap auf SERVER (Build 168)`)
+- Interner Stand: `NachbarFelderManager.BUILD = 169` (erscheint beim Start im Log als
+  `NachbarFelder: loadMap auf SERVER (Build 169)`)
 
 Maßgeblich für den Stand ist immer die Build-Nummer, nicht die modDesc-Version.
 
@@ -60,8 +60,7 @@ Die ZIP heißt immer `FS25_NachbarFelder.zip` – das Spiel verwendet den Datein
 | `NachbarFelderWaypointPage.lua` | Reiter „Wegpunkte" im ESC-Menü |
 | `NachbarFelderWaypointDialog.lua`, `NachbarFelderUIHelper.lua` | Dialog und GUI-Hilfsfunktionen |
 | `gui/` | GUI-Layouts und eigene GUI-Profile |
-| `help/helpLine.xml` | Ingame-Hilfe (ESC → Hilfe → „Lebendige Straßen“), Texte in `l10n/` |
-| `l10n/` | Übersetzungen Deutsch und Englisch |
+| `help/helpLine.xml` | Ingame-Hilfe (ESC → Hilfe → „Lebendige Straßen“), Texte im `l10n`-Block der `modDesc.xml` |
 | `tools/` | Prüfskripte aus der Zeit der Feldhelfer (siehe unten), nicht Teil der ZIP |
 | `docs/PROJEKTSTAND.md` | Ausführlicher Projektstand und Historie. Oben steht der Block „ARBEITSGRUNDLAGE", alles darunter ist Historie je Build |
 

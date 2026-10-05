@@ -80,7 +80,544 @@ PS : Si la circulation du jeu provoque encore des collisions dans les passages �
     <extraSourceFiles>
         <sourceFile filename="NachbarFelder.lua" />
     </extraSourceFiles>
-    <l10n filenamePrefix="l10n/l10n"/>
+    <!-- Uebersetzungen inline (ModHub: separate l10n-Dateien flaggt der ObsoleteFiles-Check) -->
+    <l10n>
+        <text name="NachbarFelder">
+            <en>Living Roads</en>
+            <de>Lebendige Straßen</de>
+            <fr>Routes Vivantes</fr>
+        </text>
+        <text name="NF_setting_title">
+            <en>Living Roads</en>
+            <de>Lebendige Straßen</de>
+            <fr>Routes Vivantes</fr>
+        </text>
+        <text name="NF_active_short">
+            <en>Neighbour traffic active</en>
+            <de>Nachbar-Verkehr aktiv</de>
+            <fr>Circulation des voisins active</fr>
+        </text>
+        <text name="NF_active_long">
+            <en>Switches the neighbours' traffic on or off. Off = no new vehicles, vehicles on the road finish their trip.</en>
+            <de>Schaltet den Verkehr der Nachbarn ein oder aus. Aus = keine neuen Fahrzeuge, unterwegs befindliche fahren fertig.</de>
+            <fr>Active ou désactive la circulation des voisins. Désactivé = plus de nouveaux véhicules, ceux en route terminent leur trajet.</fr>
+        </text>
+        <text name="NF_trafficLimit_short">
+            <en>Traffic vehicles</en>
+            <de>Traffic-Fahrzeuge</de>
+            <fr>Véhicules de circulation</fr>
+        </text>
+        <text name="NF_trafficLimit_long">
+            <en>How many AI traffic vehicles drive simultaneously on the map? (1-8). Waypoints and spawn points are set in the 'Waypoints' tab.</en>
+            <de>Wie viele KI-Verkehrsfahrzeuge fahren gleichzeitig auf der Karte? (1-8). Wegpunkte und Spawnpunkte setzt du im Reiter 'Wegpunkte'.</de>
+            <fr>Combien de véhicules IA circulent en même temps sur la carte ? (1-8). Les points de passage et d'apparition se règlent dans l'onglet « Points de passage ».</fr>
+        </text>
+        <text name="NF_trafficTrailerSize_short">
+            <en>Implements</en>
+            <de>Anbaugeräte</de>
+            <fr>Outils</fr>
+        </text>
+        <text name="NF_trafficTrailerSize_long">
+            <en>Implements for traffic vehicles. 0 = None | 1 = Small | 2 = Medium | 3 = All (plows, cultivators, mowers, tedders, rakes, seed drills)</en>
+            <de>Anbaugeräte für Traffic-Fahrzeuge. 0 = Keine Anbaugeräte | 1 = Klein | 2 = Mittel | 3 = Alle (Pflug, Grubber, Mähwerk, Zinkenrotor, Rechen, Sämaschine)</de>
+            <fr>Outils pour les véhicules de circulation. 0 = Aucun | 1 = Petit | 2 = Moyen | 3 = Tous (charrues, cultivateurs, faucheuses, faneuses, andaineurs, semoirs)</fr>
+        </text>
+        <text name="NF_engeMap_short">
+            <en>Narrow map</en>
+            <de>Enge Karte</de>
+            <fr>Carte étroite</fr>
+        </text>
+        <text name="NF_engeMap_long">
+            <en>For narrow maps and cramped dealer areas: neighbours only use small and medium tractors (up to 12 t) with light implements (tedders, rakes, up to 3 t). Large tractors, wheel loaders and telehandlers stay out. Off = everything allowed.</en>
+            <de>Für enge Karten und kleine Händler-Bereiche: die Nachbarn fahren nur Klein- und Mitteltraktoren (bis 12 t) mit leichtem Anbaugerät (Wender, Schwader, bis 3 t). Großtraktoren, Radlader und Teleskoplader bleiben draußen. Aus = alles erlaubt.</de>
+            <fr>Pour les cartes étroites et les zones de concession exiguës : les voisins n'utilisent que des tracteurs petits et moyens (jusqu'à 12 t) avec des outils légers (faneuses, andaineurs, jusqu'à 3 t). Les gros tracteurs, chargeuses et télescopiques restent au garage. Désactivé = tout est permis.</fr>
+        </text>
+        <text name="NF_debugLog_short">
+            <en>Debug log</en>
+            <de>Debug-Log</de>
+            <fr>Journal de débogage</fr>
+        </text>
+        <text name="NF_debugLog_long">
+            <en>Detailed log for troubleshooting: every trip, spawn and diagnosis goes into log.txt. Off = warnings and errors only. Admins only, applies to the server and all players.</en>
+            <de>Ausführliches Log für die Fehlersuche: jede Fahrt, jeder Spawn und jede Diagnose landet in der log.txt. Aus = nur Warnungen und Fehler. Nur für Admins, gilt für Server und alle Spieler.</de>
+            <fr>Journal détaillé pour le dépannage : chaque trajet, apparition et diagnostic est écrit dans log.txt. Désactivé = avertissements et erreurs uniquement. Réservé aux admins, s’applique au serveur et à tous les joueurs.</fr>
+        </text>
+        <text name="input_NF_DELETE_HELPER">
+            <en>Living Roads: Remove all neighbour vehicles</en>
+            <de>Lebendige Straßen: Alle Nachbar-Fahrzeuge entfernen</de>
+            <fr>Routes Vivantes : Retirer tous les véhicules voisins</fr>
+        </text>
+        <text name="input_NF_ADD_WAYPOINT">
+            <en>Living Roads: Set waypoint</en>
+            <de>Lebendige Straßen: Wegpunkt setzen</de>
+            <fr>Routes Vivantes : Placer un point de passage</fr>
+        </text>
+        <text name="input_NF_REMOVE_WAYPOINT">
+            <en>Living Roads: Remove last waypoint</en>
+            <de>Lebendige Straßen: Letzten Wegpunkt entfernen</de>
+            <fr>Routes Vivantes : Retirer le dernier point</fr>
+        </text>
+        <text name="input_NF_MANAGE_WAYPOINTS">
+            <en>Living Roads: Show waypoints one by one</en>
+            <de>Lebendige Straßen: Wegpunkte nacheinander anzeigen</de>
+            <fr>Routes Vivantes : Afficher les points un par un</fr>
+        </text>
+        <text name="NF_wpPage_tabTitle">
+            <en>Waypoints</en>
+            <de>Wegpunkte</de>
+            <fr>Points de passage</fr>
+        </text>
+        <text name="NF_WPPAGE_TABTITLE">
+            <en>Waypoints</en>
+            <de>Wegpunkte</de>
+            <fr>Points de passage</fr>
+        </text>
+        <text name="NF_wpActions_title">
+            <en>Actions</en>
+            <de>Aktionen</de>
+            <fr>Actions</fr>
+        </text>
+        <text name="NF_wpMap_section_title">
+            <en>Map</en>
+            <de>Karte</de>
+            <fr>Carte</fr>
+        </text>
+        <text name="NF_wpMapShow_short">
+            <en>Show WPs on map</en>
+            <de>WP auf Karte zeigen</de>
+            <fr>Afficher les points sur la carte</fr>
+        </text>
+        <text name="NF_wpMapShow_long">
+            <en>Show waypoints as markers on the ingame map (category: MISCELLANEOUS)</en>
+            <de>Wegpunkte als Marker auf der Ingame-Karte anzeigen (Kategorie: SONSTIGES)</de>
+            <fr>Affiche les points de passage comme marqueurs sur la carte (catégorie : DIVERS)</fr>
+        </text>
+        <text name="NF_wp_section_title">
+            <en>Waypoint Manager</en>
+            <de>Wegpunkt-Manager</de>
+            <fr>Gestionnaire de points</fr>
+        </text>
+        <text name="NF_wp_info_title">
+            <en>Waypoint Information</en>
+            <de>Wegpunktinformation</de>
+            <fr>Informations du point</fr>
+        </text>
+        <text name="NF_wpPrev_short">
+            <en>Previous waypoint</en>
+            <de>Vorheriger Wegpunkt</de>
+            <fr>Point précédent</fr>
+        </text>
+        <text name="NF_wpPrev_long">
+            <en>Show previous waypoint</en>
+            <de>Vorherigen Wegpunkt anzeigen</de>
+            <fr>Afficher le point précédent</fr>
+        </text>
+        <text name="NF_wpNext_short">
+            <en>Next waypoint</en>
+            <de>Nächster Wegpunkt</de>
+            <fr>Point suivant</fr>
+        </text>
+        <text name="NF_wpNext_long">
+            <en>Show next waypoint</en>
+            <de>Nächsten Wegpunkt anzeigen</de>
+            <fr>Afficher le point suivant</fr>
+        </text>
+        <text name="NF_wpTeleport_short">
+            <en>Teleport to waypoint</en>
+            <de>Zum Wegpunkt teleportieren</de>
+            <fr>Se téléporter au point</fr>
+        </text>
+        <text name="NF_wpType_short">
+            <en>Change type</en>
+            <de>Typ ändern</de>
+            <fr>Changer le type</fr>
+        </text>
+        <text name="NF_wpType_long">
+            <en>Cycle category: Normal (20-60s) | Short (5-20s) | Long (2-5 min) | Spawn point. Better create new spawn points with 'Set spawn point here' - older points have no reliable direction.</en>
+            <de>Kategorie wechseln: Normal (20-60s) | Kurz (5-20s) | Lang (2-5 Min) | Spawnpunkt. Neue Spawnpunkte besser mit 'Spawnpunkt hier setzen' anlegen - ältere Punkte haben keine verlässliche Richtung.</de>
+            <fr>Fait défiler les catégories : Normal (20-60 s) | Court (5-20 s) | Long (2-5 min) | Point d'apparition. Mieux vaut créer de nouveaux points d'apparition avec « Placer un point d'apparition ici » - les anciens points n'ont pas d'orientation fiable.</fr>
+        </text>
+        <text name="NF_wpTeleport_long">
+            <en>Teleport to the displayed waypoint</en>
+            <de>Zum angezeigten Wegpunkt teleportieren</de>
+            <fr>Se téléporter au point affiché</fr>
+        </text>
+        <text name="NF_wpDelete_short">
+            <en>Delete waypoint</en>
+            <de>Wegpunkt löschen</de>
+            <fr>Supprimer le point</fr>
+        </text>
+        <text name="NF_wpDelete_long">
+            <en>Delete the displayed waypoint</en>
+            <de>Den angezeigten Wegpunkt löschen</de>
+            <fr>Supprime le point affiché</fr>
+        </text>
+        <text name="NF_wpBtn_prev">
+            <en>&lt; Back</en>
+            <de>&lt; Zurück</de>
+            <fr>&lt; Retour</fr>
+        </text>
+        <text name="NF_wpBtn_next">
+            <en>Next &gt;</en>
+            <de>Weiter &gt;</de>
+            <fr>Suivant &gt;</fr>
+        </text>
+        <text name="NF_wpBtn_teleport">
+            <en>Teleport</en>
+            <de>Teleportieren</de>
+            <fr>Téléporter</fr>
+        </text>
+        <text name="NF_wpBtn_delete">
+            <en>Delete</en>
+            <de>Löschen</de>
+            <fr>Supprimer</fr>
+        </text>
+        <text name="NF_wpBtn_set">
+            <en>Set</en>
+            <de>Setzen</de>
+            <fr>Placer</fr>
+        </text>
+        <text name="NF_wpNew_section_title">
+            <en>New point at your position</en>
+            <de>Neuer Punkt an deiner Position</de>
+            <fr>Nouveau point à ta position</fr>
+        </text>
+        <text name="NF_wpAddHere_short">
+            <en>Set waypoint here</en>
+            <de>Wegpunkt hier setzen</de>
+            <fr>Placer un point de passage ici</fr>
+        </text>
+        <text name="NF_wpAddHere_long">
+            <en>Places a normal waypoint at your position (in a vehicle: at the vehicle's position). Keep at least 10 m from other points.</en>
+            <de>Setzt einen normalen Wegpunkt an deiner Position (im Fahrzeug: an der Fahrzeugposition). Mindestens 10 m Abstand zu anderen Punkten.</de>
+            <fr>Place un point de passage normal à ta position (dans un véhicule : à la position du véhicule). Garde au moins 10 m avec les autres points.</fr>
+        </text>
+        <text name="NF_wpAddSpawnHere_short">
+            <en>Set spawn point here</en>
+            <de>Spawnpunkt hier setzen</de>
+            <fr>Placer un point d'apparition ici</fr>
+        </text>
+        <text name="NF_wpAddSpawnHere_long">
+            <en>New neighbour vehicles start here. Sit in a tractor facing the exit direction (on foot your view direction counts). About 4 m width must be clear from 3 m in front to 14 m behind the point. Drive away afterwards - while your vehicle stands there, the point counts as occupied.</en>
+            <de>Neue Nachbar-Fahrzeuge starten hier. Im Traktor mit der Front in Abfahrtrichtung stehen (zu Fuß zählt die Blickrichtung). Frei sein müssen etwa 4 m Breite von 3 m vor bis 14 m hinter dem Punkt. Danach wegfahren - solange dein Fahrzeug dort steht, gilt der Punkt als belegt.</de>
+            <fr>Les nouveaux véhicules voisins démarrent ici. Installe-toi dans un tracteur orienté vers la sortie (à pied, ta direction de regard compte). Environ 4 m de large doivent être libres, de 3 m devant à 14 m derrière le point. Éloigne-toi ensuite - tant que ton véhicule est là, le point est considéré comme occupé.</fr>
+        </text>
+        <text name="NF_wpNone">
+            <en>No waypoints - use 'Set waypoint here' or 'Set spawn point here' below</en>
+            <de>Keine Wegpunkte - unten 'Wegpunkt hier setzen' oder 'Spawnpunkt hier setzen'</de>
+            <fr>Aucun point - utilise « Placer un point de passage ici » ou « Placer un point d'apparition ici » ci-dessous</fr>
+        </text>
+        <text name="NF_wpVehicles_section_title">
+            <en>Vehicle types</en>
+            <de>Fahrzeugtypen</de>
+            <fr>Types de véhicules</fr>
+        </text>
+        <text name="NF_wpCatTractorS_short">
+            <en>Small tractors</en>
+            <de>Kleine Traktoren</de>
+            <fr>Petits tracteurs</fr>
+        </text>
+        <text name="NF_wpCatTractorS_long">
+            <en>Spawn small tractors (up to ~100 HP) as traffic vehicles</en>
+            <de>Kleine Traktoren (bis ca. 100 PS) als Traffic-Fahrzeuge spawnen</de>
+            <fr>Fait apparaître de petits tracteurs (jusqu'à ~100 ch) dans la circulation</fr>
+        </text>
+        <text name="NF_wpCatTractorM_short">
+            <en>Medium tractors</en>
+            <de>Mittlere Traktoren</de>
+            <fr>Tracteurs moyens</fr>
+        </text>
+        <text name="NF_wpCatTractorM_long">
+            <en>Spawn medium tractors (~100-200 HP) as traffic vehicles</en>
+            <de>Mittlere Traktoren (ca. 100-200 PS) als Traffic-Fahrzeuge spawnen</de>
+            <fr>Fait apparaître des tracteurs moyens (~100-200 ch) dans la circulation</fr>
+        </text>
+        <text name="NF_wpCatTractorL_short">
+            <en>Large tractors</en>
+            <de>Grosse Traktoren</de>
+            <fr>Gros tracteurs</fr>
+        </text>
+        <text name="NF_wpCatTractorL_long">
+            <en>Spawn large tractors (200+ HP) as traffic vehicles</en>
+            <de>Grosse Traktoren (200+ PS) als Traffic-Fahrzeuge spawnen</de>
+            <fr>Fait apparaître de gros tracteurs (200 ch et plus) dans la circulation</fr>
+        </text>
+        <text name="NF_wpCatLoader_short">
+            <en>Wheel loaders</en>
+            <de>Radlader</de>
+            <fr>Chargeuses sur pneus</fr>
+        </text>
+        <text name="NF_wpCatLoader_long">
+            <en>Spawn wheel loaders as traffic vehicles (only if navmesh-capable)</en>
+            <de>Radlader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)</de>
+            <fr>Fait apparaître des chargeuses sur pneus (seulement si elles gèrent le maillage de navigation)</fr>
+        </text>
+        <text name="NF_wpCatTeleLoader_short">
+            <en>Telescopic handlers</en>
+            <de>Teleskoplader</de>
+            <fr>Télescopiques</fr>
+        </text>
+        <text name="NF_wpCatTeleLoader_long">
+            <en>Spawn telescopic handlers as traffic vehicles (only if navmesh-capable)</en>
+            <de>Teleskoplader als Traffic-Fahrzeuge spawnen (nur wenn Navmesh-fähig)</de>
+            <fr>Fait apparaître des chariots télescopiques (seulement s'ils gèrent le maillage de navigation)</fr>
+        </text>
+        <text name="NF_hinweisSpawnpunkt">
+            <en>An automatic loading spot failed. More reliable: set a spawn point (ESC &gt; Settings &gt; Waypoints &gt; Set spawn point here).</en>
+            <de>Ein automatischer Ladeplatz hat nicht geklappt. Zuverlässiger: Spawnpunkt setzen (ESC &gt; Einstellungen &gt; Wegpunkte &gt; Spawnpunkt hier setzen).</de>
+            <fr>Un emplacement de chargement automatique a échoué. Plus fiable : place un point d'apparition (ÉCHAP &gt; Paramètres &gt; Points de passage &gt; Placer un point d'apparition ici).</fr>
+        </text>
+        <text name="NF_help_title">
+            <en>Living Roads</en>
+            <de>Lebendige Straßen</de>
+            <fr>Routes Vivantes</fr>
+        </text>
+        <text name="NF_help_subTitle">
+            <en>Neighbour traffic</en>
+            <de>Verkehr der Nachbarn</de>
+            <fr>Circulation des voisins</fr>
+        </text>
+        <text name="NF_help_page_ueberblick_title">
+            <en>Overview</en>
+            <de>Überblick</de>
+            <fr>Aperçu</fr>
+        </text>
+        <text name="NF_help_ueberblick_text1">
+            <en>With "Living Roads" your neighbours are on the move: AI tractors, some with an implement, drive on their own along the AI roads of the map, stop at your waypoints, park for a while and drive on. After a number of trips they call it a day and park; later they are woken up again.</en>
+            <de>Mit „Lebendige Straßen“ sind deine Nachbarn unterwegs: KI-Traktoren, teils mit Anbaugerät, fahren selbstständig über die KI-Straßen der Karte, halten an deinen Wegpunkten, parken eine Weile und fahren weiter. Nach einigen Fahrten machen sie Feierabend und parken; später werden sie wieder geweckt.</de>
+            <fr>Avec « Routes Vivantes », tes voisins circulent : des tracteurs IA, parfois avec un outil, roulent seuls sur les routes IA de la carte, s'arrêtent à tes points de passage, stationnent un moment puis repartent. Après quelques trajets, ils terminent leur journée et se garent ; ils sont réveillés plus tard.</fr>
+        </text>
+        <text name="NF_help_ueberblick_text2">
+            <en>Vehicles only appear while a player is in the game, about 3 minutes after joining. You set how many drive at the same time in the settings; fewer drive at night and at noon (daily rhythm). Destinations are your waypoints plus points along the AI roads that the mod finds itself (server config "zielQuelle" = "wegpunkte": your points only).</en>
+            <de>Fahrzeuge kommen erst, wenn ein Spieler im Spiel ist, und nach dem Einloggen mit etwa 3 Minuten Verzögerung. Wie viele gleichzeitig fahren, stellst du in den Einstellungen ein; nachts und mittags fahren weniger (Tagesrhythmus). Fahrziele sind deine Wegpunkte plus Punkte entlang der KI-Straßen, die die Mod selbst findet (Server-Konfiguration „zielQuelle“ = „wegpunkte“: nur deine Punkte).</de>
+            <fr>Les véhicules n'arrivent que lorsqu'un joueur est en jeu, environ 3 minutes après la connexion. Tu règles le nombre de véhicules simultanés dans les paramètres ; il y en a moins la nuit et à midi (rythme journalier). Les destinations sont tes points de passage plus des points le long des routes IA que le mod trouve lui-même (configuration serveur « zielQuelle » = « wegpunkte » : uniquement tes points).</fr>
+        </text>
+        <text name="NF_help_page_wegpunkte_title">
+            <en>Waypoints and spawn points</en>
+            <de>Wegpunkte und Spawnpunkte</de>
+            <fr>Points de passage et d'apparition</fr>
+        </text>
+        <text name="NF_help_wegpunkte_text1">
+            <en>Waypoints are managed in ESC &gt; Settings &gt; tab "Waypoints" (admin only): "Set waypoint here" and "Set spawn point here" create a point at your position. There you can browse the points, change their type, delete them and teleport to them.</en>
+            <de>Wegpunkte verwaltest du unter ESC &gt; Einstellungen &gt; Reiter „Wegpunkte“ (nur Admin): „Wegpunkt hier setzen“ und „Spawnpunkt hier setzen“ legen einen Punkt an deiner Position an. Dort kannst du durch die Punkte blättern, den Typ ändern, Punkte löschen und zu ihnen teleportieren.</de>
+            <fr>Les points se gèrent dans ÉCHAP &gt; Paramètres &gt; onglet « Points de passage » (administrateurs uniquement) : « Placer un point de passage ici » et « Placer un point d'apparition ici » créent un point à ta position. Tu peux y parcourir les points, changer leur type, les supprimer et t'y téléporter.</fr>
+        </text>
+        <text name="NF_help_wegpunkte_text2">
+            <en>Types: Normal (20–60 s stop), Short (5–20 s), Long (2–5 min) and spawn point. New vehicles are loaded at spawn points. Best set them from a tractor on the right lane, front facing the driving direction, with some room ahead. Without a spawn point the mod looks for a free spot on an AI road itself.</en>
+            <de>Typen: Normal (20–60 s Halt), Kurz (5–20 s), Lang (2–5 Min.) und Spawnpunkt. An Spawnpunkten werden neue Fahrzeuge geladen. Am besten im Traktor auf der rechten Spur setzen, Front in Fahrtrichtung, mit etwas Platz nach vorn. Ohne Spawnpunkt sucht die Mod selbst einen freien Platz an einer KI-Straße.</de>
+            <fr>Types : Normal (arrêt de 20 à 60 s), Court (5 à 20 s), Long (2 à 5 min) et point d'apparition. Les nouveaux véhicules sont chargés aux points d'apparition. Place-les de préférence depuis un tracteur sur la voie de droite, l'avant dans le sens de la marche, avec de la place devant. Sans point d'apparition, le mod cherche lui-même une place libre sur une route IA.</fr>
+        </text>
+        <text name="NF_help_wegpunkte_text3">
+            <en>Under "Vehicle types" you choose which vehicles the neighbours use (small, medium, large tractors, wheel loaders, telehandlers). "Show WP on map" displays the points as map markers.</en>
+            <de>Unter „Fahrzeugtypen“ legst du fest, welche Fahrzeuge die Nachbarn benutzen (kleine, mittlere, große Traktoren, Radlader, Teleskoplader). Mit „WP auf Karte zeigen“ erscheinen die Punkte als Marker auf der Karte.</de>
+            <fr>Sous « Types de véhicules », tu choisis les véhicules utilisés par les voisins (petits, moyens et gros tracteurs, chargeuses, télescopiques). « Afficher les points sur la carte » les montre comme marqueurs.</fr>
+        </text>
+        <text name="NF_help_page_einstellungen_title">
+            <en>Settings</en>
+            <de>Einstellungen</de>
+            <fr>Paramètres</fr>
+        </text>
+        <text name="NF_help_einstellungen_text1">
+            <en>The settings are in ESC &gt; Settings, section "Living Roads" (only admins can change them): mod on/off, number of traffic vehicles (1–8), implement size and "Narrow map" (small tractors with light implements only). "Debug log" writes detailed information to log.txt for troubleshooting; off = warnings and errors only.</en>
+            <de>Die Einstellungen findest du unter ESC &gt; Einstellungen im Abschnitt „Lebendige Straßen“ (nur Admin ändert): Mod an/aus, Anzahl der Verkehrsfahrzeuge (1–8), Größe der Anbaugeräte und „Enge Karte“ (nur kleine Traktoren mit leichten Geräten). „Debug-Log“ schreibt für die Fehlersuche ausführlich in die log.txt; aus = nur Warnungen und Fehler.</de>
+            <fr>Les paramètres se trouvent dans ÉCHAP &gt; Paramètres, section « Routes Vivantes » (seuls les administrateurs peuvent les modifier) : mod activé ou non, nombre de véhicules (1 à 8), taille des outils et « Carte étroite » (petits tracteurs avec outils légers uniquement). « Journal de débogage » écrit des informations détaillées dans log.txt pour le dépannage ; désactivé = avertissements et erreurs uniquement.</fr>
+        </text>
+        <text name="NF_help_einstellungen_text2">
+            <en>On a server there is also the file modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, e.g. for spawn intervals, parking times, pool size, implement share and "spielverkehrAnmelden". Changes there take effect after a restart.</en>
+            <de>Auf einem Server gibt es zusätzlich die Datei modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, z. B. für Spawn-Abstände, Parkzeiten, Pool-Größe, Gespann-Anteil und „spielverkehrAnmelden“. Was dort eingetragen wird, gilt nach einem Neustart.</de>
+            <fr>Sur un serveur, il existe en plus le fichier modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, par exemple pour les intervalles d'apparition, les temps de stationnement, la taille du pool, la proportion d'outils et « spielverkehrAnmelden ». Les modifications prennent effet après un redémarrage.</fr>
+        </text>
+        <text name="NF_help_page_tasten_title">
+            <en>Keys and console</en>
+            <de>Tasten und Konsole</de>
+            <fr>Touches et console</fr>
+        </text>
+        <text name="NF_help_tasten_text1">
+            <en>Default keys (changeable in Settings &gt; Controls, entries "Living Roads: …"): Ctrl + Alt + O set waypoint, Ctrl + Alt + U remove last waypoint, Ctrl + Alt + C show waypoints one by one, Ctrl + Alt + L remove all neighbour vehicles (admin only).</en>
+            <de>Standardtasten (unter Einstellungen &gt; Steuerung änderbar, Einträge „Lebendige Straßen: …“): Strg + Alt + O Wegpunkt setzen, Strg + Alt + U letzten Wegpunkt entfernen, Strg + Alt + C Wegpunkte nacheinander anzeigen, Strg + Alt + L alle Nachbar-Fahrzeuge entfernen (nur Admin).</de>
+            <fr>Touches par défaut (modifiables dans Paramètres &gt; Commandes, entrées « Routes Vivantes : … ») : Ctrl + Alt + O place un point, Ctrl + Alt + U retire le dernier, Ctrl + Alt + C affiche les points un par un, Ctrl + Alt + L retire tous les véhicules voisins (administrateurs uniquement).</fr>
+        </text>
+        <text name="NF_help_tasten_text2">
+            <en>Console commands: nachbarFelderTrafficStop stops traffic and removes the vehicles, nachbarFelderTrafficStart allows it again, nachbarFelderEntfernen removes all vehicles, nachbarFelderTimer shows the time until the next spawn.</en>
+            <de>Konsolenbefehle: nachbarFelderTrafficStop hält den Verkehr an und entfernt die Fahrzeuge, nachbarFelderTrafficStart erlaubt ihn wieder, nachbarFelderEntfernen entfernt alle Fahrzeuge, nachbarFelderTimer zeigt die Zeit bis zum nächsten Spawn.</de>
+            <fr>Commandes de la console : nachbarFelderTrafficStop arrête la circulation et retire les véhicules, nachbarFelderTrafficStart la réactive, nachbarFelderEntfernen retire tous les véhicules, nachbarFelderTimer affiche le temps avant la prochaine apparition.</fr>
+        </text>
+        <text name="NF_help_page_verkehr_title">
+            <en>Game traffic and problems</en>
+            <de>Spielverkehr und Probleme</de>
+            <fr>Circulation du jeu et problèmes</fr>
+        </text>
+        <text name="NF_help_verkehr_text1">
+            <en>The cars of the game traffic brake for the neighbour vehicles. If they still collide in narrow spots, switch off traffic in the game menu or set "spielverkehrAnmelden" to false in the server config.</en>
+            <de>Die Autos des Spielverkehrs bremsen für die Nachbar-Fahrzeuge. Kracht es an engen Stellen trotzdem, kannst du den Verkehr im Spielmenü ausschalten oder in der Server-Konfiguration „spielverkehrAnmelden“ auf false setzen.</de>
+            <fr>Les voitures de la circulation du jeu freinent pour les véhicules voisins. S'il y a quand même des collisions dans les passages étroits, désactive la circulation dans le menu du jeu ou mets « spielverkehrAnmelden » sur false dans la configuration du serveur.</fr>
+        </text>
+        <text name="NF_help_verkehr_text2">
+            <en>A vehicle that stays stuck picks a new destination and is removed if necessary. Loading spots where vehicles cannot get away are locked for that map. For problem reports the lines starting with "NachbarFelder:" from log.txt help most.</en>
+            <de>Bleibt ein Fahrzeug länger stecken, sucht es sich ein neues Ziel und wird notfalls entfernt. Ladeplätze, an denen Fahrzeuge nicht wegkommen, sperrt die Mod für diese Karte. Hilfreich bei Problemen sind die Zeilen mit „NachbarFelder:“ aus der log.txt.</de>
+            <fr>Un véhicule bloqué trop longtemps choisit une nouvelle destination et est retiré si nécessaire. Les emplacements de chargement d'où les véhicules ne repartent pas sont bloqués pour cette carte. Pour signaler un problème, les lignes commençant par « NachbarFelder: » du fichier log.txt sont les plus utiles.</fr>
+        </text>
+        <text name="NF_wpArt_wegpunkt">
+            <en>Waypoint</en>
+            <de>Wegpunkt</de>
+            <fr>Point de passage</fr>
+        </text>
+        <text name="NF_wpArt_spawn">
+            <en>Spawn point</en>
+            <de>Spawnpunkt</de>
+            <fr>Point d'apparition</fr>
+        </text>
+        <text name="NF_richtungAus">
+            <en>Direction from %s</en>
+            <de>Richtung aus %s</de>
+            <fr>Orientation d'après %s</fr>
+        </text>
+        <text name="NF_richtung_fahrzeug">
+            <en>Vehicle</en>
+            <de>Fahrzeug</de>
+            <fr>le véhicule</fr>
+        </text>
+        <text name="NF_richtung_blick">
+            <en>View direction</en>
+            <de>Blickrichtung</de>
+            <fr>la direction du regard</fr>
+        </text>
+        <text name="NF_richtung_kamera">
+            <en>Camera</en>
+            <de>Kamera</de>
+            <fr>la caméra</fr>
+        </text>
+        <text name="NF_richtung_unbekannt">
+            <en>? (0)</en>
+            <de>? (0)</de>
+            <fr>? (0)</fr>
+        </text>
+        <text name="NF_msg_nurAdmin">
+            <en>Admins only – please log in as admin in the menu first</en>
+            <de>Nur für Admins – bitte zuerst im Menü als Admin anmelden</de>
+            <fr>Administrateurs uniquement - connecte-toi d'abord comme administrateur dans le menu</fr>
+        </text>
+        <text name="NF_msg_jetztWegfahren">
+            <en>– now drive away</en>
+            <de>– jetzt wegfahren</de>
+            <fr>- éloigne-toi maintenant</fr>
+        </text>
+        <text name="NF_msg_zuNah">
+            <en>Not placed: waypoint %d is only %.0f m away (min. 10 m)</en>
+            <de>Nicht gesetzt: WP %d ist nur %.0f m entfernt (mind. 10 m)</de>
+            <fr>Non placé : le point %d n'est qu'à %.0f m (10 m minimum)</fr>
+        </text>
+        <text name="NF_msg_anServer">
+            <en>%s sent to the server (%d / %d, %s)</en>
+            <de>%s an Server gesendet (%d / %d, %s)</de>
+            <fr>%s envoyé au serveur (%d / %d, %s)</fr>
+        </text>
+        <text name="NF_msg_gesetzt">
+            <en>%s %d placed (%d / %d, %s)</en>
+            <de>%s %d gesetzt (%d / %d, %s)</de>
+            <fr>%s %d placé (%d / %d, %s)</fr>
+        </text>
+        <text name="NF_msg_keineWegpunkte">
+            <en>No waypoints – place them in ESC &gt; Settings &gt; Waypoints</en>
+            <de>Keine Wegpunkte – setzen unter ESC &gt; Einstellungen &gt; Wegpunkte</de>
+            <fr>Aucun point - à placer dans ÉCHAP &gt; Paramètres &gt; Points de passage</fr>
+        </text>
+        <text name="NF_msg_wpAnzeige">
+            <en>WP %d/%d: x=%d  z=%d  (ESC &gt; Settings: teleport/delete)</en>
+            <de>WP %d/%d: x=%d  z=%d  (ESC &gt; Einstellungen: Teleportieren/Löschen)</de>
+            <fr>Point %d/%d : x=%d  z=%d  (ÉCHAP &gt; Paramètres : téléporter/supprimer)</fr>
+        </text>
+        <text name="NF_msg_teleportiert">
+            <en>Teleported to x=%d z=%d</en>
+            <de>Teleportiert zu x=%d z=%d</de>
+            <fr>Téléporté vers x=%d z=%d</fr>
+        </text>
+        <text name="NF_msg_loeschAnServer">
+            <en>Waypoint deletion sent to the server</en>
+            <de>Wegpunkt-Löschung an Server gesendet</de>
+            <fr>Suppression du point envoyée au serveur</fr>
+        </text>
+        <text name="NF_msg_wpEntfernt">
+            <en>Waypoint removed. Remaining: %d</en>
+            <de>Wegpunkt entfernt. Verbleibend: %d</de>
+            <fr>Point retiré. Restants : %d</fr>
+        </text>
+        <text name="NF_msg_nichtGesetzt">
+            <en>Not placed</en>
+            <de>Nicht gesetzt</de>
+            <fr>Non placé</fr>
+        </text>
+        <text name="NF_msg_wpGespeichert">
+            <en>%d waypoints saved</en>
+            <de>%d Wegpunkte gespeichert</de>
+            <fr>%d points enregistrés</fr>
+        </text>
+        <text name="NF_ui_nein">
+            <en>No</en>
+            <de>Nein</de>
+            <fr>Non</fr>
+        </text>
+        <text name="NF_ui_ja">
+            <en>Yes</en>
+            <de>Ja</de>
+            <fr>Oui</fr>
+        </text>
+        <text name="NF_msg_wpVonCount">
+            <en>Waypoint %d of %d</en>
+            <de>Wegpunkt %d von %d</de>
+            <fr>Point %d sur %d</fr>
+        </text>
+        <text name="NF_msg_keineWpVorhanden">
+            <en>No waypoints available</en>
+            <de>Keine Wegpunkte vorhanden</de>
+            <fr>Aucun point disponible</fr>
+        </text>
+        <text name="NF_msg_wpSetzenHinweis">
+            <en>Press Ctrl+Alt+O to place points</en>
+            <de>Strg+Alt+O drücken, um Punkte zu setzen</de>
+            <fr>Appuie sur Ctrl+Alt+O pour placer des points</fr>
+        </text>
+        <text name="NF_wpCat_normal">
+            <en>Normal</en>
+            <de>Normal</de>
+            <fr>Normal</fr>
+        </text>
+        <text name="NF_wpCat_kurz">
+            <en>Short</en>
+            <de>Kurz</de>
+            <fr>Court</fr>
+        </text>
+        <text name="NF_wpCat_lang">
+            <en>Long</en>
+            <de>Lang</de>
+            <fr>Long</fr>
+        </text>
+        <text name="NF_wpCat_durchfahrt">
+            <en>Pass-through</en>
+            <de>Durchfahrt</de>
+            <fr>Passage</fr>
+        </text>
+        <text name="NF_gui_wpManager">
+            <en>Living Roads – waypoint manager</en>
+            <de>Lebendige Straßen – Wegpunkt-Manager</de>
+            <fr>Routes Vivantes - gestionnaire de points</fr>
+        </text>
+        <text name="NF_gui_teleport">
+            <en>Teleport</en>
+            <de>Teleportieren</de>
+            <fr>Téléporter</fr>
+        </text>
+        <text name="NF_gui_loeschen">
+            <en>Delete</en>
+            <de>Löschen</de>
+            <fr>Supprimer</fr>
+        </text>
+        <text name="NF_gui_schliessen">
+            <en>Close</en>
+            <de>Schließen</de>
+            <fr>Fermer</fr>
+        </text>
+    </l10n>
 	<!-- Build 134: Standardtasten auf Strg+Alt. Shift+Alt kollidierte - Shift+Alt+P loeste
 	     Shift+P (Baumenue) bzw. Alt+P (Kleiderschrank) aus, Alt+X setzt den Ballenzaehler
 	     zurueck, W ist Laufen. Bei L/O/U/C/E sind Strg+Taste und Alt+Taste frei.
