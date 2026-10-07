@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 173 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 174 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 173`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 174`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose im Debug-Log) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1733,3 +1733,25 @@ paar Meter angerollt. Die Entfernung stand nicht im Log – nicht belegt.
 
 **Tests:** Mock (18 m → gesperrt + Diagnose; 40 m → nicht gesperrt + Diagnose; Shop-Platz → Diagnose; Diagnose nur
 einmal; alter Aufruf ohne Radius bleibt bei 10 m); Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-07 — Build 174: Stufe-1-Schleife erkennen
+
+**Befund (Server-Log 07.10. 10:30–10:40, Build 173, Debug-Log an):** keine Fehler; Series 6M + Alpin Hit, Vario 500,
+Vario 200 und Mach 4R fuhren alle vom Ladeplatz los und erreichten Durchfahrtsziele – kein Stillstand am Ladeplatz.
+Zwei Auffälligkeiten:
+- **Vario 200 (patrolId=-3) in einer Schleife:** ab 10:37 bei x≈-293 z≈-453 viermal „Stufe1 - 30s fest“ (10:37, 10:38,
+  10:39, 10:40), dazwischen „sofort abgewiesen“ + 41 m auf die Straße gesetzt. Er rollte jedes Mal ein paar Meter
+  (> 5 m → Wächter-Stufe zurück auf 0), Stufe 2/3 griffen nie. Nächste Fahrzeuge `relt.xml` 9–10 m, `superfex800.xml` 6 m
+  (vermutlich abgestellte Geräte des Spielers – beim User nachgefragt).
+- Ladeplatz-Diagnose meldete auch Stillstände weit weg („steht 444 m / 565 m vom Ladeplatz“) – nur Rauschen.
+
+**Fix:**
+- `merkeStufe1Schleife(w)`: merkt die Zeit jeder anstehenden Stufe 1 (`w.stufe1Zeiten`); die
+  `STUFE1_SCHLEIFE_ANZAHL` = 3. binnen `STUFE1_SCHLEIFE_MS` = 5 min → Log „Stufe1 zum 3. Mal in 5 min – gilt als
+  festgefahren, weiter mit Stufe 3“ und direkt Stufe 3 (einmal auf die KI-Straße setzen, sonst Pool). Liste wird danach
+  geleert. Reihenfolge im Wächter: am Ziel → Begegnung → Schleife → Stufe 1 → 2 → 3.
+- Stufe 3 als lokale Funktion `stufe3()` im Wächter (unverändert, von beiden Stellen aufgerufen).
+- Ladeplatz-Diagnose nur bis `LADEPLATZ_DIAG_MAX` = 100 m vom Ladeplatz.
+
+**Tests:** Mock `merkeStufe1Schleife` (0/60/120 s → dritte löst aus, Liste leer, 180 s → neu; 0/200/400/600 s → nie);
+Strukturcheck, Vollparse, kein `pcall`.
