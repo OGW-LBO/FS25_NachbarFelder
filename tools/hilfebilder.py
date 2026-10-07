@@ -18,12 +18,10 @@ def leinwand(farbe=(44, 52, 48)):
     return img, ImageDraw.Draw(img)
 
 
-def speichern(img, name):
-    klein = img.resize((512, 256), Image.LANCZOS)
-    tex = Image.new("RGB", (512, 512), (40, 46, 44))
-    tex.paste(klein, (0, 0))
-    pfad = os.path.join(ZIEL, name + ".dds")
-    tex.save(pfad, pixel_format="DXT1")
+VORSCHAU = {}
+
+
+def dds_kopf_angleichen(pfad):
     # Header wie beim ModHub-geprueften Icon: dwFlags 0xA1007, dwMipMapCount 1, dwCaps 0x1000
     with open(pfad, "r+b") as f:
         kopf = bytearray(f.read(128))
@@ -32,6 +30,16 @@ def speichern(img, name):
         struct.pack_into("<I", kopf, 108, 0x1000)
         f.seek(0)
         f.write(kopf)
+
+
+def speichern(img, name):
+    klein = img.resize((512, 256), Image.LANCZOS)
+    VORSCHAU[name] = klein
+    tex = Image.new("RGB", (512, 512), (40, 46, 44))
+    tex.paste(klein, (0, 0))
+    pfad = os.path.join(ZIEL, name + ".dds")
+    tex.save(pfad, pixel_format="DXT1")
+    dds_kopf_angleichen(pfad)
 
 
 def traktor(d, cx, base, s, col, geraet=True):
@@ -209,4 +217,29 @@ def verkehr():
 
 for f in (ueberblick, wegpunkte, einstellungen, tasten, verkehr):
     f()
+
+# Build 171: Symbole fuer die linke Seitenliste der Hilfe (page.iconSliceId).
+# Ein 512x512-Atlas mit 128x128-Ausschnitten der Motive, Slices in hilfe_icons.xml.
+# x = linker Rand des 256x256-Ausschnitts im 512x256-Motiv.
+SYMBOLE = [("ueberblick", "hilfe_ueberblick", 30), ("wegpunkte", "hilfe_wegpunkte", 150),
+           ("einstellungen", "hilfe_einstellungen", 128), ("tasten", "hilfe_tasten", 20),
+           ("verkehr", "hilfe_verkehr", 190)]
+atlas = Image.new("RGB", (512, 512), (40, 46, 44))
+slices = []
+for i, (sid, motiv, x) in enumerate(SYMBOLE):
+    stueck = VORSCHAU[motiv].crop((x, 0, x + 256, 256)).resize((128, 128), Image.LANCZOS)
+    ax, ay = (i % 4) * 128, (i // 4) * 128
+    atlas.paste(stueck, (ax, ay))
+    slices.append('        <slice id="%s" uvs="%dpx %dpx 128px 128px"/>' % (sid, ax, ay))
+pfad = os.path.join(ZIEL, "hilfe_icons.dds")
+atlas.save(pfad, pixel_format="DXT1")
+dds_kopf_angleichen(pfad)
+with open(os.path.join(ZIEL, "hilfe_icons.xml"), "w", encoding="utf-8") as f:
+    f.write('<?xml version="1.0" encoding="utf-8" standalone="no"?>\n'
+            '<!-- Build 171: Symbole der Hilfe-Seitenliste, erzeugt mit tools/hilfebilder.py -->\n'
+            '<texture>\n    <meta>\n        <filename>hilfe_icons.dds</filename>\n'
+            '        <size width="512" height="512" />\n    </meta>\n    <slices>\n'
+            + "\n".join(slices) + '\n    </slices>\n</texture>\n')
+if len(sys.argv) > 2:
+    atlas.save(sys.argv[2])
 print("fertig")

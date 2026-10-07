@@ -34,6 +34,8 @@ DATEIEN = [
     "help/hilfe_einstellungen.dds",   # Build 170: Hilfe-Bilder
     "help/hilfe_tasten.dds",   # Build 170: Hilfe-Bilder
     "help/hilfe_verkehr.dds",   # Build 170: Hilfe-Bilder
+    "help/hilfe_icons.dds",     # Build 171: Symbole der Hilfe-Seitenliste
+    "help/hilfe_icons.xml",
     # Uebersetzungen stehen seit Build 169 inline in der modDesc (ModHub: ObsoleteFiles)
 ]
 

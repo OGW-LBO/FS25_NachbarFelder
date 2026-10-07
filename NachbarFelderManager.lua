@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 170
+NachbarFelderManager.BUILD = 171
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -1144,9 +1144,65 @@ function NachbarFelderManager:ladeHilfe()
     end
     if g_helpLineManager ~= nil and g_helpLineManager.loadFromXML ~= nil then
         g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
+        self:setzeHilfeSymbole(dir)   -- Build 171
         print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
     else
         print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
+    end
+end
+
+--- Symbole der linken Seitenliste in der Ingame-Hilfe (Build 171).
+---
+--- Die Liste zeigt je Seite page.iconSliceId (Zelle "icon", BitmapElement:setImageSlice ->
+--- OverlayManager:getSliceInfoById; Vorlage: Courseplay FS25 CpHelpFrame:
+--- populateCellForItemInSection). Ohne den Wert bleibt das Feld dunkel (User 07.10.).
+--- Die Symbole liegen als Atlas help/hilfe_icons.dds, angemeldet mit
+--- OverlayManager:addTextureConfigFile unter dem Praefix "nfHilfe" (wie Courseplay
+--- "cpIconSprite"). Eingetragen wird nur auf den Seiten unserer Kategorie und nur,
+--- wo das Spiel noch nichts gesetzt hat.
+NachbarFelderManager.HILFE_SYMBOLE = {
+    "nfHilfe.ueberblick", "nfHilfe.wegpunkte", "nfHilfe.einstellungen",
+    "nfHilfe.tasten", "nfHilfe.verkehr",
+}
+function NachbarFelderManager:setzeHilfeSymbole(dir)
+    local hm = g_helpLineManager
+    if dir == nil or hm == nil or hm.getCategories == nil
+       or g_overlayManager == nil or g_overlayManager.addTextureConfigFile == nil then
+        return
+    end
+    local configs = g_overlayManager.textureConfigs
+    if configs == nil or configs["nfHilfe"] == nil then
+        g_overlayManager:addTextureConfigFile(Utils.getFilename("help/hilfe_icons.xml", dir), "nfHilfe")
+    end
+    -- Nur Namen, die das Spiel selbst liefert (wie Courseplay) - getCategories mit
+    -- fremdem Namen ist nicht belegt. Unsere Mod zuerst.
+    if hm.getCustomEnvironmentNames == nil then return end
+    local umgebungen = {}
+    for _, name in ipairs(hm:getCustomEnvironmentNames() or {}) do
+        if name == modName then
+            table.insert(umgebungen, 1, name)
+        else
+            table.insert(umgebungen, name)
+        end
+    end
+    local titel = g_i18n ~= nil and g_i18n.getText ~= nil and g_i18n:getText("NF_help_title") or nil
+    local gefunden = false
+    for _, env in ipairs(umgebungen) do
+        for _, kat in ipairs(hm:getCategories(env) or {}) do
+            if type(kat) == "table" and (kat.title == "$l10n_NF_help_title" or (titel ~= nil and kat.title == titel)) and type(kat.pages) == "table" then
+                gefunden = true
+                for i, seite in ipairs(kat.pages) do
+                    local sym = NachbarFelderManager.HILFE_SYMBOLE[i]
+                    if type(seite) == "table" and sym ~= nil and seite.iconSliceId == nil then
+                        seite.iconSliceId = sym
+                    end
+                end
+            end
+        end
+        if gefunden then break end
+    end
+    if not gefunden then
+        print("NachbarFelder: Hilfe-Symbole fehlgeschlagen (Kategorie nicht gefunden)")
     end
 end
 
