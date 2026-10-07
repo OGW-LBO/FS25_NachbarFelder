@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 169
+NachbarFelderManager.BUILD = 170
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -920,63 +920,6 @@ function NachbarFelderManager:installHooks()
     self.hooksInstalled = true
     print("NachbarFelder: Hooks werden installiert")
 
-    -- FarmlandManager: KLASSEN-Level-Hooks
-    -- Für unsere Farm-ID ÜBERALL true liefern solange Helfer aktiv sind -
-    -- exakt der letzte nachweislich funktionierende Stand (PFDump-Build).
-    if FarmlandManager ~= nil then
-        -- getIsOwnedByFarmAtWorldPosition: AI prüft Feldzugang je Position (Feldarbeit)
-        -- WICHTIG: KEINE Positions-Einschränkung einbauen! Eine spätere Version
-        -- beschränkte das auf "unsere aktiven Felder" (isOurActiveFieldAtPosition) -
-        -- damit bekam die asynchrone Course-Generierung des FIELDWORK-Jobs
-        -- nirgendwo "erlaubt" (das Original prüft das interne farmlandMapping,
-        -- nicht das von uns temporär gepatchte farmland.farmId) -> der Kurs
-        -- wurde nie fertig -> Helfer stand ewig mit laufendem Motor auf dem Feld.
-        FarmlandManager.getIsOwnedByFarmAtWorldPosition = Utils.overwrittenFunction(
-            FarmlandManager.getIsOwnedByFarmAtWorldPosition,
-            function(fm, superFunc, farmId, x, z)
-                if g_NachbarFelderManager ~= nil and
-                   farmId ~= nil and farmId > 0 and
-                   farmId == g_NachbarFelderManager.farmId and
-                   g_NachbarFelderManager:hasActiveWorkers() then
-                    return true
-                end
-                return superFunc(fm, farmId, x, z)
-            end)
-
-        -- getCanAccessLandAtWorldPosition: Zugangs-Check (GOTO-Navigation)
-        -- Hier breiter halten damit die Fahrt zum Feld funktioniert
-        FarmlandManager.getCanAccessLandAtWorldPosition = Utils.overwrittenFunction(
-            FarmlandManager.getCanAccessLandAtWorldPosition,
-            function(fm, superFunc, farmId, x, z)
-                if g_NachbarFelderManager ~= nil and
-                   farmId ~= nil and farmId > 0 and
-                   farmId == g_NachbarFelderManager.farmId and
-                   g_NachbarFelderManager:hasActiveWorkers() then
-                    return true
-                end
-                return superFunc(fm, farmId, x, z)
-            end)
-
-        -- getIsOwnedByFarmAlongLine: Pfad-Check für Navigation (GOTO-Routing)
-        if FarmlandManager.getIsOwnedByFarmAlongLine ~= nil then
-            FarmlandManager.getIsOwnedByFarmAlongLine = Utils.overwrittenFunction(
-                FarmlandManager.getIsOwnedByFarmAlongLine,
-                function(fm, superFunc, farmId, ...)
-                    if g_NachbarFelderManager ~= nil and
-                       farmId ~= nil and farmId > 0 and
-                       farmId == g_NachbarFelderManager.farmId and
-                       g_NachbarFelderManager:hasActiveWorkers() then
-                        return true
-                    end
-                    return superFunc(fm, farmId, ...)
-                end)
-        end
-
-        print("NachbarFelder: FarmlandManager-Klassen-Hooks installiert")
-    else
-        print("NachbarFelder: WARNUNG - FarmlandManager-Klasse nicht verfuegbar!")
-    end
-
     -- AIJobTypeManager: nil-Rückgabe absichern
     AIJobTypeManager.getJobTypeIndex = Utils.overwrittenFunction(
         AIJobTypeManager.getJobTypeIndex,
@@ -987,21 +930,6 @@ function NachbarFelderManager:installHooks()
             end
             return ret
         end)
-
-    -- Kein Geldabzug für unsere Farm
-    if not self.moneyHookInstalled and FSBaseMission ~= nil and FSBaseMission.addMoney ~= nil then
-        FSBaseMission.addMoney = Utils.overwrittenFunction(FSBaseMission.addMoney,
-            function(mission, superFunc, amount, farmId, moneyType, ...)
-                if g_NachbarFelderManager ~= nil
-                   and amount ~= nil and amount < 0
-                   and farmId == g_NachbarFelderManager.farmId
-                   and g_NachbarFelderManager:hasActiveWorkers() then
-                    return
-                end
-                return superFunc(mission, amount, farmId, moneyType, ...)
-            end)
-        self.moneyHookInstalled = true
-    end
 
     -- Aufräumen beim Spielende: NUR AI-Jobs stoppen und Feldbesitz
     -- wiederherstellen - die Fahrzeuge löscht die Engine beim Shutdown
@@ -1189,14 +1117,6 @@ function NachbarFelderManager:serverSideInit()
         g_messageCenter:unsubscribe(MessageType.MASTERUSER_ADDED, self)
         g_messageCenter:subscribe(MessageType.MASTERUSER_ADDED, self.onMasterUserAdded, self)
     end
-
-    -- MISSION_GENERATED wird bewusst NICHT mehr abonniert: Die periodische
-    -- Vertragsgenerierung des Spiels feuerte onMissionStarted und löschte
-    -- laufende Helfer (zudem über den falschen Tabellen-Key, ohne Aufräumen)
-    -- → tote Fahrzeug-Referenzen → Lua-Fehler jede Spielminute bis zum
-    -- Server-Neustart. Helfer werden nur noch entfernt, wenn ein Spieler
-    -- wirklich einen Vertrag auf dem Feld STARTET (MissionStartedEvent).
-    g_messageCenter:unsubscribe(MessageType.MISSION_GENERATED, self)
 
     -- KEIN Mission00.addPlayer Hook mehr - funktioniert nicht zuverlässig auf Dedicated Server.
     -- Stattdessen: playerSystem-Abgleich in onMinuteChanged() übernimmt die Zählung.
@@ -5790,14 +5710,6 @@ function NachbarFelderManager:getCorrectobject(vehicle)
         end
     end
     return nil
-end
-
-function NachbarFelderManager:hasActiveWorkers()
-    if self.vehicleType == nil then return false end
-    for _, entry in pairs(self.vehicleType) do
-        if entry ~= nil and entry.NachbarFelderWorker ~= nil then return true end
-    end
-    return false
 end
 
 -- ============================================================
