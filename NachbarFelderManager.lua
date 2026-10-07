@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 172
+NachbarFelderManager.BUILD = 173
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2502,10 +2502,13 @@ function NachbarFelderManager:update(dt)
                     -- seinem Ladeplatz, taugt der Platz nicht. Log 04.10. 14:01-14:12: vier
                     -- von fuenf Fahrzeugen kamen vom Ladeplatz ~78 m vor dem Shop nie weg
                     -- (Motor an, Auftrag aktiv, 0 km/h). Bisher zaehlte nur ein sofort
-                    -- abgewiesener Start als Fehlschlag. merkeSpawnFehlschlag wirkt nur bis
-                    -- 10 m vom Ladeplatz und nur einmal je Fahrzeug.
+                    -- abgewiesener Start als Fehlschlag. Nur einmal je Fahrzeug.
+                    -- Build 173: Umkreis 25 m statt 10 m (Log 07.10.: Vestrum 130 stand 30 s
+                    -- still, der Platz wurde nicht gesperrt - vermutlich ein paar Meter
+                    -- angerollt). Entfernung und Ergebnis stehen im Debug-Log.
                     if stuckMs > 30000 and stage == 0 and zielDist >= 15 then
-                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still")
+                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still",
+                            NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS, true)
                     end
 
                     if stuckMs > 12000 and zielDist < 15 then
@@ -3407,11 +3410,29 @@ function NachbarFelderManager:attachObjects(vehicle, attachedVehicle, isBackSett
 end
 
 --- Ladeplatz als ungeeignet merken, wenn ein Fahrzeug dort scheitert (Build 129).
---- Nur wenn es noch innerhalb von 10 m um seinen Ladeplatz steht; je Fahrzeug einmal.
-function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
-    local sp = w ~= nil and w.spawnStrasse or nil
-    if type(sp) ~= "table" or x == nil or z == nil or w.spawnPlatzGemeldet then return end
-    if MathUtil.vector2Length(x - sp.x, z - sp.z) > 10 then return end
+--- Nur wenn es noch innerhalb von maxDist (Standard 10 m) um seinen Ladeplatz steht;
+--- je Fahrzeug einmal. diag = true: Ergebnis einmal je Fahrzeug ins Debug-Log (Build 173).
+function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag)
+    if w == nil or x == nil or z == nil or w.spawnPlatzGemeldet then return end
+    local sp = w.spawnStrasse
+    local function diagnose(text)
+        if diag and not w.spawnPlatzDiagnose then
+            w.spawnPlatzDiagnose = true
+            self:log(2, "NachbarFelder: [TRAFFIC] Ladeplatz-Pruefung (" .. tostring(grund) .. "): " .. text)
+        end
+    end
+    if type(sp) ~= "table" then
+        diagnose("kein Ladeplatz an der Strasse bekannt (Shop-Platz oder Pool) - nichts gesperrt")
+        return
+    end
+    local dist = MathUtil.vector2Length(x - sp.x, z - sp.z)
+    if dist > (maxDist or 10) then
+        diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - weiter als %.0f m, nicht gesperrt",
+            dist, math.floor(sp.x), math.floor(sp.z), maxDist or 10))
+        return
+    end
+    diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - Platz gilt als untauglich",
+        dist, math.floor(sp.x), math.floor(sp.z)))
     w.spawnPlatzGemeldet = true
     -- Build 132: Admin-Spawnpunkte nie automatisch sperren (mit nur einem Punkt
     -- ginge es sonst zurueck ins Dorf) - stattdessen einmal einen Hinweis geben.
@@ -3851,6 +3872,9 @@ NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf
 -- Sperre von x=-363 z=29 wurde der naechste Platz wenige Meter daneben gewaehlt - dasselbe
 -- Strassenstueck, das die KI nicht erreicht (NotReachable), die Fahrzeuge kamen wieder nicht weg.
 NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
+-- Build 173: Stillstand nach dem Start zaehlt als Fehlschlag des Ladeplatzes, wenn das
+-- Fahrzeug nach 30 s noch hoechstens so weit davon entfernt steht (vorher 10 m).
+NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS = 25
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)

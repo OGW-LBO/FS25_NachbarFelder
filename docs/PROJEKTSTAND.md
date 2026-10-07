@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 172 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 173 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 172`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 173`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose im Debug-Log) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1714,3 +1714,22 @@ existiert (jeder `vehicleType`-Eintrag hat einen `NachbarFelderWorker`), also au
 `MISSION_GENERATED`. PR #12 kann geschlossen werden.
 **Ergebnis (User 07.10.):** mit Build 172 auf dem Server fahren die KI-Traktoren normal – die Landbesitz-Hooks werden zum
 Losfahren nicht gebraucht.
+
+# ERGÄNZUNG 2026-10-07 — Build 173: Stillstand am Ladeplatz – Umkreis 25 m und Diagnose
+
+**Befund (Server-Log 07.10. 10:16–10:19, Build 172, Debug-Log an):** Vario 300 + Volto fuhr normal (WP49 nach ~2 min).
+Vestrum 130, geladen 125 m vom Shop, stand nach dem Start 30 s still (Motor an, Auftrag aktiv, 0,1 km/h, nächstes
+Fahrzeug 87 m) → Stufe 1, neues Ziel. **Der Ladeplatz wurde nicht gesperrt** (keine Zeile „taugt nicht“), obwohl
+Build 167 genau das tun sollte. `merkeSpawnFehlschlag` wirkt nur bis 10 m vom Ladepunkt; vermutlich war das Fahrzeug ein
+paar Meter angerollt. Die Entfernung stand nicht im Log – nicht belegt.
+
+**Fix:**
+- `merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag)`: optionaler Umkreis (Standard weiter 10 m für „umgekippt“ und
+  „Verkehr sofort abgewiesen“) und Diagnose. Der 30-s-Stillstand im Wächter übergibt
+  `LADEPLATZ_STILLSTAND_RADIUS` = 25 m und `diag = true`.
+- Diagnose (Debug-Log, einmal je Fahrzeug, `w.spawnPlatzDiagnose`): „Ladeplatz-Pruefung (…): steht N m vom Ladeplatz
+  x= z= – Platz gilt als untauglich“ bzw. „… weiter als 25 m, nicht gesperrt“ bzw. „kein Ladeplatz an der Strasse
+  bekannt (Shop-Platz oder Pool)“.
+
+**Tests:** Mock (18 m → gesperrt + Diagnose; 40 m → nicht gesperrt + Diagnose; Shop-Platz → Diagnose; Diagnose nur
+einmal; alter Aufruf ohne Radius bleibt bei 10 m); Strukturcheck, Vollparse, kein `pcall`.
