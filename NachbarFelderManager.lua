@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 172
+NachbarFelderManager.BUILD = 174
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -2502,10 +2502,59 @@ function NachbarFelderManager:update(dt)
                     -- seinem Ladeplatz, taugt der Platz nicht. Log 04.10. 14:01-14:12: vier
                     -- von fuenf Fahrzeugen kamen vom Ladeplatz ~78 m vor dem Shop nie weg
                     -- (Motor an, Auftrag aktiv, 0 km/h). Bisher zaehlte nur ein sofort
-                    -- abgewiesener Start als Fehlschlag. merkeSpawnFehlschlag wirkt nur bis
-                    -- 10 m vom Ladeplatz und nur einmal je Fahrzeug.
+                    -- abgewiesener Start als Fehlschlag. Nur einmal je Fahrzeug.
+                    -- Build 173: Umkreis 25 m statt 10 m (Log 07.10.: Vestrum 130 stand 30 s
+                    -- still, der Platz wurde nicht gesperrt - vermutlich ein paar Meter
+                    -- angerollt). Entfernung und Ergebnis stehen im Debug-Log.
                     if stuckMs > 30000 and stage == 0 and zielDist >= 15 then
-                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still")
+                        self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still",
+                            NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS, true)
+                    end
+
+                    -- Build 174: Stufe 3 als Funktion - auch die Schleifen-Erkennung springt hierher
+                    local function stufe3()
+                        -- Stufe 3: Aufgeben → an Ort und Stelle in den Pool
+                        -- (Build 93: kein Teleport); sonst wie frueher loeschen
+                        w.patrolWdLastX = nil
+                        w.patrolWdStage = 0
+                        -- Build 107: Wer drei Stufen lang keinen Meter vorankam, steckt
+                        -- fest (TK4 am 13.09.: Front vor einem Gebaeude, vier Runden
+                        -- Stufe1/2/3 - Pool - Aufwecken ohne jede Bewegung). Einschlafen
+                        -- an Ort und Stelle aendert daran nichts. Deshalb einmal auf die
+                        -- KI-Strasse setzen und mit neuem Ziel weiterfahren; erst wenn
+                        -- auch das nichts bringt, wie bisher in den Pool.
+                        local gerettet = false
+                        if (w.wdRettungen or 0) < 1 then
+                            self:stopAIJobSafely(veh)
+                            w.fieldGotoStartedAt = nil
+                            if self:rettungAufStrasse(veh, x, z) then
+                                gerettet = true
+                                w.wdRettungen   = (w.wdRettungen or 0) + 1
+                                w.patrolWdLastX = nil
+                                local curDest = w.patrolDestIdx or 1
+                                local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Build 109: ab Fahrzeug
+                                w.waypointIdx   = curDest
+                                w.patrolDestIdx = newDest
+                                w.patrolTargetX = w.waypoints[newDest][1]
+                                w.patrolTargetZ = w.waypoints[newDest][2]
+                                print("NachbarFelder: [TRAFFIC] Stufe3 - steckte fest, faehrt von der Strasse" ..
+                                    " aus weiter zu WP" .. tostring(newDest) .. " (patrolId=" ..
+                                    tostring(w.fieldId) .. ")")
+                                w.status    = 1
+                                w.needTimer = true
+                            end
+                        end
+                        if gerettet then
+                            -- weiter mit neuem Ziel
+                        elseif self:sleepPatrolEntry(k, false) then
+                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug schlaeft im Pool (patrolId=" ..
+                                tostring(w.fieldId) .. ")")
+                        else
+                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug loeschen (patrolId=" ..
+                                tostring(w.fieldId) .. ")")
+                            w.status    = 100
+                            w.needTimer = true
+                        end
                     end
 
                     if stuckMs > 12000 and zielDist < 15 then
@@ -2534,6 +2583,17 @@ function NachbarFelderManager:update(dt)
                         -- Build 166: zwei Nachbar-Fahrzeuge warten aufeinander - dieses
                         -- weicht aus (siehe loeseBegegnung), das andere faehrt weiter
                         w.patrolWdStage = 1
+
+                    elseif stuckMs > 30000 and stage == 0 and self:merkeStufe1Schleife(w) then
+                        -- Build 174: dritte Stufe 1 binnen 5 min - das Fahrzeug rollt zwischen-
+                        -- durch ein paar Meter (Waechter beginnt jedes Mal bei 0), kommt aber
+                        -- nicht weiter (Log 07.10.: Vario 200 viermal Stufe 1 in 3 min). Direkt
+                        -- Stufe 3: auf die KI-Strasse setzen bzw. Pool.
+                        print(string.format("NachbarFelder: [TRAFFIC] Stufe1 zum %d. Mal in %d min - gilt als" ..
+                            " festgefahren, weiter mit Stufe 3 (patrolId=%s)",
+                            NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL,
+                            NachbarFelderManager.STUFE1_SCHLEIFE_MS / 60000, tostring(w.fieldId)))
+                        stufe3()
 
                     elseif stuckMs > 30000 and stage == 0 then
                         -- Stufe 1: neues zufaelliges Ziel
@@ -2590,48 +2650,7 @@ function NachbarFelderManager:update(dt)
                         w.needTimer = true
 
                     elseif stuckMs > 90000 and stage == 2 then
-                        -- Stufe 3: Aufgeben → an Ort und Stelle in den Pool
-                        -- (Build 93: kein Teleport); sonst wie frueher loeschen
-                        w.patrolWdLastX = nil
-                        w.patrolWdStage = 0
-                        -- Build 107: Wer drei Stufen lang keinen Meter vorankam, steckt
-                        -- fest (TK4 am 13.09.: Front vor einem Gebaeude, vier Runden
-                        -- Stufe1/2/3 - Pool - Aufwecken ohne jede Bewegung). Einschlafen
-                        -- an Ort und Stelle aendert daran nichts. Deshalb einmal auf die
-                        -- KI-Strasse setzen und mit neuem Ziel weiterfahren; erst wenn
-                        -- auch das nichts bringt, wie bisher in den Pool.
-                        local gerettet = false
-                        if (w.wdRettungen or 0) < 1 then
-                            self:stopAIJobSafely(veh)
-                            w.fieldGotoStartedAt = nil
-                            if self:rettungAufStrasse(veh, x, z) then
-                                gerettet = true
-                                w.wdRettungen   = (w.wdRettungen or 0) + 1
-                                w.patrolWdLastX = nil
-                                local curDest = w.patrolDestIdx or 1
-                                local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Build 109: ab Fahrzeug
-                                w.waypointIdx   = curDest
-                                w.patrolDestIdx = newDest
-                                w.patrolTargetX = w.waypoints[newDest][1]
-                                w.patrolTargetZ = w.waypoints[newDest][2]
-                                print("NachbarFelder: [TRAFFIC] Stufe3 - steckte fest, faehrt von der Strasse" ..
-                                    " aus weiter zu WP" .. tostring(newDest) .. " (patrolId=" ..
-                                    tostring(w.fieldId) .. ")")
-                                w.status    = 1
-                                w.needTimer = true
-                            end
-                        end
-                        if gerettet then
-                            -- weiter mit neuem Ziel
-                        elseif self:sleepPatrolEntry(k, false) then
-                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug schlaeft im Pool (patrolId=" ..
-                                tostring(w.fieldId) .. ")")
-                        else
-                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug loeschen (patrolId=" ..
-                                tostring(w.fieldId) .. ")")
-                            w.status    = 100
-                            w.needTimer = true
-                        end
+                        stufe3()
                     end
                 end
             end
@@ -3406,12 +3425,53 @@ function NachbarFelderManager:attachObjects(vehicle, attachedVehicle, isBackSett
     return nil
 end
 
+--- Build 174: Schleife aus Stufe 1 erkennen. Merkt die Zeit jeder anstehenden Stufe 1;
+--- true, wenn es binnen STUFE1_SCHLEIFE_MS die STUFE1_SCHLEIFE_ANZAHL-te ist (Liste wird
+--- dann geleert, damit nach der Rettung neu gezaehlt wird).
+NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL = 3
+NachbarFelderManager.STUFE1_SCHLEIFE_MS     = 5 * 60 * 1000
+function NachbarFelderManager:merkeStufe1Schleife(w)
+    if w == nil or g_time == nil then return false end
+    local liste = {}
+    for _, t in ipairs(w.stufe1Zeiten or {}) do
+        if g_time - t <= NachbarFelderManager.STUFE1_SCHLEIFE_MS then table.insert(liste, t) end
+    end
+    table.insert(liste, g_time)
+    if #liste >= NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL then
+        w.stufe1Zeiten = nil
+        return true
+    end
+    w.stufe1Zeiten = liste
+    return false
+end
+
 --- Ladeplatz als ungeeignet merken, wenn ein Fahrzeug dort scheitert (Build 129).
---- Nur wenn es noch innerhalb von 10 m um seinen Ladeplatz steht; je Fahrzeug einmal.
-function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund)
-    local sp = w ~= nil and w.spawnStrasse or nil
-    if type(sp) ~= "table" or x == nil or z == nil or w.spawnPlatzGemeldet then return end
-    if MathUtil.vector2Length(x - sp.x, z - sp.z) > 10 then return end
+--- Nur wenn es noch innerhalb von maxDist (Standard 10 m) um seinen Ladeplatz steht;
+--- je Fahrzeug einmal. diag = true: Ergebnis einmal je Fahrzeug ins Debug-Log (Build 173).
+function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag)
+    if w == nil or x == nil or z == nil or w.spawnPlatzGemeldet then return end
+    local sp = w.spawnStrasse
+    local function diagnose(text)
+        if diag and not w.spawnPlatzDiagnose then
+            w.spawnPlatzDiagnose = true
+            self:log(2, "NachbarFelder: [TRAFFIC] Ladeplatz-Pruefung (" .. tostring(grund) .. "): " .. text)
+        end
+    end
+    if type(sp) ~= "table" then
+        diagnose("kein Ladeplatz an der Strasse bekannt (Shop-Platz oder Pool) - nichts gesperrt")
+        return
+    end
+    local dist = MathUtil.vector2Length(x - sp.x, z - sp.z)
+    -- Build 174: weit weg vom Ladeplatz ist der Platz keine Frage mehr - keine Diagnose
+    -- (Log 07.10.: "steht 444 m vom Ladeplatz" war nur Rauschen)
+    if diag and dist > NachbarFelderManager.LADEPLATZ_DIAG_MAX then return end
+    if dist > (maxDist or 10) then
+        diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - weiter als %.0f m, nicht gesperrt",
+            dist, math.floor(sp.x), math.floor(sp.z), maxDist or 10))
+        return
+    end
+    diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - Platz gilt als untauglich",
+        dist, math.floor(sp.x), math.floor(sp.z)))
     w.spawnPlatzGemeldet = true
     -- Build 132: Admin-Spawnpunkte nie automatisch sperren (mit nur einem Punkt
     -- ginge es sonst zurueck ins Dorf) - stattdessen einmal einen Hinweis geben.
@@ -3851,6 +3911,11 @@ NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf
 -- Sperre von x=-363 z=29 wurde der naechste Platz wenige Meter daneben gewaehlt - dasselbe
 -- Strassenstueck, das die KI nicht erreicht (NotReachable), die Fahrzeuge kamen wieder nicht weg.
 NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
+-- Build 173: Stillstand nach dem Start zaehlt als Fehlschlag des Ladeplatzes, wenn das
+-- Fahrzeug nach 30 s noch hoechstens so weit davon entfernt steht (vorher 10 m).
+NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS = 25
+-- Build 174: Ladeplatz-Diagnose im Debug-Log nur bis zu diesem Abstand vom Ladeplatz
+NachbarFelderManager.LADEPLATZ_DIAG_MAX = 100
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
