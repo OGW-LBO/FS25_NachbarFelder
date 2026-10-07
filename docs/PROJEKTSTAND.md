@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) im Spiel bestätigt (Log 07.10. 10:51–11:24).
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1755,3 +1755,11 @@ Zwei Auffälligkeiten:
 
 **Tests:** Mock `merkeStufe1Schleife` (0/60/120 s → dritte löst aus, Liste leer, 180 s → neu; 0/200/400/600 s → nie);
 Strukturcheck, Vollparse, kein `pcall`.
+
+**Ergebnis Build 174 (Server-Log 07.10. 10:51–11:24, Debug-Log an):** keine Fehler. Sechs Fahrzeuge geladen
+(Series REX4, Series 6M + Volto 60, Proxima HS120 ×2, Vario 500 + Volto 60, Vario 300) – alle fuhren vom Ladeplatz los,
+keine Ladeplatz-Diagnose nötig. 55 Durchfahrtsziele erreicht, 11× Stufe 1, 0× Stufe 2, 1× Stufe 3. Die neue
+Schleifen-Erkennung griff einmal (11:08:22, Series 6M, patrolId=-2: „Stufe1 zum 3. Mal in 5 min“ → 11 m auf die
+KI-Straße gesetzt, fuhr weiter). Die Begegnungs-Logik (Build 166) griff zum ersten Mal (11:03:56, „Begegnung mit
+proximaHS120.xml – weicht 25 m auf die KI-Strasse aus“). Volto 60 wurde nach 3 Sofort-Abweisungen für die Session aus dem
+Verkehr genommen (vorhandene Logik). Zwei Fahrzeuge gingen nach fertigen Hops in den Pool.
