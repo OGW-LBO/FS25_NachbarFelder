@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 169
+NachbarFelderManager.BUILD = 170
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
