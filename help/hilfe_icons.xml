@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!-- Build 171: Symbole der Hilfe-Seitenliste, erzeugt mit tools/hilfebilder.py -->
+<texture>
+    <meta>
+        <filename>hilfe_icons.dds</filename>
+        <size width="512" height="512" />
+    </meta>
+    <slices>
+        <slice id="ueberblick" uvs="0px 0px 128px 128px"/>
+        <slice id="wegpunkte" uvs="128px 0px 128px 128px"/>
+        <slice id="einstellungen" uvs="256px 0px 128px 128px"/>
+        <slice id="tasten" uvs="384px 0px 128px 128px"/>
+        <slice id="verkehr" uvs="0px 128px 128px 128px"/>
+    </slices>
+</texture>

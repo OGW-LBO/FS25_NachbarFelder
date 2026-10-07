@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 170 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 172 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 170`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 172`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1665,4 +1665,50 @@ Spawnpunkt), Einstellungen (Regler/Schalter), Tasten und Konsole, Spielverkehr (
 Erzeugt mit `tools/hilfebilder.py` (Pillow, DXT1); Header wie beim ModHub-geprüften Icon gesetzt (131200 Byte,
 `dwFlags` 0xA1007, `dwMipMapCount` 1, `dwCaps` 0x1000). `build.py`: 18 Dateien, keine `.png` in der ZIP.
 
-**Offen:** Ob das Spiel das Bild auch als Vorschaubild in der linken Seitenliste zeigt, ist nicht geprüft – im Spiel ansehen.
+**Ergebnis (User 07.10.):** Seitenbilder da, die linke Seitenliste blieb leer – siehe Build 171.
+
+# ERGÄNZUNG 2026-10-07 — Build 171: Symbole in der linken Hilfe-Seitenliste
+
+**Befund (User, Screenshot 07.10., Build 170):** „es fehlen noch die Bilder auf der linken Seite“ – die Symbolfelder vor
+„Überblick“, „Wegpunkte und Spawnpunkte“ usw. blieben schwarz. Die Liste nimmt nicht das Absatzbild, sondern
+`page.iconSliceId` (Courseplay FS25 `CpHelpFrame:populateCellForItemInSection`, Kopie des Spiel-Frames:
+`icon:setImageSlice(nil, page.iconSliceId)`, sonst unsichtbar). Wie das Spiel den Wert aus der XML liest, ist nicht
+belegt – deshalb in Lua gesetzt.
+
+**Fix:**
+- Atlas `help/hilfe_icons.dds` (512×512 DXT1, Header wie Icon) mit fünf 128×128-Ausschnitten der Seitenbilder,
+  Slices in `help/hilfe_icons.xml` (Format `texture/meta/slices` wie Courseplay `img/iconSprite.xml`).
+- `setzeHilfeSymbole(dir)` direkt nach `g_helpLineManager:loadFromXML`: Atlas einmal per
+  `g_overlayManager:addTextureConfigFile(…, "nfHilfe")` anmelden (verifiziert, LUADOC OverlayManager; Slice-ID
+  `nfHilfe.<id>`, `getSliceInfoById` ohne customEnv). Dann über `getCustomEnvironmentNames()` (nur Namen, die das Spiel
+  liefert – `getCategories` mit fremdem Namen ist nicht belegt) unsere Kategorie (`title` = `$l10n_NF_help_title` oder
+  übersetzt) suchen und je Seite `iconSliceId` setzen, nur wo noch nichts steht. Ohne Treffer:
+  „Hilfe-Symbole fehlgeschlagen (Kategorie nicht gefunden)“ im Log.
+- `tools/hilfebilder.py` erzeugt jetzt auch Atlas und Slice-XML; `build.py` 20 Dateien.
+
+**Tests:** Mock (Kategorie gefunden → 5 Symbole, fremde Kategorie unberührt, Atlas nur einmal angemeldet, kein Log;
+Kategorie fehlt → Log-Zeile, keine Änderung); Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-07 — Build 172: Engine-Hooks der Helfer-Zeit entfernt (aus PR #12)
+
+**Anlass:** Eine parallele Claude-Sitzung hat Draft-PR #12 (Zweig `claude/dazzling-babbage-3fwp59`, „Build 170“) angelegt:
+Überbleibsel der Feldarbeit in Engine-Funktionen entfernen. Der PR war nicht mergebar: Die Build-Nummer 170 war schon
+vergeben (Hilfe-Bilder, PR #13), und es gab einen Konflikt in diesem Dokument. Der User hat entschieden, den Inhalt hier als
+Build 172 zu übernehmen – mit einer Abweichung (Geld-Hook bleibt).
+
+**Wichtig:** Die Hooks waren **kein toter Code**. `hasActiveWorkers()` war wahr, sobald irgendein Nachbar-Fahrzeug
+existiert (jeder `vehicleType`-Eintrag hat einen `NachbarFelderWorker`), also auch im reinen Verkehr.
+
+**Änderungen:**
+- `FarmlandManager`-Klassen-Hooks entfernt (`getIsOwnedByFarmAtWorldPosition`, `getCanAccessLandAtWorldPosition`,
+  `getIsOwnedByFarmAlongLine` → für die Helfer-Farm überall „gehört“). Lua-Aufrufer laut LUADOC: `AIVehicleUtil.getIsAreaOwned`
+  (Feldarbeit), Leveler, PlaceablePlacement, `WheelDestruction:update` (Räder zerstören Pflanzen nur auf eigenem Land – mit
+  dem Hook also überall). Im GOTO-Weg kein Lua-Aufrufer; ob die Engine-Navigation sie intern nutzt, ist nicht sichtbar →
+  **im Spiel prüfen, ob die Fahrzeuge weiter normal losfahren** (keine neuen „sofort abgewiesen“).
+- `addMoney`-Hook **bleibt** (Abweichung von PR #12): ohne ihn liefen KI-Lohn und Sprit als Minus auf das Konto der
+  Helfer-Farm. Bedingung jetzt `getHatFahrzeugeUnterwegs()` (umbenanntes `hasActiveWorkers`), Merker
+  `moneyHookInstalled` entfällt (`installHooks` hat schon den Guard `hooksInstalled`).
+- Totes `g_messageCenter:unsubscribe(MessageType.MISSION_GENERATED, self)` entfernt (nichts abonniert es mehr).
+
+**Tests:** Strukturcheck, Vollparse, kein `pcall`, keine Verweise mehr auf `hasActiveWorkers`/`moneyHookInstalled`/
+`MISSION_GENERATED`. PR #12 kann geschlossen werden.

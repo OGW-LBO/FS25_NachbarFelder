@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 170
+NachbarFelderManager.BUILD = 172
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -920,62 +920,12 @@ function NachbarFelderManager:installHooks()
     self.hooksInstalled = true
     print("NachbarFelder: Hooks werden installiert")
 
-    -- FarmlandManager: KLASSEN-Level-Hooks
-    -- Für unsere Farm-ID ÜBERALL true liefern solange Helfer aktiv sind -
-    -- exakt der letzte nachweislich funktionierende Stand (PFDump-Build).
-    if FarmlandManager ~= nil then
-        -- getIsOwnedByFarmAtWorldPosition: AI prüft Feldzugang je Position (Feldarbeit)
-        -- WICHTIG: KEINE Positions-Einschränkung einbauen! Eine spätere Version
-        -- beschränkte das auf "unsere aktiven Felder" (isOurActiveFieldAtPosition) -
-        -- damit bekam die asynchrone Course-Generierung des FIELDWORK-Jobs
-        -- nirgendwo "erlaubt" (das Original prüft das interne farmlandMapping,
-        -- nicht das von uns temporär gepatchte farmland.farmId) -> der Kurs
-        -- wurde nie fertig -> Helfer stand ewig mit laufendem Motor auf dem Feld.
-        FarmlandManager.getIsOwnedByFarmAtWorldPosition = Utils.overwrittenFunction(
-            FarmlandManager.getIsOwnedByFarmAtWorldPosition,
-            function(fm, superFunc, farmId, x, z)
-                if g_NachbarFelderManager ~= nil and
-                   farmId ~= nil and farmId > 0 and
-                   farmId == g_NachbarFelderManager.farmId and
-                   g_NachbarFelderManager:hasActiveWorkers() then
-                    return true
-                end
-                return superFunc(fm, farmId, x, z)
-            end)
-
-        -- getCanAccessLandAtWorldPosition: Zugangs-Check (GOTO-Navigation)
-        -- Hier breiter halten damit die Fahrt zum Feld funktioniert
-        FarmlandManager.getCanAccessLandAtWorldPosition = Utils.overwrittenFunction(
-            FarmlandManager.getCanAccessLandAtWorldPosition,
-            function(fm, superFunc, farmId, x, z)
-                if g_NachbarFelderManager ~= nil and
-                   farmId ~= nil and farmId > 0 and
-                   farmId == g_NachbarFelderManager.farmId and
-                   g_NachbarFelderManager:hasActiveWorkers() then
-                    return true
-                end
-                return superFunc(fm, farmId, x, z)
-            end)
-
-        -- getIsOwnedByFarmAlongLine: Pfad-Check für Navigation (GOTO-Routing)
-        if FarmlandManager.getIsOwnedByFarmAlongLine ~= nil then
-            FarmlandManager.getIsOwnedByFarmAlongLine = Utils.overwrittenFunction(
-                FarmlandManager.getIsOwnedByFarmAlongLine,
-                function(fm, superFunc, farmId, ...)
-                    if g_NachbarFelderManager ~= nil and
-                       farmId ~= nil and farmId > 0 and
-                       farmId == g_NachbarFelderManager.farmId and
-                       g_NachbarFelderManager:hasActiveWorkers() then
-                        return true
-                    end
-                    return superFunc(fm, farmId, ...)
-                end)
-        end
-
-        print("NachbarFelder: FarmlandManager-Klassen-Hooks installiert")
-    else
-        print("NachbarFelder: WARNUNG - FarmlandManager-Klasse nicht verfuegbar!")
-    end
+    -- Build 172: Die FarmlandManager-Hooks der Helfer-Zeit (getIsOwnedByFarmAtWorldPosition,
+    -- getCanAccessLandAtWorldPosition, getIsOwnedByFarmAlongLine -> fuer die Helfer-Farm
+    -- ueberall "gehoert") sind entfernt. Sie waren fuer Feldarbeit gedacht, griffen aber
+    -- auch beim reinen Verkehr; in Lua nutzt der GOTO-Weg sie nicht (LUADOC: nur
+    -- Feldarbeit, Leveler, Platzieren, WheelDestruction - dort liessen sie die Raeder der
+    -- Nachbarn Pflanzen zerstoeren). Uebernommen aus PR #12 (Build "170" der Parallel-Sitzung).
 
     -- AIJobTypeManager: nil-Rückgabe absichern
     AIJobTypeManager.getJobTypeIndex = Utils.overwrittenFunction(
@@ -988,19 +938,20 @@ function NachbarFelderManager:installHooks()
             return ret
         end)
 
-    -- Kein Geldabzug für unsere Farm
-    if not self.moneyHookInstalled and FSBaseMission ~= nil and FSBaseMission.addMoney ~= nil then
+    -- Kein Geldabzug fuer die Helfer-Farm, solange Nachbar-Fahrzeuge unterwegs sind: KI-Lohn
+    -- und Sprit der Fahrten liefen sonst als Minus auf ihrem Konto auf (sichtbar in der
+    -- Farmuebersicht im Multiplayer). Build 172: bleibt bewusst erhalten (PR #12 entfernte ihn).
+    if FSBaseMission ~= nil and FSBaseMission.addMoney ~= nil then
         FSBaseMission.addMoney = Utils.overwrittenFunction(FSBaseMission.addMoney,
             function(mission, superFunc, amount, farmId, moneyType, ...)
                 if g_NachbarFelderManager ~= nil
                    and amount ~= nil and amount < 0
                    and farmId == g_NachbarFelderManager.farmId
-                   and g_NachbarFelderManager:hasActiveWorkers() then
+                   and g_NachbarFelderManager:getHatFahrzeugeUnterwegs() then
                     return
                 end
                 return superFunc(mission, amount, farmId, moneyType, ...)
             end)
-        self.moneyHookInstalled = true
     end
 
     -- Aufräumen beim Spielende: NUR AI-Jobs stoppen und Feldbesitz
@@ -1144,9 +1095,65 @@ function NachbarFelderManager:ladeHilfe()
     end
     if g_helpLineManager ~= nil and g_helpLineManager.loadFromXML ~= nil then
         g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
+        self:setzeHilfeSymbole(dir)   -- Build 171
         print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
     else
         print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
+    end
+end
+
+--- Symbole der linken Seitenliste in der Ingame-Hilfe (Build 171).
+---
+--- Die Liste zeigt je Seite page.iconSliceId (Zelle "icon", BitmapElement:setImageSlice ->
+--- OverlayManager:getSliceInfoById; Vorlage: Courseplay FS25 CpHelpFrame:
+--- populateCellForItemInSection). Ohne den Wert bleibt das Feld dunkel (User 07.10.).
+--- Die Symbole liegen als Atlas help/hilfe_icons.dds, angemeldet mit
+--- OverlayManager:addTextureConfigFile unter dem Praefix "nfHilfe" (wie Courseplay
+--- "cpIconSprite"). Eingetragen wird nur auf den Seiten unserer Kategorie und nur,
+--- wo das Spiel noch nichts gesetzt hat.
+NachbarFelderManager.HILFE_SYMBOLE = {
+    "nfHilfe.ueberblick", "nfHilfe.wegpunkte", "nfHilfe.einstellungen",
+    "nfHilfe.tasten", "nfHilfe.verkehr",
+}
+function NachbarFelderManager:setzeHilfeSymbole(dir)
+    local hm = g_helpLineManager
+    if dir == nil or hm == nil or hm.getCategories == nil
+       or g_overlayManager == nil or g_overlayManager.addTextureConfigFile == nil then
+        return
+    end
+    local configs = g_overlayManager.textureConfigs
+    if configs == nil or configs["nfHilfe"] == nil then
+        g_overlayManager:addTextureConfigFile(Utils.getFilename("help/hilfe_icons.xml", dir), "nfHilfe")
+    end
+    -- Nur Namen, die das Spiel selbst liefert (wie Courseplay) - getCategories mit
+    -- fremdem Namen ist nicht belegt. Unsere Mod zuerst.
+    if hm.getCustomEnvironmentNames == nil then return end
+    local umgebungen = {}
+    for _, name in ipairs(hm:getCustomEnvironmentNames() or {}) do
+        if name == modName then
+            table.insert(umgebungen, 1, name)
+        else
+            table.insert(umgebungen, name)
+        end
+    end
+    local titel = g_i18n ~= nil and g_i18n.getText ~= nil and g_i18n:getText("NF_help_title") or nil
+    local gefunden = false
+    for _, env in ipairs(umgebungen) do
+        for _, kat in ipairs(hm:getCategories(env) or {}) do
+            if type(kat) == "table" and (kat.title == "$l10n_NF_help_title" or (titel ~= nil and kat.title == titel)) and type(kat.pages) == "table" then
+                gefunden = true
+                for i, seite in ipairs(kat.pages) do
+                    local sym = NachbarFelderManager.HILFE_SYMBOLE[i]
+                    if type(seite) == "table" and sym ~= nil and seite.iconSliceId == nil then
+                        seite.iconSliceId = sym
+                    end
+                end
+            end
+        end
+        if gefunden then break end
+    end
+    if not gefunden then
+        print("NachbarFelder: Hilfe-Symbole fehlgeschlagen (Kategorie nicht gefunden)")
     end
 end
 
@@ -1189,14 +1196,6 @@ function NachbarFelderManager:serverSideInit()
         g_messageCenter:unsubscribe(MessageType.MASTERUSER_ADDED, self)
         g_messageCenter:subscribe(MessageType.MASTERUSER_ADDED, self.onMasterUserAdded, self)
     end
-
-    -- MISSION_GENERATED wird bewusst NICHT mehr abonniert: Die periodische
-    -- Vertragsgenerierung des Spiels feuerte onMissionStarted und löschte
-    -- laufende Helfer (zudem über den falschen Tabellen-Key, ohne Aufräumen)
-    -- → tote Fahrzeug-Referenzen → Lua-Fehler jede Spielminute bis zum
-    -- Server-Neustart. Helfer werden nur noch entfernt, wenn ein Spieler
-    -- wirklich einen Vertrag auf dem Feld STARTET (MissionStartedEvent).
-    g_messageCenter:unsubscribe(MessageType.MISSION_GENERATED, self)
 
     -- KEIN Mission00.addPlayer Hook mehr - funktioniert nicht zuverlässig auf Dedicated Server.
     -- Stattdessen: playerSystem-Abgleich in onMinuteChanged() übernimmt die Zählung.
@@ -5792,7 +5791,9 @@ function NachbarFelderManager:getCorrectobject(vehicle)
     return nil
 end
 
-function NachbarFelderManager:hasActiveWorkers()
+--- Ist mindestens ein Nachbar-Fahrzeug unterwegs (geladen oder am Laden)? Build 172:
+--- frueher hasActiveWorkers() - der Name stammte aus der Helfer-Zeit.
+function NachbarFelderManager:getHatFahrzeugeUnterwegs()
     if self.vehicleType == nil then return false end
     for _, entry in pairs(self.vehicleType) do
         if entry ~= nil and entry.NachbarFelderWorker ~= nil then return true end
