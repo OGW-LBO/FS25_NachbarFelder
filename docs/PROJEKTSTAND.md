@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-05, Build 169 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 170 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 169`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 170`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc, ModHub-Regeln) wartet auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) wartet auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1651,3 +1651,18 @@ Danach meldete das Skript „Änderung“ in den Texten (jetzt in der modDesc, R
 
 **Regel ab jetzt:** neue Texte nur noch im `l10n`-Block der `modDesc.xml` (de + en + fr); vor einer Einreichung
 `docs/MODHUB_REGELN.md` Abschnitt 8 abarbeiten.
+
+# ERGÄNZUNG 2026-10-07 — Build 170: Bilder in der Ingame-Hilfe
+
+**Befund (User, Screenshot 07.10., Build 169):** Reiter und Hilfetexte da (inline-l10n funktioniert), lokales Log ohne
+Fehler/Warnung der Mod – aber „InGame Hilfe fehlt die Grafik“: Die Bildfelder der Hilfeseiten (ESC → Hilfe) blieben
+dunkel. `help/helpLine.xml` hatte seit Build 153 nie Bilder.
+
+**Fix:** je Seite ein Bild im ersten Absatz, Format wie Courseplay FS25 (`config/HelpMenu.xml`):
+`<image filename="help/hilfe_<seite>.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>`.
+Fünf Motive ohne Text (sprachneutral): Überblick (Landschaft, Traktor mit Fahrer), Wegpunkte (Karte mit Pins und
+Spawnpunkt), Einstellungen (Regler/Schalter), Tasten und Konsole, Spielverkehr (Kreuzung mit Warndreieck).
+Erzeugt mit `tools/hilfebilder.py` (Pillow, DXT1); Header wie beim ModHub-geprüften Icon gesetzt (131200 Byte,
+`dwFlags` 0xA1007, `dwMipMapCount` 1, `dwCaps` 0x1000). `build.py`: 18 Dateien, keine `.png` in der ZIP.
+
+**Offen:** Ob das Spiel das Bild auch als Vorschaubild in der linken Seitenliste zeigt, ist nicht geprüft – im Spiel ansehen.

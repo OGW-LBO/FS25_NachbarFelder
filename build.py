@@ -29,6 +29,11 @@ DATEIEN = [
     "gui/NachbarFelderGuiProfiles.xml",   # Build 135: Aktions-Buttons im Reiter Wegpunkte
     # Ingame-Hilfe (Build 153)
     "help/helpLine.xml",
+    "help/hilfe_ueberblick.dds",   # Build 170: Hilfe-Bilder
+    "help/hilfe_wegpunkte.dds",   # Build 170: Hilfe-Bilder
+    "help/hilfe_einstellungen.dds",   # Build 170: Hilfe-Bilder
+    "help/hilfe_tasten.dds",   # Build 170: Hilfe-Bilder
+    "help/hilfe_verkehr.dds",   # Build 170: Hilfe-Bilder
     # Uebersetzungen stehen seit Build 169 inline in der modDesc (ModHub: ObsoleteFiles)
 ]
 

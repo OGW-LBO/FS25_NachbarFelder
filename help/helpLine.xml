@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!-- Build 153: Ingame-Hilfe (ESC > Hilfe). Geladen in NachbarFelderManager:ladeHilfe()
      ueber g_helpLineManager:loadFromXML - gleiches Format wie die Hilfe des Spiels.
-     Texte stehen im l10n-Block der modDesc (Schluessel NF_help_*). -->
+     Texte stehen im l10n-Block der modDesc (Schluessel NF_help_*).
+     Build 170: je Seite ein Bild (help/hilfe_*.dds, 512x256 Motiv in 512x512 DXT1, ohne Text,
+     erzeugt mit tools/hilfebilder.py). Format wie Courseplay FS25 (config/HelpMenu.xml):
+     size = Texturgroesse, uvs = Ausschnitt, aspectRatio = Hoehe/Breite. -->
 <helpLines>
     <category title="$l10n_NF_help_title" subTitle="$l10n_NF_help_subTitle">
         <page title="$l10n_NF_help_page_ueberblick_title">
             <paragraph>
                 <title text="$l10n_NF_help_page_ueberblick_title"/>
+                <image filename="help/hilfe_ueberblick.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>
                 <text text="$l10n_NF_help_ueberblick_text1"/>
             </paragraph>
             <paragraph>
@@ -16,6 +20,7 @@
         <page title="$l10n_NF_help_page_wegpunkte_title">
             <paragraph>
                 <title text="$l10n_NF_help_page_wegpunkte_title"/>
+                <image filename="help/hilfe_wegpunkte.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>
                 <text text="$l10n_NF_help_wegpunkte_text1"/>
             </paragraph>
             <paragraph>
@@ -28,6 +33,7 @@
         <page title="$l10n_NF_help_page_einstellungen_title">
             <paragraph>
                 <title text="$l10n_NF_help_page_einstellungen_title"/>
+                <image filename="help/hilfe_einstellungen.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>
                 <text text="$l10n_NF_help_einstellungen_text1"/>
             </paragraph>
             <paragraph>
@@ -37,6 +43,7 @@
         <page title="$l10n_NF_help_page_tasten_title">
             <paragraph>
                 <title text="$l10n_NF_help_page_tasten_title"/>
+                <image filename="help/hilfe_tasten.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>
                 <text text="$l10n_NF_help_tasten_text1"/>
             </paragraph>
             <paragraph>
@@ -46,6 +53,7 @@
         <page title="$l10n_NF_help_page_verkehr_title">
             <paragraph>
                 <title text="$l10n_NF_help_page_verkehr_title"/>
+                <image filename="help/hilfe_verkehr.dds" size="512 512" uvs="0px 0px 512px 256px" aspectRatio="0.5"/>
                 <text text="$l10n_NF_help_verkehr_text1"/>
             </paragraph>
             <paragraph>
