@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 175
+NachbarFelderManager.BUILD = 176
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -809,7 +809,8 @@ function NachbarFelderManager:loadServerConfig()
             self.patrolHopsMax = self.patrolHopsMin
         end
         -- Spawn-Taktung (Ruckler-Vermeidung): Fahrzeuge pro Spawn-Tick und
-        -- Pause zwischen Spawns (in SPIELminuten)
+        -- Pause zwischen Spawns (Minuten bei 1-facher Zeit; Build 176: mit dem Zeitfaktor
+        -- skaliert, also etwa Echtzeit-Minuten)
         self.spawnPerTick     = readInt("spawnPerTick",            1, 1, 3)
         self.spawnIntervalMin = readInt("spawnIntervalMinMinutes", 2, 0, 60)
         self.spawnIntervalMax = readInt("spawnIntervalMaxMinutes", 5, 1, 120)
@@ -2996,42 +2997,47 @@ function NachbarFelderManager:onMinuteChanged(minute)
     end
 
     local timeScale = g_currentMission:getEffectiveTimeScale()
-    local cc = 0
+    -- Build 176: Faktor fuer Spielminuten-Zeitgeber, die Echtzeit meinen (>= 1, auch bei Pause)
+    local zeitFaktor = math.max(1, timeScale or 1)
+
+    -- Build 176: Blockier-Pruefung in ECHTZEIT. Der alte Zaehler isBlocked (aus der Vorlage)
+    -- rechnete in Spielminuten mit Schwellen 1x/100x/300x Zeitfaktor - die hoben sich auf:
+    -- 4 Spielminuten ohne Bewegung = 240 s / Zeitfaktor (bei 120x nur 2 s), und er erfasste
+    -- auch parkende Fahrzeuge (Parkzeit bis 300 s). Jetzt: Fahrzeug steht BLOCK_ECHTZEIT_MS
+    -- (4 min) innerhalb von 1 m, ohne zu parken -> Pool bzw. loeschen wie bisher. Festgefahrene
+    -- Fahrzeuge im Fahrbetrieb loest vorher schon der Waechter (30-s-Stufen).
     for v, k in pairs(self.vehicleType) do
-        cc = cc + 1
-        if k.NachbarFelderWorker.isBlocked > 0 then
-            if k.NachbarFelderWorker.isBlocked >= 1 * timeScale then
-                local vehsBlocked = k.NachbarFelderWorker.vehiclesToLoad
-                for _, vehicle in ipairs(vehsBlocked) do
-                    if not self:getIsVehicleAlive(vehicle) then continue end
-                    local x, y, z = getWorldTranslation(vehicle.rootNode)
-                    x = math.floor(x * 1000) / 100
-                    if k.NachbarFelderWorker.lastKnownPos == x or k.NachbarFelderWorker.lastKnownPos == 0 then
-                        if k.NachbarFelderWorker.isBlocked > 300 * timeScale then
-                            -- Patrol: geblocktes Fahrzeug in den Pool (Teleport an
-                            -- freien WP loest die Blockade) statt loeschen (Build 65)
-                            if k.NachbarFelderWorker.isPatrol and self:sleepPatrolEntry(k, false) then
-                                break
-                            end
-                            local status = k.NachbarFelderWorker.status
-                            local vehsRM = k.NachbarFelderWorker.vehiclesToLoad
-                            for _, vehicleRM in ipairs(vehsRM) do
-                                if self:getIsVehicleAlive(vehicleRM) then
-                                    self:stopAIJobSafely(vehicleRM)
-                                    vehicleRM:delete()
-                                end
-                            end
-                            self:deleteMission(k.NachbarFelderWorker.fieldId, status)
-                        end
-                        k.NachbarFelderWorker.isBlocked = k.NachbarFelderWorker.isBlocked + (100 * timeScale)
-                    else
-                        k.NachbarFelderWorker.isBlocked = 2 * timeScale
-                    end
-                    k.NachbarFelderWorker.lastKnownPos = x
-                    break
-                end
+        local w = k.NachbarFelderWorker
+        if w ~= nil then
+            local veh = nil
+            for _, vehicle in ipairs(w.vehiclesToLoad or {}) do
+                if self:getIsVehicleAlive(vehicle) then veh = vehicle break end
+            end
+            local parkt = w.status == 2
+            if veh == nil or parkt then
+                w.blockSeit = nil
             else
-                k.NachbarFelderWorker.isBlocked = k.NachbarFelderWorker.isBlocked + 1
+                local x, _, z = getWorldTranslation(veh.rootNode)
+                if w.blockSeit == nil or w.blockX == nil
+                   or MathUtil.vector2Length(x - w.blockX, z - w.blockZ) > 1 then
+                    w.blockX, w.blockZ, w.blockSeit = x, z, g_time
+                elseif g_time - w.blockSeit > NachbarFelderManager.BLOCK_ECHTZEIT_MS then
+                    w.blockSeit = nil
+                    self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %d s unbewegt (Status %s) -" ..
+                        " Pool bzw. entfernen (patrolId=%s)", math.floor(NachbarFelderManager.BLOCK_ECHTZEIT_MS / 1000),
+                        tostring(w.status), tostring(w.fieldId)))
+                    -- Patrol: geblocktes Fahrzeug in den Pool statt loeschen (Build 65)
+                    if not (w.isPatrol and self:sleepPatrolEntry(k, false)) then
+                        local status = w.status
+                        for _, vehicleRM in ipairs(w.vehiclesToLoad or {}) do
+                            if self:getIsVehicleAlive(vehicleRM) then
+                                self:stopAIJobSafely(vehicleRM)
+                                vehicleRM:delete()
+                            end
+                        end
+                        self:deleteMission(w.fieldId, status)
+                    end
+                end
             end
         end
     end
@@ -3078,8 +3084,11 @@ function NachbarFelderManager:onMinuteChanged(minute)
             if spawnedThisTick > 0 then
                 -- Pause bis zum nächsten Spawn (Spielminuten, konfigurierbar):
                 -- entzerrt die Spawns → weniger Ruckler auf dem Server.
-                self.timeToNextStart = math.random(self.spawnIntervalMin or 2,
-                                                   self.spawnIntervalMax or 5)
+                -- Build 176: mit dem Zeitfaktor skaliert - die Pause soll Echtzeit
+                -- entzerren; bei 120x waren 2-5 Spielminuten nur 1-2,5 s. Bei 1x unveraendert.
+                local pMin = math.floor((self.spawnIntervalMin or 2) * zeitFaktor + 0.5)
+                local pMax = math.max(pMin, math.floor((self.spawnIntervalMax or 5) * zeitFaktor + 0.5))
+                self.timeToNextStart = math.random(pMin, pMax)
             else
                 self.timeToNextStart = math.max(1, math.floor(1 * timeScale))
             end
@@ -3927,6 +3936,9 @@ NachbarFelderManager.LADEPLATZ_DIAG_MAX = 100
 -- Build 175: Aufraeumen beim Monatswechsel erst nach so vielen Spieltagen (Server-Konfig
 -- aufraeumenMinTage ueberschreibt, 0 = nie)
 NachbarFelderManager.AUFRAEUMEN_MIN_TAGE = 7
+-- Build 176: so lange (Echtzeit) darf ein nicht parkendes Nachbar-Fahrzeug unbewegt stehen,
+-- bevor es in den Pool geht bzw. entfernt wird (vorher 4 Spielminuten)
+NachbarFelderManager.BLOCK_ECHTZEIT_MS = 4 * 60 * 1000
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
