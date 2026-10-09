@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
 -- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
-NachbarFelderManager.BUILD = 174
+NachbarFelderManager.BUILD = 175
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
@@ -766,6 +766,7 @@ function NachbarFelderManager:loadServerConfig()
                 setXMLInt(xf, root .. ".spawnIntervalMaxMinutes", 5)
                 setXMLFloat(xf, root .. ".parkTimeFactor",        1.0)
                 setXMLInt(xf, root .. ".poolSize",                6)
+                setXMLInt(xf, root .. ".aufraeumenMinTage",       NachbarFelderManager.AUFRAEUMEN_MIN_TAGE)   -- Build 175
                 setXMLBool(xf, root .. ".fahrerfigurenAufServer", true)
                 setXMLBool(xf, root .. ".rueckwaertsPlanen",      false)   -- Build 125
                 setXMLBool(xf, root .. ".spielverkehrAnmelden",   true)    -- Build 152
@@ -822,6 +823,8 @@ function NachbarFelderManager:loadServerConfig()
         end
         -- Fahrzeug-Pool (Build 65): max. schlafende Fahrzeuge, 0 = Pool aus
         self.poolSize = readInt("poolSize", self.poolSize or 6, 0, 12)
+        -- Build 175: Mindestabstand in Spieltagen fuer das Aufraeumen beim Monatswechsel, 0 = nie
+        self.aufraeumenMinTage = readInt("aufraeumenMinTage", NachbarFelderManager.AUFRAEUMEN_MIN_TAGE, 0, 365)
         -- Tagesrhythmus (Build 68): Verkehrsdichte folgt der Uhrzeit
         local dr = getXMLBool(xf, root .. ".dayRhythm")
         if dr ~= nil then self.dayRhythm = dr end
@@ -897,6 +900,7 @@ function NachbarFelderManager:loadServerConfig()
             " spawnInterval=" .. tostring(self.spawnIntervalMin) .. "-" .. tostring(self.spawnIntervalMax) .. "min" ..
             " parkFaktor=" .. tostring(self.parkTimeFactor or 1) ..
             " poolSize=" .. tostring(self.poolSize) ..
+            " aufraeumenMinTage=" .. tostring(self.aufraeumenMinTage or NachbarFelderManager.AUFRAEUMEN_MIN_TAGE) ..
             " fahrerfigurenAufServer=" .. tostring(self.fahrerfigurenAufServer ~= false) ..
             " rueckwaertsPlanen=" .. tostring(self.rueckwaertsPlanen ~= false) ..
             " spielverkehrAnmelden=" .. tostring(self.spielverkehrAnmelden ~= false) ..
@@ -1188,8 +1192,12 @@ function NachbarFelderManager:serverSideInit()
     g_messageCenter:unsubscribe(MessageType.MINUTE_CHANGED, self)
     g_messageCenter:subscribe(MessageType.MINUTE_CHANGED, self.onMinuteChanged, self)
 
+    -- Build 175: Monatswechsel raeumt nicht mehr jedes Mal auf, sondern erst, wenn seit dem
+    -- letzten Aufraeumen AUFRAEUMEN_MIN_TAGE Spieltage vergangen sind (onPeriodChanged).
+    -- Vorher war deleteAllVehicles direkt abonniert - bei "1 Tag pro Monat" jeden Spieltag.
     g_messageCenter:unsubscribe(MessageType.PERIOD_CHANGED, self)
-    g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.deleteAllVehicles, self)
+    g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.onPeriodChanged, self)
+    self.aufraeumTag = self:getSpieltag()
 
     -- Admin-Logins merken (Build 75): Grundlage fuer den Event-Admin-Check
     if MessageType ~= nil and MessageType.MASTERUSER_ADDED ~= nil then
@@ -3916,6 +3924,9 @@ NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
 NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS = 25
 -- Build 174: Ladeplatz-Diagnose im Debug-Log nur bis zu diesem Abstand vom Ladeplatz
 NachbarFelderManager.LADEPLATZ_DIAG_MAX = 100
+-- Build 175: Aufraeumen beim Monatswechsel erst nach so vielen Spieltagen (Server-Konfig
+-- aufraeumenMinTage ueberschreibt, 0 = nie)
+NachbarFelderManager.AUFRAEUMEN_MIN_TAGE = 7
 NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
 
 --- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
@@ -5713,6 +5724,52 @@ end
 -- ============================================================
 -- Fahrzeuge löschen
 -- ============================================================
+--- Laufender Spieltag (Build 175): environment.currentMonotonicDay, zaehlt ueber Monats- und
+--- Jahresgrenzen weiter (verifiziert: AbstractMission:setDefaultEndDate nutzt es mit
+--- environment.daysPerPeriod). nil, wenn die Umgebung (noch) fehlt.
+function NachbarFelderManager:getSpieltag()
+    local env = g_currentMission ~= nil and g_currentMission.environment or nil
+    if env == nil or type(env.currentMonotonicDay) ~= "number" then return nil end
+    return env.currentMonotonicDay
+end
+
+--- Monatswechsel (Build 175). Bis Build 174 war hier deleteAllVehicles direkt abonniert: bei
+--- jedem Monatswechsel schliefen alle fahrenden Nachbarn auf einen Schlag ein (Pool) bzw.
+--- verschwanden, wenn der Pool voll war. Die Monatslaenge stellen Spieler auf 1 bis 28 Tage -
+--- bei 1 Tag/Monat geschah das jeden Spieltag. Jetzt nur, wenn seit dem letzten Aufraeumen
+--- mindestens aufraeumenMinTage Spieltage vergangen sind (Server-Konfig, Standard 7, 0 = nie).
+--- 28 Tage/Monat: wie bisher jeden Monat; 1 Tag/Monat: jeden 7. Monatswechsel.
+--- Der Zaehler steht nicht im Spielstand: Nachbar-Fahrzeuge und Pool werden nicht gespeichert,
+--- ein Neustart raeumt also ohnehin alles ab; danach zaehlt es ab dem Ladetag neu.
+function NachbarFelderManager:onPeriodChanged()
+    if g_currentMission == nil or not g_currentMission:getIsServer() then return end
+    local minTage = self.aufraeumenMinTage or NachbarFelderManager.AUFRAEUMEN_MIN_TAGE
+    if minTage <= 0 then return end
+    local tag = self:getSpieltag()
+    local env = g_currentMission.environment
+    local tageProMonat = env ~= nil and env.daysPerPeriod or nil
+    if tag == nil then
+        -- Ohne Tageszaehler wie bis Build 174 bei jedem Monatswechsel
+        print("NachbarFelder: WARNUNG - Spieltag nicht verfuegbar, Aufraeumen beim Monatswechsel wie bisher")
+        self:deleteAllVehicles()
+        return
+    end
+    if self.aufraeumTag == nil or tag < self.aufraeumTag then
+        self.aufraeumTag = tag
+        return
+    end
+    local vergangen = tag - self.aufraeumTag
+    if vergangen < minTage then
+        self:log(2, string.format("NachbarFelder: Monatswechsel - kein Aufraeumen (%d von %d Spieltagen," ..
+            " %s Tage pro Monat)", vergangen, minTage, tostring(tageProMonat)))
+        return
+    end
+    print(string.format("NachbarFelder: Monatswechsel - Nachbar-Fahrzeuge werden aufgeraeumt (%d Spieltage seit" ..
+        " dem letzten Mal, %s Tage pro Monat)", vergangen, tostring(tageProMonat)))
+    self.aufraeumTag = tag
+    self:deleteAllVehicles()
+end
+
 function NachbarFelderManager:deleteAllVehicles(quit)
     -- Beim Spiel-Shutdown nichts mehr löschen - prepareForShutdown hat die
     -- AI-Jobs gestoppt, die Fahrzeuge löscht die Engine selbst. Eigene
