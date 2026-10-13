@@ -16,6 +16,16 @@ local function nfPageText(key, ...)
     return s
 end
 
+-- Build 178: Titel des Wegpunkt-Reiters aus der Uebersetzung (modDesc, de/en/fr). Vorher fest
+-- "Wegpunkte"/"Waypoints" - auf Franzoesisch stand "Waypoints". Fallback nur, falls der
+-- Schluessel fehlt.
+local function nfTabTitel()
+    if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText("NF_wpPage_tabTitle") then
+        return g_i18n:getText("NF_wpPage_tabTitle")
+    end
+    return (g_languageShort == "de") and "Wegpunkte" or "Waypoints"
+end
+
 
 -- Build 161: Kategorie eines Wegpunkts als l10n-Schluessel (0 Normal, 1 Kurz,
 -- 2 Lang, 3 Durchfahrt, 4 Spawnpunkt). Unbekanntes gilt als Normal.
@@ -74,19 +84,9 @@ end
 -- Laden + Einbetten in InGameMenuSettingsFrame
 -- ============================================================
 function NachbarFelderWaypointPage:registerAndInject()
-    -- g_i18n.getText Wrapper: externe l10n-Dateien greifen erst nach vollem Spielneustart.
-    -- Dieser Fallback liefert den Text sofort (FS25 uppercased den Key intern → "NF_WPPAGE_TABTITLE").
-    if g_i18n and g_i18n.getText and not g_i18n._nfWpTabTitleFixed then
-        local origGetText = g_i18n.getText
-        g_i18n.getText = function(self_i18n, key, ...)
-            if key ~= nil and string.upper(tostring(key)) == "NF_WPPAGE_TABTITLE" then
-                local lang = g_languageShort or "en"
-                return (lang == "de") and "Wegpunkte" or "Waypoints"
-            end
-            return origGetText(self_i18n, key, ...)
-        end
-        g_i18n._nfWpTabTitleFixed = true
-    end
+    -- Build 178: Der fruehere Wrapper um g_i18n.getText (lieferte fuer NF_wpPage_tabTitle fest
+    -- "Wegpunkte"/"Waypoints", fuer alle Mods) ist entfernt - die Texte stehen seit Build 169 in
+    -- der modDesc, HEADER_TITLES nutzt den Schluessel seit Build 177 nicht mehr.
 
     -- Build 135: eigene GUI-Profile (Aktions-Button) vor dem loadGui laden -
     -- Gui:loadProfiles(xmlFilename), Muster wie FS25_EasyDevControls.
@@ -127,8 +127,7 @@ function NachbarFelderWaypointPage:registerAndInject()
 
         -- Tab-Titel direkt setzen: $l10n_ wird vom C++-Parser vor dem Lua-Wrapper aufgeloest,
         -- daher setText nach loadGui als zuverlaessiger Fallback.
-        local lang  = g_languageShort or "en"
-        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+        local title = nfTabTitel()
         if wpTab.setText ~= nil then wpTab:setText(title) end
 
         -- Prefabs nach loadGui ausblenden (bleiben als Klonvorlagen, sollen nicht sichtbar sein)
@@ -365,7 +364,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                 local paging = sf.subCategoryPaging
                 if paging ~= nil and paging.state == nfTabIdx then
                     if sf.categoryHeaderText ~= nil and sf.categoryHeaderText.setText ~= nil then
-                        local title = (g_languageShort == "de") and "Wegpunkte" or "Waypoints"
+                        local title = nfTabTitel()
                         sf.categoryHeaderText:setText(title)
                     end
                 end
@@ -382,8 +381,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                     -- Header-Text direkt überschreiben (superFunc hat MISSING gesetzt)
                     local sf = g_inGameMenu and g_inGameMenu.pageSettings
                     if sf ~= nil then
-                        local lang = g_languageShort or "en"
-                        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+                        local title = nfTabTitel()
                         local hdrKeys = {"subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText","categoryHeaderText"}
                         for _, name in ipairs(hdrKeys) do
                             if sf[name] ~= nil and sf[name].setText ~= nil then
@@ -440,8 +438,7 @@ function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
     if settingsFrame ~= nil then
         if settingsFrame.updateAbsolutePosition ~= nil then settingsFrame:updateAbsolutePosition() end
         -- Header-Text direkt überschreiben (HEADER_TITLES-Lookup uppercased intern)
-        local lang = g_languageShort or "en"
-        local title = (lang == "de") and "Wegpunkte" or "Waypoints"
+        local title = nfTabTitel()
         local sfHdrKeys = {"categoryHeaderText","subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText"}
         for _, name in ipairs(sfHdrKeys) do
             if settingsFrame[name] ~= nil and settingsFrame[name].setText ~= nil then
