@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-09, Build 176 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-13, Build 177 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 176`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 177`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) im Spiel bestätigt (Log 07.10. 10:51–11:24). **Build 175** (Aufräumen beim Monatswechsel erst nach 7 Spieltagen) und **Build 176** (Blockier-Prüfung in Echtzeit, Spawn-Pause mit Zeitfaktor) warten auf Test.
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) im Spiel bestätigt (Log 07.10. 10:51–11:24). **Build 175** (Aufräumen beim Monatswechsel erst nach 7 Spieltagen) , **Build 176** (Blockier-Prüfung in Echtzeit, Spawn-Pause mit Zeitfaktor) und **Build 177** (Wegpunkt-Reiter ohne DevWarning) warten auf Test.
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -1841,3 +1841,23 @@ Der Faktor ist mindestens 1, auch bei pausiertem Spiel (Zeitfaktor 0).
 **Tests:** Mock Blockier-Prüfung über 6 Echtzeit-Minuten: fahrendes Fahrzeug und parkendes Fahrzeug bleiben, stehendes
 Fahrzeug → Pool nach 300 s (1×, Minuten-Takt) bzw. 240 s (120×). Spawn-Pause: Zeitfaktor 0/1/5/120 → jeweils 120–300 s
 Echtzeit. Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-13 — Build 177: Wegpunkt-Reiter ohne DevWarning (Änderung des Users)
+
+**Anlass:** Der User hat `NachbarFelderWaypointPage.lua` selbst geändert (ZIP vom 13.10., 180 833 Byte, TestRunner PASS).
+Die ZIP beruhte auf dem alten Stand Build 161/162 (Manager `BUILD = 162`, noch mit `l10n/`); übernommen wurde **nur**
+die heutige Änderung in `registerAndInject` (per Diff gegen Commit 43ad444 isoliert), alles andere bleibt auf dem Stand
+von Build 176.
+
+**Änderung:** In `InGameMenuSettingsFrame.HEADER_TITLES` steht für unseren Reiter nicht mehr `NF_wpPage_tabTitle`, sondern
+der erste vorhandene Schlüssel eines Basisspiel-Reiters. Der Frame löst `HEADER_TITLES` ohne Mod-Umgebung über
+`g_i18n:getText` auf – in jedem Frame, solange die Einstellungsseite offen ist; das ergab im Entwicklermodus fortlaufend
+„DevWarning: Missing 'NF_wpPage_tabTitle' in l10n_de.xml“ (bei Farm Economy von GIANTS zweimal beanstandet,
+`docs/MODHUB_REGELN.md` Abschnitt 5). Sichtbar wird der geliehene Titel nie: der `settingsFrame.update`-Hook und der
+`subCategoryPaging.onClickCallback`-Hook schreiben die Kopfzeile selbst, solange unser Reiter offen ist.
+
+**Hinweis (nicht geändert):** Beide Hooks setzen den Titel fest auf „Wegpunkte“ (de) bzw. „Waypoints“ (alle anderen
+Sprachen, also auch fr). Möglich wäre `g_i18n:getText("NF_wpPage_tabTitle")` – der Lua-Code läuft in der Mod-Umgebung.
+
+**Tests:** Strukturcheck, Vollparse, kein `pcall`. Im Spiel: Reiter „Wegpunkte“ öffnen, Kopfzeile prüfen; im
+Entwicklermodus keine „Missing 'NF_wpPage_tabTitle'“-Zeilen.
