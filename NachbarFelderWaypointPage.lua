@@ -302,8 +302,28 @@ function NachbarFelderWaypointPage:registerAndInject()
         end
 
         table.insert(slices, position, slice)
-        -- Key steht im l10n-Block der modDesc → in g_i18n der Mod verfügbar
-        table.insert(InGameMenuSettingsFrame.HEADER_TITLES, position, "NF_wpPage_tabTitle")
+        -- Build 177 (User, 13.10.): HEADER_TITLES loest der Frame ueber g_i18n:getText(schluessel) auf - ohne
+        -- die Mod-Umgebung, also nur in der Textliste des Basisspiels. Die Texte
+        -- dieser Mod stehen dort nicht (auch nicht aus einer eigenen l10n-Datei),
+        -- und der Aufruf laeuft in JEDEM Frame, in dem die Einstellungsseite offen
+        -- ist: im Entwicklermodus entsteht dabei fortlaufend
+        -- "DevWarning: Missing 'NF_wpPage_tabTitle' in l10n_de.xml". Genau das hat GIANTS bei
+        -- Farm Economy zweimal beanstandet; in der Verkaufsversion sieht man diese
+        -- Zeilen nicht, deshalb faellt es im eigenen Log nie auf.
+        --
+        -- Darum steht hier der Schluessel eines vorhandenen Basisspiel-Tabs: die
+        -- Suche findet immer etwas. Sichtbar wird dieser Titel nie, denn solange
+        -- unser Tab offen ist, schreibt der update-Hook weiter unten die Kopfzeile
+        -- in jedem Frame selbst.
+        local titles = InGameMenuSettingsFrame.HEADER_TITLES
+        local titel  = "NF_wpPage_tabTitle"
+        for _, vorhanden in ipairs(titles) do
+            if type(vorhanden) == "string" and vorhanden ~= "" then
+                titel = vorhanden
+                break
+            end
+        end
+        table.insert(titles, position, titel)
 
         settingsFrame:updateAbsolutePosition()
 

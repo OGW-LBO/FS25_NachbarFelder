@@ -5,12 +5,12 @@
 > in `Codex/NachbarFelder_PROJEKTSTAND.md`"*. Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-07, Build 174 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-10-13, Build 177 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes), technisch weiter `FS25_NachbarFelder`
 >   (ZIP-Name = Mod-Name, `modSettings/FS25_NachbarFelder/`, Spielstand `NachbarFelder.xml`, Aktionen `NF_*`, Log-Präfix
->   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 174`.
+>   `NachbarFelder:`). modDesc-Version **1.0.0.0** (vom User für den ModHub zurückgesetzt, `descVersion` 113), `NachbarFelderManager.BUILD = 177`.
 > - **Übersetzungen inline** im `l10n`-Block der `modDesc.xml` (de + en + fr), kein Ordner `l10n/` mehr (Build 169).
 >   ModHub-Beanstandungen aus anderen Mods des Users: `docs/MODHUB_REGELN.md`.
 > - **Nur noch KI-Verkehr**: Traktoren/Gespanne fahren zwischen eigenen Wegpunkten und Straßenzielen, parken, Pool,
@@ -19,7 +19,7 @@
 > - Builds **158–162** im Spiel bestätigt, Release **build162** (PR #6). **Build 163**: neues Mod-Icon (Spielmotiv, vom
 >   User) + README-Banner `docs/bilder/banner.png` – kein Code geändert. **Build 164** (Mindesttempo 30 km/h) im Spiel
 >   bestätigt, Release **build164** (PR #8). **Build 165** (Debug-Log-Schalter) im Spiel
->   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) im Spiel bestätigt (Log 07.10. 10:51–11:24).
+>   bestätigt (Log 04.10. 13:25), noch kein PR. **Build 166** (Begegnungen, früheres Versetzen) läuft fehlerfrei (Log 04.10. 14:01–14:12), eine Begegnung kam noch nicht vor. **Build 167** (Stillstand am Ladeplatz, Sperrradius 40 m) läuft laut User bisher. **Build 168** (Fahrerfigur bleibt sitzen) im Spiel bestätigt, Release über PR #10. **Build 169** (Übersetzungen inline in der modDesc) im Spiel geprüft: Reiter und Texte da, lokales Log ohne Fehler der Mod (07.10.). **Build 170** (Bilder in der Ingame-Hilfe) im Spiel: Seitenbilder da, linke Liste noch leer. **Build 171** (Symbole der Hilfe-Seitenliste) im Spiel bestätigt („Bilder links sind jetzt vorhanden“, 07.10.). **Build 172** (Engine-Hooks der Helfer-Zeit raus, aus PR #12) im Spiel bestätigt: KI-Traktoren fahren auf dem Dedicated Server (07.10.), Release über PR #14. Ein Test davor mit noch Build 171 auf dem Server zeigte kurz keinen Losfahrer (Debug-Log aus, keine Fehler) – nicht reproduziert. **Build 173** (Ladeplatz-Sperre bei Stillstand: 25 m, Diagnose) läuft: alle vier geladenen Fahrzeuge fuhren vom Ladeplatz los (Log 07.10. 10:30–10:40). **Build 174** (Stufe-1-Schleife → Stufe 3, Diagnose nur bis 100 m) im Spiel bestätigt (Log 07.10. 10:51–11:24). **Build 175** (Aufräumen beim Monatswechsel erst nach 7 Spieltagen), **Build 176** (Blockier-Prüfung in Echtzeit, Spawn-Pause mit Zeitfaktor) und **Build 177** (Wegpunkt-Reiter ohne DevWarning) im Spiel bestätigt („Spieltest bestanden“, 13.10.).
 >
 > **Stand der letzten Builds (Details: Abschnitte am Ende)**
 > - 150 Feldhelfer/Lohnunternehmer raus · 151 Anzeigename · 152 beim Spielverkehr anmelden (`addTrafficSystemPlayer`,
@@ -64,7 +64,7 @@
 > - ESC → Hilfe → „Lebendige Straßen“ (5 Seiten). Tasten: Strg+Alt+O/U/C (Wegpunkte), Strg+Alt+L (alles entfernen).
 > - Konsole: `nachbarFelderTimer`, `nachbarFelderEntfernen`, `nachbarFelderTrafficStop`/`…Start`.
 > - Server-Konfig `modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml` (u. a. `spielverkehrAnmelden`,
->   `zielQuelle`, `poolSize`, `trailerChance`, `logLevel`).
+>   `zielQuelle`, `poolSize`, `trailerChance`, `logLevel`, `aufraeumenMinTage`).
 >
 > **Offene Punkte / Ideen**
 > - Engstellen: Gespanne an engen Ortsdurchfahrten beobachten (Stufe1–3-Rettung, Abweisungen im Log).
@@ -1765,3 +1765,99 @@ Schleifen-Erkennung griff einmal (11:08:22, Series 6M, patrolId=-2: „Stufe1 zu
 KI-Straße gesetzt, fuhr weiter). Die Begegnungs-Logik (Build 166) griff zum ersten Mal (11:03:56, „Begegnung mit
 proximaHS120.xml – weicht 25 m auf die KI-Strasse aus“). Volto 60 wurde nach 3 Sofort-Abweisungen für die Session aus dem
 Verkehr genommen (vorhandene Logik). Zwei Fahrzeuge gingen nach fertigen Hops in den Pool.
+
+# ERGÄNZUNG 2026-10-09 — Build 175: Aufräumen beim Monatswechsel unabhängig von „Tage pro Monat“
+
+**Anlass (User):** Spieler stellen „Tage pro Monat“ auf 1 bis 28. Hat das Einfluss auf die Mod?
+
+**Befund:** Die Monatslänge wirkt an genau **einer** Stelle: `serverSideInit` abonnierte `MessageType.PERIOD_CHANGED`
+direkt auf `deleteAllVehicles`. Bei jedem Monatswechsel schliefen damit alle fahrenden Nachbarn auf einen Schlag ein
+(`sleepPatrolEntry`, Motor aus, Pool) bzw. wurden gelöscht, wenn der Pool voll war – bei 1 Tag/Monat **jeden Spieltag**,
+bei 28 Tagen/Monat alle 28 Tage. Alle anderen Zeitgeber der Mod laufen in Spielminuten (`MINUTE_CHANGED`) oder Echtzeit
+(`g_time`) und hängen nicht von der Monatslänge ab. (Nebenbei: `PERIOD_CHANGED` übergab sein Argument als `quit` an
+`deleteAllVehicles` – ohne Folgen, weil Patrouillen vorher gepoolt werden.)
+
+**Ist das Aufräumen noch nötig?** Der Abonnent stammt unverändert aus dem ersten Import (Build 138, Vorlage mit
+Feldhelfern: neuer Monat = neue Feldaufträge); ein Grund ist in diesem Dokument nicht festgehalten. Für den reinen Verkehr
+ist es **funktional nicht nötig**: Festgefahrene Fahrzeuge löst der Wächter (Stufe 1–3, Schleifen-Erkennung Build 174),
+Fahrzeuge beenden ihre Hops selbst und schlafen im Pool, Pool und Fahrzeuge werden nicht gespeichert (`isVehicleSaved =
+false`), ein Neustart räumt also alles ab. Es bleibt als gelegentlicher „Neustart“ des Verkehrs erhalten, aber selten.
+
+**Fix:**
+- `PERIOD_CHANGED` → `onPeriodChanged()`: räumt nur auf, wenn seit dem letzten Aufräumen mindestens
+  `aufraeumenMinTage` Spieltage vergangen sind (Konstante `AUFRAEUMEN_MIN_TAGE` = 7, Server-Konfig
+  `aufraeumenMinTage` 0–365, 0 = nie). Log: „Monatswechsel - Nachbar-Fahrzeuge werden aufgeraeumt (N Spieltage …,
+  M Tage pro Monat)“, sonst im Debug-Log „kein Aufraeumen (N von 7 Spieltagen …)“.
+- Spieltag aus `g_currentMission.environment.currentMonotonicDay` (verifiziert: `AbstractMission:setDefaultEndDate`
+  nutzt es zusammen mit `environment.daysPerPeriod`), nil-sicher über `getSpieltag()`. Fehlt er: WARNUNG und Verhalten wie
+  bis Build 174.
+- Zähler `aufraeumTag` nur serverseitig, gesetzt in `serverSideInit`; **nicht im Spielstand** – nach einem Neustart sind
+  ohnehin keine Nachbar-Fahrzeuge da. Clients sind nicht betroffen (nur Server abonniert).
+- Ergebnis: 28 Tage/Monat → wie bisher jeden Monat; 3 Tage/Monat → jeden 3. Monatswechsel (9 Tage); 1 Tag/Monat →
+  jeden 7. Spieltag statt täglich.
+
+**Prüfung Zeitbeschleunigung (`getEffectiveTimeScale`, Auftrag 2, noch nicht geändert):**
+- `serverSideInit` und `stopAllHelpers`: erster Spawn nach `random(1..2 bzw. 1..4) × Zeitfaktor` Spielminuten ≈ 1–4
+  Echtzeit-Minuten bei jedem Zeitfaktor – sinnvoll. Bei pausiertem Spiel (Zeitfaktor 0) wird es 0; Minuten laufen dann
+  aber nicht, also harmlos.
+- `onMinuteChanged`, Spawn-Pause **nach** einem Spawn: `random(spawnIntervalMin, spawnIntervalMax)` (2–5) Spielminuten
+  **ohne** Zeitfaktor. Bei 1× = 2–5 Echtzeit-Minuten; bei 120× nur 1–2,5 Sekunden – die Spawns (je ein I3D-Laden)
+  folgen dann dicht aufeinander und die Ruckler stapeln sich, gegen die die Pause gedacht war. Vorschlag: mit
+  `math.max(1, Zeitfaktor)` multiplizieren (bei 1× unverändert).
+- `onMinuteChanged`, alter Blockier-Zähler `isBlocked` (aus der Vorlage): Schwellen `1×`, `100×`, `300×` Zeitfaktor
+  heben sich gegenseitig auf – ein Fahrzeug, dessen x-Position sich 4 Spielminuten lang nicht ändert, wird gepoolt
+  (Pool voll: gelöscht). Echtzeit: 240 s / Zeitfaktor, also 240 s bei 1×, 16 s bei 15×, **2 s bei 120×**. Er läuft vor
+  der Schlaf-Abfrage und erfasst auch **parkende** Fahrzeuge (Parkzeit Kategorie 2: 120–300 s Echtzeit) – bei 1× trifft es
+  nur lange Parkzeiten, bei hohem Zeitfaktor fast jede. Vorschlag: auf Echtzeit umstellen (`g_time`, z. B. 4 min)
+  und während der Parkzeit (`status == 2`, `parkUntil`) aussetzen; der Wächter (30-s-Stufen) deckt festgefahrene
+  Fahrzeuge bereits ab.
+- Die Spieltag-Länge selbst ist im Spiel nicht getrennt einstellbar (24 Spielstunden); „kurze Tage“ entsprechen hohem
+  Zeitfaktor.
+
+**Tests:** Mock `onPeriodChanged` über 60 Spieltage ab Tag 10: 1 Tag/Monat → aufgeräumt an Tag 17, 24, 31 … (alle 7);
+3 Tage/Monat → 19, 28, 37 … (alle 9); 28 Tage/Monat → 38, 66 (jeder Monat); ohne Umgebung → WARNUNG + einmal aufgeräumt;
+`aufraeumenMinTage` = 0 → nie. Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-09 — Build 176: Zeitgeber unabhängig von der Zeitbeschleunigung
+
+**Anlass:** Analyse aus Build 175 (Abschnitt dort), vom User zur Umsetzung freigegeben.
+
+**Fix 1 – Blockier-Prüfung in Echtzeit (`onMinuteChanged`):** Der alte Zähler `isBlocked`/`lastKnownPos` aus der Vorlage
+ist ersetzt. Neu je Eintrag `blockX`/`blockZ`/`blockSeit`: Steht das Fahrzeug (erstes lebendes aus `vehiclesToLoad`)
+`BLOCK_ECHTZEIT_MS` = 4 min Echtzeit innerhalb von 1 m und **parkt nicht** (`status ~= 2`), geht es in den Pool
+(`sleepPatrolEntry`) bzw. wird wie bisher gelöscht (Debug-Log „steht 240 s unbewegt …“). Vorher: 4 Spielminuten
+→ 240 s / Zeitfaktor (bei 120× 2 s), und auch parkende Fahrzeuge (bis 300 s) wurden erfasst. Die Felder `isBlocked`/
+`lastKnownPos` im Worker (und `onAIJobVehicleBlock`, das `isBlocked` erhöht) sind jetzt ohne Wirkung, aber unschädlich.
+
+**Fix 2 – Spawn-Pause mit Zeitfaktor:** nach einem Spawn `random(spawnIntervalMin, spawnIntervalMax) × max(1, Zeitfaktor)`
+Spielminuten (gerundet). Bei 1× unverändert 2–5 min; bei 5× und 120× ebenfalls 2–5 Echtzeit-Minuten statt 24–60 s bzw.
+1–2,5 s. Die Konfig-Werte `spawnIntervalMinMinutes`/`…Max…` bedeuten damit Minuten bei 1-facher Zeit ≈ Echtzeit-Minuten.
+Der Faktor ist mindestens 1, auch bei pausiertem Spiel (Zeitfaktor 0).
+
+**Unverändert (geprüft, sinnvoll):** erster Spawn nach dem Laden bzw. nach dem letzten Logout
+(`random(1..2 bzw. 1..4) × Zeitfaktor` Spielminuten ≈ 1–4 Echtzeit-Minuten), Wiederholung ohne Spawn
+(`max(1, floor(Zeitfaktor))` ≈ 1 Echtzeit-Minute), Wächter-Stufen (Echtzeit `g_time`), Parkzeiten (Echtzeit).
+
+**Tests:** Mock Blockier-Prüfung über 6 Echtzeit-Minuten: fahrendes Fahrzeug und parkendes Fahrzeug bleiben, stehendes
+Fahrzeug → Pool nach 300 s (1×, Minuten-Takt) bzw. 240 s (120×). Spawn-Pause: Zeitfaktor 0/1/5/120 → jeweils 120–300 s
+Echtzeit. Strukturcheck, Vollparse, kein `pcall`.
+
+# ERGÄNZUNG 2026-10-13 — Build 177: Wegpunkt-Reiter ohne DevWarning (Änderung des Users)
+
+**Anlass:** Der User hat `NachbarFelderWaypointPage.lua` selbst geändert (ZIP vom 13.10., 180 833 Byte, TestRunner PASS).
+Die ZIP beruhte auf dem alten Stand Build 161/162 (Manager `BUILD = 162`, noch mit `l10n/`); übernommen wurde **nur**
+die heutige Änderung in `registerAndInject` (per Diff gegen Commit 43ad444 isoliert), alles andere bleibt auf dem Stand
+von Build 176.
+
+**Änderung:** In `InGameMenuSettingsFrame.HEADER_TITLES` steht für unseren Reiter nicht mehr `NF_wpPage_tabTitle`, sondern
+der erste vorhandene Schlüssel eines Basisspiel-Reiters. Der Frame löst `HEADER_TITLES` ohne Mod-Umgebung über
+`g_i18n:getText` auf – in jedem Frame, solange die Einstellungsseite offen ist; das ergab im Entwicklermodus fortlaufend
+„DevWarning: Missing 'NF_wpPage_tabTitle' in l10n_de.xml“ (bei Farm Economy von GIANTS zweimal beanstandet,
+`docs/MODHUB_REGELN.md` Abschnitt 5). Sichtbar wird der geliehene Titel nie: der `settingsFrame.update`-Hook und der
+`subCategoryPaging.onClickCallback`-Hook schreiben die Kopfzeile selbst, solange unser Reiter offen ist.
+
+**Hinweis (nicht geändert):** Beide Hooks setzen den Titel fest auf „Wegpunkte“ (de) bzw. „Waypoints“ (alle anderen
+Sprachen, also auch fr). Möglich wäre `g_i18n:getText("NF_wpPage_tabTitle")` – der Lua-Code läuft in der Mod-Umgebung.
+
+**Tests:** Strukturcheck, Vollparse, kein `pcall`. Im Spiel: Reiter „Wegpunkte“ öffnen, Kopfzeile prüfen; im
+Entwicklermodus keine „Missing 'NF_wpPage_tabTitle'“-Zeilen.
