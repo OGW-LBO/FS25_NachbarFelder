@@ -8,7 +8,8 @@
     <GuiElement profile="newLayer" />
     <Bitmap profile="dialogFullscreenBg" id="dialogBg" />
 
-    <GuiElement profile="dialogBg" id="dialogElement" size="520px 208px">
+    <!-- hasFrame="false": der Stil dialogBg zeichnet sonst eine blaue Unterkante -->
+    <GuiElement profile="dialogBg" id="dialogElement" size="520px 230px" hasFrame="false">
         <ThreePartBitmap profile="fs25_dialogBgMiddle" />
         <ThreePartBitmap profile="fs25_dialogBgTop" />
         <ThreePartBitmap profile="fs25_dialogBgBottom" />
