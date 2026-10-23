@@ -11,27 +11,27 @@
 Lege fest, wie viel ein Silo beim Befüllen abgibt – in Schritten von 5.000 Litern.
 
 Bedienung:
-- Strg + Alt + M: Abgabemenge erhöhen (+5.000 l)
-- Strg + Alt + N: Abgabemenge verringern (-5.000 l, ganz unten „Alles“)
-- An der Ladestation zeigt „Befüllen starten (10.000 l)“ die gewählte Menge.
+- Wie gewohnt unter den Trichter fahren, Befüllen starten, Fruchtart wählen und „Start“.
+- Danach erscheint ein zweites Fenster mit der Menge: 5.000 l, 10.000 l, … und als letzter Eintrag „Alles“ mit der vollen möglichen Menge.
+- Menge wählen und „Start“ – das Silo stoppt, sobald die Menge geladen ist.
 
-Das Silo stoppt, sobald die gewählte Menge geladen ist. Liegt weniger im Silo oder passt weniger ins Fahrzeug, wird einfach die Restmenge geladen. Mit „Alles“ verhält sich das Silo wie gewohnt.
+Sind keine vollen 5.000 l mehr im Silo oder im Fahrzeug frei, wird die Restmenge ohne Rückfrage geladen. Die zuletzt gewählte Menge ist beim nächsten Mal vorausgewählt.
 
-Gilt für alle Ladestationen mit Befüll-Auswahl (Silos, Produktionen, Lager). KI-Helfer werden nicht begrenzt.
-Singleplayer, Multiplayer und Dedicated Server. Tasten änderbar unter Steuerung („Silo-Abgabemenge: …“).
+Gilt für alle Ladestationen mit Fruchtart-Auswahl (Silos, Produktionen, Lager). KI-Helfer werden nicht begrenzt.
+Singleplayer, Multiplayer und Dedicated Server.
 ]]></de>
         <en><![CDATA[
 Choose how much a silo hands out when filling – in steps of 5,000 litres.
 
-Controls:
-- Ctrl + Alt + M: increase amount (+5,000 l)
-- Ctrl + Alt + N: decrease amount (-5,000 l, lowest step is "All")
-- At the loading station "Start filling (10,000 l)" shows the chosen amount.
+Usage:
+- Drive under the spout as usual, start filling, choose the fill type and press "Start".
+- A second window then shows the amount: 5,000 l, 10,000 l, … and as the last entry "All" with the full possible amount.
+- Pick the amount and press "Start" – the silo stops as soon as that amount is loaded.
 
-The silo stops as soon as the chosen amount is loaded. If the silo holds less or the vehicle has less free space, the remaining amount is loaded. With "All" the silo behaves as usual.
+If less than 5,000 l are left in the silo or free in the vehicle, the remaining amount is loaded without asking. The last chosen amount is preselected next time.
 
 Works for every loading station with fill type selection (silos, productions, storages). AI workers are not limited.
-Singleplayer, multiplayer and dedicated server. Keys can be changed under Controls ("Silo Unload Amount: ...").
+Singleplayer, multiplayer and dedicated server.
 ]]></en>
     </description>
     <iconFilename>icon_SiloAbgabemenge.dds</iconFilename>
@@ -40,41 +40,21 @@ Singleplayer, multiplayer and dedicated server. Keys can be changed under Contro
         <sourceFile filename="SiloAbgabemenge.lua" />
     </extraSourceFiles>
     <l10n>
+        <text name="SA_titel">
+            <de>Abgabemenge</de>
+            <en>Unload amount</en>
+        </text>
+        <text name="SA_info">
+            <de>Wie viel soll geladen werden?</de>
+            <en>How much should be loaded?</en>
+        </text>
         <text name="SA_alles">
             <de>Alles</de>
             <en>All</en>
         </text>
-        <text name="SA_abgabemenge">
-            <de>Silo-Abgabemenge</de>
-            <en>Silo unload amount</en>
-        </text>
-        <text name="SA_tasteMehr">
-            <de>Abgabemenge +</de>
-            <en>Unload amount +</en>
-        </text>
-        <text name="SA_tasteWeniger">
-            <de>Abgabemenge -</de>
-            <en>Unload amount -</en>
-        </text>
-        <text name="input_SA_MENGE_PLUS">
-            <de>Silo-Abgabemenge: erhöhen (+5.000 l)</de>
-            <en>Silo Unload Amount: increase (+5,000 l)</en>
-        </text>
-        <text name="input_SA_MENGE_MINUS">
-            <de>Silo-Abgabemenge: verringern (-5.000 l)</de>
-            <en>Silo Unload Amount: decrease (-5,000 l)</en>
+        <text name="SA_start">
+            <de>Start</de>
+            <en>Start</en>
         </text>
     </l10n>
-    <inputBinding>
-        <actionBinding action="SA_MENGE_PLUS">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_m" />
-        </actionBinding>
-        <actionBinding action="SA_MENGE_MINUS">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_lctrl KEY_lalt KEY_n" />
-        </actionBinding>
-    </inputBinding>
-    <actions>
-        <action name="SA_MENGE_PLUS" />
-        <action name="SA_MENGE_MINUS" />
-    </actions>
 </modDesc>

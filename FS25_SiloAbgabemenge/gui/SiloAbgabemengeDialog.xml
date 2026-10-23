@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!--
+    FS25_SiloAbgabemenge - Mengenauswahl nach dem Silo-Dialog.
+    Aufbau nach dem Muster von FS25_UsedPlus (FluidPurchaseDialog): MessageDialog
+    mit Basisspiel-Profilen, MultiTextOption fuer die Menge.
+-->
+<GUI onOpen="onOpen" onClose="onClose" onCreate="onCreate">
+    <GuiElement profile="newLayer" />
+    <Bitmap profile="dialogFullscreenBg" id="dialogBg" />
+
+    <GuiElement profile="dialogBg" id="dialogElement" size="520px 230px">
+        <ThreePartBitmap profile="fs25_dialogBgMiddle" />
+        <ThreePartBitmap profile="fs25_dialogBgTop" />
+        <ThreePartBitmap profile="fs25_dialogBgBottom" />
+
+        <GuiElement profile="fs25_dialogContentContainer">
+            <Text profile="fs25_dialogTitle" id="dialogTitleElement" position="0px -25px" text="$l10n_SA_titel"/>
+            <Text profile="saInfoText" id="infoText" position="0px -70px" text=""/>
+            <MultiTextOption profile="saAmountOption" id="amountOption" position="0px -110px" onClick="onAmountChanged"/>
+        </GuiElement>
+
+        <BoxLayout profile="fs25_dialogButtonBox" id="buttonBox">
+            <Button profile="buttonOK" id="startButton" text="$l10n_SA_start" onClick="onClickStart"/>
+            <Bitmap profile="fs25_dialogButtonBoxSeparator" id="buttonSeparator"/>
+            <Button profile="buttonBack" id="cancelButton" text="$l10n_button_cancel" onClick="onClickCancel"/>
+        </BoxLayout>
+    </GuiElement>
+
+    <GUIProfiles>
+        <Profile name="saInfoText" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="480px 24px"/>
+            <textSize value="15px"/>
+            <textColor value="0.85 0.85 0.85 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+
+        <Profile name="saAmountOption" extends="fs25_multiTextOption" with="anchorTopCenter">
+            <size value="320px 34px"/>
+        </Profile>
+    </GUIProfiles>
+</GUI>

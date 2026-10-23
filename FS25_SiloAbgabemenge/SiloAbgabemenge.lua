@@ -2,10 +2,13 @@
 -- FS25_SiloAbgabemenge
 --
 -- Begrenzt die Menge, die ein Silo (bzw. jede Ladestation mit
--- LoadTrigger) beim Befuellen eines Fahrzeugs abgibt. Einstellbar
--- in 5.000-l-Schritten per Taste; "Alles" = Verhalten des Basisspiels.
--- Hat das Silo weniger oder passt weniger ins Fahrzeug, wird eben die
--- Restmenge geladen (das Basisspiel stoppt dann von selbst).
+-- LoadTrigger) beim Befuellen eines Fahrzeugs abgibt.
+--
+-- Bedienung: Nach "Start" im Silo-Dialog des Spiels erscheint ein
+-- zweites Fenster mit der Menge in 5.000-l-Schritten. Der letzte
+-- Eintrag ist immer die volle moegliche Menge (Siloinhalt bzw. freier
+-- Platz im Fahrzeug, je nachdem was kleiner ist) - also die Restmenge,
+-- wenn es keine vollen 5.000 l mehr sind.
 --
 -- Ablauf (Original-Code LoadTrigger.lua, FS25):
 --   Client: toggleLoading -> SiloDialog -> onFillTypeSelection
@@ -13,27 +16,27 @@
 --   Server: startLoading, danach update(dt) fuellt mit
 --           fillLitersPerMS * dt ueber source:addFillLevelToFillableObject
 --
--- Die Mod schickt in onFillTypeSelection VOR dem Start-Event die
--- gewuenschte Menge an den Server (gleiche Verbindung, gleiche
--- Reihenfolge). Der Server merkt sie sich beim Start des Ladevorgangs,
--- drosselt in update() die Fuellrate auf den Rest und stoppt bei
--- Erreichen der Menge.
+-- Die Mod faengt onFillTypeSelection ab, zeigt den Mengen-Dialog und
+-- schickt nach "Start" die Menge VOR dem Start-Event an den Server
+-- (gleiche Verbindung, gleiche Reihenfolge). Der Server merkt sie sich
+-- beim Start des Ladevorgangs, drosselt in update() die Fuellrate auf
+-- den Rest und stoppt bei Erreichen der Menge.
 --
 -- KI-Helfer (aiStartLoadingFromTrigger) laufen nicht ueber
 -- onFillTypeSelection und werden daher nie begrenzt.
 -- ============================================================
 
 local modName = g_currentModName
+local modDirectory = g_currentModDirectory
 
 SiloAbgabemenge = {}
-SiloAbgabemenge.SCHRITT_LITER = 5000   -- Schrittweite
-SiloAbgabemenge.MAX_STUFE     = 40     -- 40 x 5.000 l = 200.000 l
-SiloAbgabemenge.PENDING_MS    = 10000  -- so lange gilt eine gesendete Menge
-SiloAbgabemenge.ANZEIGE_MS    = 500    -- Tasten im F1-Fenster nur nahe einer Ladestation
+SiloAbgabemenge.SCHRITT_LITER  = 5000    -- Schrittweite
+SiloAbgabemenge.MAX_EINTRAEGE  = 40      -- hoechstens 40 Schritte (200.000 l) in der Liste
+SiloAbgabemenge.PENDING_MS     = 10000   -- so lange gilt eine gesendete Menge
+SiloAbgabemenge.DIALOG_NAME    = "SiloAbgabemengeDialog"
 
-SiloAbgabemenge.stufe = 0              -- 0 = Alles, sonst stufe * SCHRITT_LITER
-SiloAbgabemenge.eventIds = {}
-SiloAbgabemenge.zuletztAmSilo = -100000
+SiloAbgabemenge.letzteMenge = 0          -- zuletzt gewaehlte Menge, 0 = Alles
+SiloAbgabemenge.offenerDialog = nil      -- vorgemerkter Mengen-Dialog (naechster Frame)
 
 local function log(msg)
     print("[SiloAbgabemenge] " .. tostring(msg))
@@ -49,7 +52,7 @@ end
 local function text(name, fallback)
     if g_i18n ~= nil and g_i18n.getText ~= nil then
         local ok, t = pcall(g_i18n.getText, g_i18n, name)
-        if ok and t ~= nil and t ~= "" then
+        if ok and t ~= nil and t ~= "" and string.find(t, "Missing", 1, true) == nil then
             return t
         end
     end
@@ -64,19 +67,6 @@ local function formatLiter(liter)
         end
     end
     return string.format("%d l", math.floor(liter + 0.5))
-end
-
--- gewaehlte Menge in Litern, 0 = Alles
-function SiloAbgabemenge.getLimit()
-    return SiloAbgabemenge.stufe * SiloAbgabemenge.SCHRITT_LITER
-end
-
-function SiloAbgabemenge.getMengenText()
-    local limit = SiloAbgabemenge.getLimit()
-    if limit <= 0 then
-        return text("SA_alles", "Alles")
-    end
-    return formatLiter(limit)
 end
 
 -- ============================================================
@@ -109,6 +99,161 @@ function SiloAbgabemengeEvent:readStream(streamId, connection)
     if g_currentMission ~= nil and g_currentMission:getIsServer() and self.loadTrigger ~= nil then
         SiloAbgabemenge.setPending(self.loadTrigger, self.limit)
     end
+end
+
+-- ============================================================
+-- Mengen-Dialog (Muster: MessageDialog wie in FS25_UsedPlus)
+-- ============================================================
+SiloAbgabemengeDialog = {}
+local SiloAbgabemengeDialog_mt = Class(SiloAbgabemengeDialog, MessageDialog)
+
+function SiloAbgabemengeDialog.new(target, customMt)
+    local self = MessageDialog.new(target, customMt or SiloAbgabemengeDialog_mt)
+    self.mengen = {}
+    self.onStart = nil
+    return self
+end
+
+-- onStart(limit) wird bei "Start" gerufen, limit 0 = Alles
+function SiloAbgabemengeDialog:setData(titel, info, mengen, texte, startIndex, onStart)
+    self.titel = titel
+    self.info = info
+    self.mengen = mengen
+    self.texte = texte
+    self.startIndex = startIndex
+    self.onStart = onStart
+end
+
+function SiloAbgabemengeDialog:onOpen()
+    SiloAbgabemengeDialog:superClass().onOpen(self)
+
+    if self.dialogTitleElement ~= nil and self.titel ~= nil then
+        self.dialogTitleElement:setText(self.titel)
+    end
+    if self.infoText ~= nil then
+        self.infoText:setText(self.info or "")
+    end
+    if self.amountOption ~= nil then
+        self.amountOption:setTexts(self.texte or {})
+        self.amountOption:setState(self.startIndex or 1)
+    end
+    if self.startButton ~= nil then
+        self.startButton:setText(text("SA_start", "Start"))
+    end
+end
+
+function SiloAbgabemengeDialog:onAmountChanged()
+end
+
+function SiloAbgabemengeDialog:onClickStart()
+    local limit = 0
+    if self.amountOption ~= nil then
+        local state = self.amountOption:getState()
+        if state ~= nil and self.mengen[state] ~= nil then
+            limit = self.mengen[state]
+        end
+    end
+    local onStart = self.onStart
+    self.onStart = nil
+    self:close()
+    if onStart ~= nil then
+        onStart(limit)
+    end
+end
+
+function SiloAbgabemengeDialog:onClickCancel()
+    self.onStart = nil
+    self:close()
+end
+
+function SiloAbgabemenge.ladeDialog()
+    if g_gui == nil then
+        return false
+    end
+    if g_gui.guis ~= nil and g_gui.guis[SiloAbgabemenge.DIALOG_NAME] ~= nil then
+        return true
+    end
+    local ok, err = pcall(function()
+        g_gui:loadGui(modDirectory .. "gui/SiloAbgabemengeDialog.xml", SiloAbgabemenge.DIALOG_NAME,
+            SiloAbgabemengeDialog.new())
+    end)
+    if not ok then
+        log("Dialog konnte nicht geladen werden: " .. tostring(err))
+        return false
+    end
+    if g_gui.guis == nil or g_gui.guis[SiloAbgabemenge.DIALOG_NAME] == nil then
+        log("Dialog konnte nicht geladen werden (XML)")
+        return false
+    end
+    return true
+end
+
+-- Liste der Mengen: 5.000, 10.000, ... unter der moeglichen Menge,
+-- als letzter Eintrag die volle moegliche Menge (Limit 0 = Alles).
+-- Rueckgabe: mengen, texte, startIndex
+function SiloAbgabemenge.baueListe(moeglich)
+    local schritt = SiloAbgabemenge.SCHRITT_LITER
+    local mengen, texte = {}, {}
+    local maxK = SiloAbgabemenge.MAX_EINTRAEGE
+    local k = 1
+    while k * schritt < moeglich - 0.5 and k <= maxK do
+        table.insert(mengen, k * schritt)
+        table.insert(texte, formatLiter(k * schritt))
+        k = k + 1
+    end
+    table.insert(mengen, 0)
+    if moeglich < math.huge and k <= SiloAbgabemenge.MAX_EINTRAEGE then
+        table.insert(texte, string.format("%s (%s)", text("SA_alles", "Alles"), formatLiter(moeglich)))
+    else
+        table.insert(texte, text("SA_alles", "Alles"))
+    end
+
+    -- Vorauswahl: zuletzt gewaehlte Menge, sonst "Alles"
+    local startIndex = #mengen
+    local letzte = SiloAbgabemenge.letzteMenge or 0
+    if letzte > 0 then
+        for i, m in ipairs(mengen) do
+            if m == letzte then
+                startIndex = i
+                break
+            end
+        end
+    end
+    return mengen, texte, startIndex
+end
+
+-- Moegliche Menge = min(Siloinhalt dieser Fruchtart, freier Platz im Fahrzeug)
+function SiloAbgabemenge.getMoeglicheMenge(loadTrigger, fillType)
+    local moeglich = math.huge
+
+    if not loadTrigger.hasInfiniteCapacity and loadTrigger.source ~= nil
+       and loadTrigger.source.getAllFillLevels ~= nil and g_currentMission ~= nil then
+        local ok, levels = pcall(loadTrigger.source.getAllFillLevels, loadTrigger.source, g_currentMission:getFarmId())
+        if ok and levels ~= nil and levels[fillType] ~= nil then
+            moeglich = math.min(moeglich, levels[fillType])
+        end
+    end
+
+    local object = loadTrigger.validFillableObject
+    local fillUnitIndex = loadTrigger.validFillableFillUnitIndex
+    if object ~= nil and fillUnitIndex ~= nil and object.getFillUnitFreeCapacity ~= nil then
+        local ok, frei = pcall(object.getFillUnitFreeCapacity, object, fillUnitIndex, nil, nil)
+        if ok and frei ~= nil then
+            moeglich = math.min(moeglich, frei)
+        end
+    end
+
+    return moeglich
+end
+
+local function getFillTypeTitel(fillType)
+    if g_fillTypeManager ~= nil and g_fillTypeManager.getFillTypeByIndex ~= nil then
+        local ok, ft = pcall(g_fillTypeManager.getFillTypeByIndex, g_fillTypeManager, fillType)
+        if ok and ft ~= nil and ft.title ~= nil then
+            return ft.title
+        end
+    end
+    return ""
 end
 
 -- ============================================================
@@ -200,110 +345,64 @@ end
 -- ============================================================
 -- Client-Seite
 -- ============================================================
+function SiloAbgabemenge.sendeLimit(loadTrigger, limit)
+    if g_currentMission:getIsServer() then
+        SiloAbgabemenge.setPending(loadTrigger, limit)
+    elseif NetworkUtil.getObjectId(loadTrigger) ~= nil then
+        g_client:getServerConnection():sendEvent(SiloAbgabemengeEvent.new(loadTrigger, limit))
+    else
+        log("LoadTrigger ohne Netzwerk-ID - Menge wird nicht begrenzt")
+    end
+end
+
 function SiloAbgabemenge.triggerOnFillTypeSelection(self, superFunc, fillType)
-    if g_client ~= nil and fillType ~= nil and fillType ~= FillType.UNKNOWN
-       and self.validFillableObject ~= nil and self:getAllowsActivation(self.validFillableObject) then
-        local limit = SiloAbgabemenge.getLimit()
-        if g_currentMission:getIsServer() then
-            SiloAbgabemenge.setPending(self, limit)
-        elseif NetworkUtil.getObjectId(self) ~= nil then
-            g_client:getServerConnection():sendEvent(SiloAbgabemengeEvent.new(self, limit))
-        else
-            log("LoadTrigger ohne Netzwerk-ID - Menge wird nicht begrenzt")
-        end
+    -- nur Spieler-Auswahl aus dem Silo-Dialog; autoStart/automatisches Befuellen unveraendert
+    if g_client == nil or self.autoStart or self.automaticFilling
+       or fillType == nil or fillType == FillType.UNKNOWN
+       or self.validFillableObject == nil or not self:getAllowsActivation(self.validFillableObject) then
+        return superFunc(self, fillType)
     end
-    return superFunc(self, fillType)
+
+    local moeglich = SiloAbgabemenge.getMoeglicheMenge(self, fillType)
+    if moeglich <= SiloAbgabemenge.SCHRITT_LITER or not SiloAbgabemenge.ladeDialog() then
+        -- 5.000 l oder weniger moeglich: es gibt nur die Restmenge, ohne Rueckfrage laden
+        SiloAbgabemenge.sendeLimit(self, 0)
+        return superFunc(self, fillType)
+    end
+
+    local mengen, texte, startIndex = SiloAbgabemenge.baueListe(moeglich)
+    local trigger = self
+    local function onStart(limit)
+        SiloAbgabemenge.letzteMenge = limit
+        SiloAbgabemenge.sendeLimit(trigger, limit)
+        superFunc(trigger, fillType)
+    end
+
+    local info = string.format("%s: %s", getFillTypeTitel(fillType), text("SA_info", "Wie viel soll geladen werden?"))
+    -- erst im naechsten Frame oeffnen, damit sich der Silo-Dialog vorher schliessen kann
+    SiloAbgabemenge.offenerDialog = {
+        titel = text("SA_titel", "Abgabemenge"), info = info,
+        mengen = mengen, texte = texte, startIndex = startIndex, onStart = onStart
+    }
 end
 
--- Text der Aktion "Befuellen starten" um die gewaehlte Menge ergaenzen
-function SiloAbgabemenge.activatableGetIsActivatable(self, superFunc)
-    local aktiv = superFunc(self)
-    local trigger = self.loadTrigger
-    if aktiv and trigger ~= nil then
-        SiloAbgabemenge.zuletztAmSilo = jetzt()
-        if not trigger.isLoading and trigger.startFillText ~= nil then
-            self.activateText = string.format("%s (%s)", trigger.startFillText, SiloAbgabemenge.getMengenText())
-        end
-    end
-    return aktiv
-end
-
-function SiloAbgabemenge.setStufe(stufe)
-    stufe = math.max(0, math.min(SiloAbgabemenge.MAX_STUFE, stufe))
-    SiloAbgabemenge.stufe = stufe
-    SiloAbgabemenge.aktualisiereTastenText()
-
-    if g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
-        g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
-            string.format("%s: %s", text("SA_abgabemenge", "Abgabemenge"), SiloAbgabemenge.getMengenText()))
-    end
-end
-
-function SiloAbgabemenge:onInputPlus()
-    SiloAbgabemenge.setStufe(SiloAbgabemenge.stufe + 1)
-end
-
-function SiloAbgabemenge:onInputMinus()
-    SiloAbgabemenge.setStufe(SiloAbgabemenge.stufe - 1)
-end
-
-function SiloAbgabemenge.aktualisiereTastenText()
-    if g_inputBinding == nil then
-        return
-    end
-    local menge = SiloAbgabemenge.getMengenText()
-    local idPlus = SiloAbgabemenge.eventIds.plus
-    local idMinus = SiloAbgabemenge.eventIds.minus
-    if idPlus ~= nil then
-        g_inputBinding:setActionEventText(idPlus, string.format("%s (%s)", text("SA_tasteMehr", "Abgabemenge +"), menge))
-    end
-    if idMinus ~= nil then
-        g_inputBinding:setActionEventText(idMinus, string.format("%s (%s)", text("SA_tasteWeniger", "Abgabemenge -"), menge))
-    end
-end
-
-local function registerActionEvents(self, superFunc, ...)
-    superFunc(self, ...)
-
-    if self.player == nil or not self.player.isOwner or g_client == nil then
-        return
-    end
-    if InputAction.SA_MENGE_PLUS == nil or InputAction.SA_MENGE_MINUS == nil then
-        return
-    end
-
-    local _, idPlus = g_inputBinding:registerActionEvent(InputAction.SA_MENGE_PLUS, SiloAbgabemenge,
-        SiloAbgabemenge.onInputPlus, false, true, false, true)
-    local _, idMinus = g_inputBinding:registerActionEvent(InputAction.SA_MENGE_MINUS, SiloAbgabemenge,
-        SiloAbgabemenge.onInputMinus, false, true, false, true)
-
-    SiloAbgabemenge.eventIds.plus = idPlus
-    SiloAbgabemenge.eventIds.minus = idMinus
-    SiloAbgabemenge.eventIds.sichtbar = nil
-    SiloAbgabemenge.aktualisiereTastenText()
-    SiloAbgabemenge.setTastenSichtbar(false)
-end
-
-function SiloAbgabemenge.setTastenSichtbar(sichtbar)
-    if SiloAbgabemenge.eventIds.sichtbar == sichtbar then
-        return
-    end
-    SiloAbgabemenge.eventIds.sichtbar = sichtbar
-    local ids = { SiloAbgabemenge.eventIds.plus, SiloAbgabemenge.eventIds.minus }
-    for _, id in pairs(ids) do
-        if id ~= nil then
-            g_inputBinding:setActionEventTextVisibility(id, sichtbar)
-        end
-    end
-end
-
--- Mod-Event-Listener: Tasten im F1-Fenster nur zeigen, solange eine
--- Ladestation die Aktion "Befuellen starten" anbietet
+-- Mod-Event-Listener: vorgemerkten Mengen-Dialog oeffnen
 function SiloAbgabemenge:update(dt)
-    if g_client == nil or g_inputBinding == nil then
+    local d = SiloAbgabemenge.offenerDialog
+    if d == nil then
         return
     end
-    SiloAbgabemenge.setTastenSichtbar((jetzt() - SiloAbgabemenge.zuletztAmSilo) <= SiloAbgabemenge.ANZEIGE_MS)
+    SiloAbgabemenge.offenerDialog = nil
+
+    local guiDialog = g_gui.guis[SiloAbgabemenge.DIALOG_NAME]
+    local dialog = guiDialog ~= nil and (guiDialog.target or guiDialog) or nil
+    if dialog == nil or dialog.setData == nil then
+        log("Dialog nicht verfuegbar - lade ohne Begrenzung")
+        d.onStart(0)
+        return
+    end
+    dialog:setData(d.titel, d.info, d.mengen, d.texte, d.startIndex, d.onStart)
+    g_gui:showDialog(SiloAbgabemenge.DIALOG_NAME)
 end
 
 -- ============================================================
@@ -320,20 +419,6 @@ local function init()
     LoadTrigger.startLoading = Utils.overwrittenFunction(LoadTrigger.startLoading, SiloAbgabemenge.triggerStartLoading)
     LoadTrigger.stopLoading = Utils.overwrittenFunction(LoadTrigger.stopLoading, SiloAbgabemenge.triggerStopLoading)
     LoadTrigger.update = Utils.overwrittenFunction(LoadTrigger.update, SiloAbgabemenge.triggerUpdate)
-
-    if LoadTriggerActivatable ~= nil and LoadTriggerActivatable.getIsActivatable ~= nil then
-        LoadTriggerActivatable.getIsActivatable = Utils.overwrittenFunction(LoadTriggerActivatable.getIsActivatable,
-            SiloAbgabemenge.activatableGetIsActivatable)
-    else
-        log("Warnung: LoadTriggerActivatable nicht gefunden - Menge wird an der Station nicht angezeigt")
-    end
-
-    if PlayerInputComponent ~= nil and PlayerInputComponent.registerGlobalPlayerActionEvents ~= nil then
-        PlayerInputComponent.registerGlobalPlayerActionEvents = Utils.overwrittenFunction(
-            PlayerInputComponent.registerGlobalPlayerActionEvents, registerActionEvents)
-    else
-        log("Warnung: PlayerInputComponent nicht gefunden - Tasten nicht verfuegbar")
-    end
 
     addModEventListener(SiloAbgabemenge)
     log("geladen (" .. tostring(modName) .. ")")
