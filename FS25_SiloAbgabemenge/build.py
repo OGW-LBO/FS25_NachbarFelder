@@ -13,7 +13,6 @@ DATEIEN = [
     "modDesc.xml",
     "icon_SiloAbgabemenge.dds",
     "SiloAbgabemenge.lua",
-    "gui/SiloAbgabemengeDialog.xml",
 ]
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
