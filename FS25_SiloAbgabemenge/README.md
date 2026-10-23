@@ -1,8 +1,8 @@
 # Silo-Abgabemenge (FS25_SiloAbgabemenge)
 
 Script-Mod für den Landwirtschafts-Simulator 25. Legt fest, wie viel ein Silo beim Befüllen eines
-Fahrzeugs abgibt – in Schritten von 5.000 Litern. Sind keine vollen 5.000 l mehr möglich, wird die
-Restmenge geladen.
+Fahrzeugs abgibt – aus einer Liste oder als eigene Menge in Litern. Mehr als im Silo liegt oder ins
+Fahrzeug passt, geht nicht; dann wird die Restmenge geladen.
 
 Eigene Mod, unabhängig von „Lebendige Straßen“ im Hauptordner des Repos.
 
@@ -10,13 +10,16 @@ Eigene Mod, unabhängig von „Lebendige Straßen“ im Hauptordner des Repos.
 
 1. Wie gewohnt mit dem Anhänger unter den Trichter fahren, **R** (Befüllen starten) drücken,
    Fruchtart wählen und **Start**.
-2. Danach erscheint das Fenster **„Abgabemenge“**: 5.000 l, 10.000 l, … und als letzter Eintrag
-   **„Alles (x l)“** mit der vollen möglichen Menge (Siloinhalt oder freier Platz im Fahrzeug, je nachdem,
-   was kleiner ist).
+2. Danach erscheint das Fenster **„Abgabemenge“** mit den Einträgen:
+   - **„Eigene Menge …“** – nach Start öffnet sich ein Eingabefeld für eine beliebige Literzahl
+     (z. B. 750). Punkte und „l“ werden ignoriert, „1.500 l“ ist also 1.500 l.
+   - **2.000 / 4.000 / 6.000 / 8.000 / 10.000 l**, danach in 5.000-l-Schritten.
+   - **„Alles (x l)“** – die volle mögliche Menge (Siloinhalt oder freier Platz im Fahrzeug, je nachdem,
+     was kleiner ist).
 3. Menge wählen und **Start**. Das Silo stoppt, sobald die Menge geladen ist. **Abbrechen** lädt nichts.
 
-- Sind 5.000 l oder weniger möglich, gibt es nur die Restmenge – dann wird ohne zweites Fenster geladen.
-- Die zuletzt gewählte Menge ist beim nächsten Mal vorausgewählt (nicht über das Speichern hinaus).
+- Der zuletzt gewählte Eintrag ist beim nächsten Mal vorausgewählt, im Eingabefeld steht die zuletzt
+  eingegebene Menge (nicht über das Speichern hinaus).
 - Für die nächste Portion einfach wieder R drücken.
 
 Gilt für alle Ladestationen des Basisspiels mit `LoadTrigger` (Silos, Ausgabe von Produktionen und Lagern).
@@ -27,6 +30,7 @@ KI-Helfer (Laden & Liefern) werden nicht begrenzt.
 `SiloAbgabemenge.lua` hängt sich an die Klasse `LoadTrigger` (Original-Code FS25):
 
 - `onFillTypeSelection` (Client, Rückruf des Silo-Dialogs): merkt den Mengen-Dialog für den nächsten Frame vor.
+  „Eigene Menge …“ öffnet danach (wieder im nächsten Frame) den `TextInputDialog` des Spiels.
   Nach „Start“ geht die Menge per `SiloAbgabemengeEvent` an den Server, danach läuft das Original weiter
   (Start-Event des Spiels, gleiche Verbindung, also kommt die Menge vorher an).
 - `startLoading` / `stopLoading` (Server): übernehmen die Menge beim Start bzw. setzen sie beim Stopp zurück.
@@ -50,8 +54,8 @@ Erzeugt `FS25_SiloAbgabemenge.zip` in diesem Ordner (`modDesc.xml` liegt im ZIP 
 
 1. Singleplayer: Silo mit Getreide, Anhänger mit > 10.000 l. R → Fruchtart → Start → „10.000 l“ → Start →
    stoppt bei 10.000 l.
-2. Letzter Eintrag „Alles (x l)“ → lädt wie im Basisspiel.
-3. Silo mit weniger als 5.000 l → lädt die Restmenge ohne zweites Fenster.
+2. „Eigene Menge …“ → Start → 750 eingeben → stoppt bei 750 l.
+3. Letzter Eintrag „Alles (x l)“ → lädt wie im Basisspiel.
 4. Multiplayer/Dedi: dasselbe als Client.
 
 Bei Fehlern bitte die komplette `log.txt` aus `Dokumente/My Games/FarmingSimulator2025/` schicken

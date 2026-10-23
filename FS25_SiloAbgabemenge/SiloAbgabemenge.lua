@@ -5,10 +5,12 @@
 -- LoadTrigger) beim Befuellen eines Fahrzeugs abgibt.
 --
 -- Bedienung: Nach "Start" im Silo-Dialog des Spiels erscheint ein
--- zweites Fenster mit der Menge in 5.000-l-Schritten. Der letzte
--- Eintrag ist immer die volle moegliche Menge (Siloinhalt bzw. freier
--- Platz im Fahrzeug, je nachdem was kleiner ist) - also die Restmenge,
--- wenn es keine vollen 5.000 l mehr sind.
+-- zweites Fenster mit der Menge:
+--   "Eigene Menge ..."  -> Eingabefeld (TextInputDialog des Spiels)
+--   2.000 / 4.000 / 6.000 / 8.000 / 10.000 l, danach 5.000-l-Schritte
+--   "Alles (x l)"       -> volle moegliche Menge (Siloinhalt bzw. freier
+--                          Platz im Fahrzeug, je nachdem was kleiner ist)
+-- Mehr als moeglich geht nicht: dann wird eben die Restmenge geladen.
 --
 -- Ablauf (Original-Code LoadTrigger.lua, FS25):
 --   Client: toggleLoading -> SiloDialog -> onFillTypeSelection
@@ -30,13 +32,18 @@ local modName = g_currentModName
 local modDirectory = g_currentModDirectory
 
 SiloAbgabemenge = {}
-SiloAbgabemenge.SCHRITT_LITER  = 5000    -- Schrittweite
-SiloAbgabemenge.MAX_EINTRAEGE  = 40      -- hoechstens 40 Schritte (200.000 l) in der Liste
+-- Vorgaben in der Liste: feine Schritte bis 10.000 l, danach 5.000-l-Schritte
+SiloAbgabemenge.FEINE_SCHRITTE = { 2000, 4000, 6000, 8000, 10000 }
+SiloAbgabemenge.GROBER_SCHRITT = 5000
+SiloAbgabemenge.MAX_LISTE      = 200000  -- groesste Vorgabe in der Liste
 SiloAbgabemenge.PENDING_MS     = 10000   -- so lange gilt eine gesendete Menge
 SiloAbgabemenge.DIALOG_NAME    = "SiloAbgabemengeDialog"
+SiloAbgabemenge.EIGENE         = -1      -- Listen-Eintrag "Eigene Menge ..."
 
-SiloAbgabemenge.letzteMenge = 0          -- zuletzt gewaehlte Menge, 0 = Alles
+SiloAbgabemenge.letzteMenge  = 0         -- zuletzt gewaehlte Menge, 0 = Alles
+SiloAbgabemenge.letzteEigene = nil       -- zuletzt eingegebene eigene Menge
 SiloAbgabemenge.offenerDialog = nil      -- vorgemerkter Mengen-Dialog (naechster Frame)
+SiloAbgabemenge.offeneEingabe = nil      -- vorgemerktes Eingabefeld (naechster Frame)
 
 local function log(msg)
     print("[SiloAbgabemenge] " .. tostring(msg))
@@ -67,6 +74,12 @@ local function formatLiter(liter)
         end
     end
     return string.format("%d l", math.floor(liter + 0.5))
+end
+
+local function hinweis(meldung)
+    if g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_CRITICAL, meldung)
+    end
 end
 
 -- ============================================================
@@ -110,18 +123,18 @@ local SiloAbgabemengeDialog_mt = Class(SiloAbgabemengeDialog, MessageDialog)
 function SiloAbgabemengeDialog.new(target, customMt)
     local self = MessageDialog.new(target, customMt or SiloAbgabemengeDialog_mt)
     self.mengen = {}
-    self.onStart = nil
+    self.onAuswahl = nil
     return self
 end
 
--- onStart(limit) wird bei "Start" gerufen, limit 0 = Alles
-function SiloAbgabemengeDialog:setData(titel, info, mengen, texte, startIndex, onStart)
+-- onAuswahl(menge) wird bei "Start" gerufen: Liter, 0 = Alles, EIGENE = Eingabefeld
+function SiloAbgabemengeDialog:setData(titel, info, mengen, texte, startIndex, onAuswahl)
     self.titel = titel
     self.info = info
     self.mengen = mengen
     self.texte = texte
     self.startIndex = startIndex
-    self.onStart = onStart
+    self.onAuswahl = onAuswahl
 end
 
 function SiloAbgabemengeDialog:onOpen()
@@ -146,23 +159,23 @@ function SiloAbgabemengeDialog:onAmountChanged()
 end
 
 function SiloAbgabemengeDialog:onClickStart()
-    local limit = 0
+    local menge = 0
     if self.amountOption ~= nil then
         local state = self.amountOption:getState()
         if state ~= nil and self.mengen[state] ~= nil then
-            limit = self.mengen[state]
+            menge = self.mengen[state]
         end
     end
-    local onStart = self.onStart
-    self.onStart = nil
+    local onAuswahl = self.onAuswahl
+    self.onAuswahl = nil
     self:close()
-    if onStart ~= nil then
-        onStart(limit)
+    if onAuswahl ~= nil then
+        onAuswahl(menge)
     end
 end
 
 function SiloAbgabemengeDialog:onClickCancel()
-    self.onStart = nil
+    self.onAuswahl = nil
     self:close()
 end
 
@@ -188,30 +201,46 @@ function SiloAbgabemenge.ladeDialog()
     return true
 end
 
--- Liste der Mengen: 5.000, 10.000, ... unter der moeglichen Menge,
--- als letzter Eintrag die volle moegliche Menge (Limit 0 = Alles).
+-- Vorgaben unterhalb der moeglichen Menge
+function SiloAbgabemenge.getVorgaben(moeglich)
+    local liste = {}
+    local groesste = 0
+    for _, m in ipairs(SiloAbgabemenge.FEINE_SCHRITTE) do
+        if m < moeglich - 0.5 then
+            table.insert(liste, m)
+        end
+        groesste = math.max(groesste, m)
+    end
+    local m = groesste + SiloAbgabemenge.GROBER_SCHRITT
+    while m < moeglich - 0.5 and m <= SiloAbgabemenge.MAX_LISTE do
+        table.insert(liste, m)
+        m = m + SiloAbgabemenge.GROBER_SCHRITT
+    end
+    return liste
+end
+
+-- Liste fuer den Dialog: "Eigene Menge ...", Vorgaben, "Alles (x l)".
 -- Rueckgabe: mengen, texte, startIndex
 function SiloAbgabemenge.baueListe(moeglich)
-    local schritt = SiloAbgabemenge.SCHRITT_LITER
-    local mengen, texte = {}, {}
-    local maxK = SiloAbgabemenge.MAX_EINTRAEGE
-    local k = 1
-    while k * schritt < moeglich - 0.5 and k <= maxK do
-        table.insert(mengen, k * schritt)
-        table.insert(texte, formatLiter(k * schritt))
-        k = k + 1
+    local mengen = { SiloAbgabemenge.EIGENE }
+    local texte = { text("SA_eigene", "Eigene Menge ...") }
+
+    for _, m in ipairs(SiloAbgabemenge.getVorgaben(moeglich)) do
+        table.insert(mengen, m)
+        table.insert(texte, formatLiter(m))
     end
+
     table.insert(mengen, 0)
-    if moeglich < math.huge and k <= SiloAbgabemenge.MAX_EINTRAEGE then
+    if moeglich < math.huge then
         table.insert(texte, string.format("%s (%s)", text("SA_alles", "Alles"), formatLiter(moeglich)))
     else
         table.insert(texte, text("SA_alles", "Alles"))
     end
 
-    -- Vorauswahl: zuletzt gewaehlte Menge, sonst "Alles"
+    -- Vorauswahl: zuletzt gewaehlter Eintrag, sonst "Alles"
     local startIndex = #mengen
     local letzte = SiloAbgabemenge.letzteMenge or 0
-    if letzte > 0 then
+    if letzte ~= 0 then
         for i, m in ipairs(mengen) do
             if m == letzte then
                 startIndex = i
@@ -220,6 +249,22 @@ function SiloAbgabemenge.baueListe(moeglich)
         end
     end
     return mengen, texte, startIndex
+end
+
+-- Eingabe "1.500", "1500 l", "1,5" (wird als 15 gelesen) -> nur Ziffern zaehlen
+function SiloAbgabemenge.leseEingabe(eingabe)
+    if type(eingabe) ~= "string" then
+        return nil
+    end
+    local ziffern = string.gsub(eingabe, "%D", "")
+    if ziffern == "" then
+        return nil
+    end
+    local menge = tonumber(ziffern)
+    if menge == nil or menge <= 0 then
+        return nil
+    end
+    return menge
 end
 
 -- Moegliche Menge = min(Siloinhalt dieser Fruchtart, freier Platz im Fahrzeug)
@@ -368,8 +413,8 @@ function SiloAbgabemenge.triggerOnFillTypeSelection(self, superFunc, fillType)
 
     local moeglich = SiloAbgabemenge.getMoeglicheMenge(self, fillType)
     log(string.format("Fruchtart %s gewaehlt, moeglich %s l", tostring(fillType), tostring(math.floor(moeglich))))
-    if moeglich <= SiloAbgabemenge.SCHRITT_LITER then
-        -- 5.000 l oder weniger moeglich: es gibt nur die Restmenge, ohne Rueckfrage laden
+    if moeglich < 1 then
+        -- weniger als 1 l moeglich: nichts zu waehlen, das Spiel stoppt von selbst
         SiloAbgabemenge.sendeLimit(self, 0)
         return superFunc(self, fillType)
     end
@@ -379,41 +424,106 @@ function SiloAbgabemenge.triggerOnFillTypeSelection(self, superFunc, fillType)
         return superFunc(self, fillType)
     end
 
-    local mengen, texte, startIndex = SiloAbgabemenge.baueListe(moeglich)
     local trigger = self
-    local function onStart(limit)
+    local function starte(limit)
         log("Menge gewaehlt: " .. (limit > 0 and tostring(limit) .. " l" or "Alles"))
-        SiloAbgabemenge.letzteMenge = limit
         SiloAbgabemenge.sendeLimit(trigger, limit)
         superFunc(trigger, fillType)
     end
 
+    local function onAuswahl(menge)
+        if menge == SiloAbgabemenge.EIGENE then
+            SiloAbgabemenge.letzteMenge = SiloAbgabemenge.EIGENE
+            SiloAbgabemenge.offeneEingabe = { moeglich = moeglich, starte = starte }
+            return
+        end
+        SiloAbgabemenge.letzteMenge = menge
+        starte(menge)
+    end
+
+    local mengen, texte, startIndex = SiloAbgabemenge.baueListe(moeglich)
     local info = string.format("%s: %s", getFillTypeTitel(fillType), text("SA_info", "Wie viel soll geladen werden?"))
     -- erst im naechsten Frame oeffnen, damit sich der Silo-Dialog vorher schliessen kann
     SiloAbgabemenge.offenerDialog = {
         titel = text("SA_titel", "Abgabemenge"), info = info,
-        mengen = mengen, texte = texte, startIndex = startIndex, onStart = onStart
+        mengen = mengen, texte = texte, startIndex = startIndex, onAuswahl = onAuswahl
     }
 end
 
--- Mod-Event-Listener: vorgemerkten Mengen-Dialog oeffnen
-function SiloAbgabemenge:update(dt)
-    local d = SiloAbgabemenge.offenerDialog
-    if d == nil then
-        return
-    end
-    SiloAbgabemenge.offenerDialog = nil
-
+function SiloAbgabemenge.oeffneMengenDialog(d)
     local guiDialog = g_gui.guis[SiloAbgabemenge.DIALOG_NAME]
     local dialog = guiDialog ~= nil and (guiDialog.target or guiDialog) or nil
     if dialog == nil or dialog.setData == nil then
         log("Dialog nicht verfuegbar - lade ohne Begrenzung")
-        d.onStart(0)
+        d.onAuswahl(0)
         return
     end
-    dialog:setData(d.titel, d.info, d.mengen, d.texte, d.startIndex, d.onStart)
+    dialog:setData(d.titel, d.info, d.mengen, d.texte, d.startIndex, d.onAuswahl)
     g_gui:showDialog(SiloAbgabemenge.DIALOG_NAME)
     log("Mengen-Dialog geoeffnet (" .. tostring(#d.mengen) .. " Eintraege)")
+end
+
+-- Eingabefeld des Spiels (TextInputDialog, Muster aus FS25_UsedPlus)
+function SiloAbgabemenge.oeffneEingabe(e)
+    local moeglich = e.moeglich
+    local function fertig(...)
+        -- Argumente robust lesen: erster String = Text, erster Boolean = bestaetigt
+        local eingabe, bestaetigt = nil, nil
+        for i = 1, select("#", ...) do
+            local v = select(i, ...)
+            if eingabe == nil and type(v) == "string" then
+                eingabe = v
+            elseif bestaetigt == nil and type(v) == "boolean" then
+                bestaetigt = v
+            end
+        end
+        if bestaetigt == false then
+            log("Eigene Menge abgebrochen")
+            return
+        end
+        local menge = SiloAbgabemenge.leseEingabe(eingabe)
+        if menge == nil then
+            hinweis(text("SA_ungueltig", "Ungültige Menge - bitte eine Zahl in Litern eingeben."))
+            return
+        end
+        SiloAbgabemenge.letzteEigene = math.min(menge, moeglich)
+        if menge >= moeglich - 0.5 then
+            -- mehr als moeglich: es wird eben die Restmenge geladen
+            e.starte(0)
+        else
+            e.starte(menge)
+        end
+    end
+
+    local ok, err = pcall(function()
+        local dialog = g_gui:showDialog("TextInputDialog")
+        if dialog == nil or dialog.target == nil then
+            error("TextInputDialog nicht gefunden")
+        end
+        local maxText = moeglich < math.huge and formatLiter(moeglich) or "-"
+        dialog.target:setText(string.format(text("SA_eingabeText", "Menge in Litern (höchstens %s):"), maxText))
+        local vorgabe = SiloAbgabemenge.letzteEigene ~= nil and tostring(math.floor(SiloAbgabemenge.letzteEigene)) or ""
+        dialog.target:setCallback(fertig, nil, vorgabe)
+    end)
+    if not ok then
+        log("Eingabefeld nicht verfuegbar: " .. tostring(err))
+        hinweis(text("SA_keineEingabe", "Eingabefeld nicht verfügbar - bitte eine Menge aus der Liste wählen."))
+    end
+end
+
+-- Mod-Event-Listener: vorgemerkte Fenster im naechsten Frame oeffnen
+function SiloAbgabemenge:update(dt)
+    local d = SiloAbgabemenge.offenerDialog
+    if d ~= nil then
+        SiloAbgabemenge.offenerDialog = nil
+        SiloAbgabemenge.oeffneMengenDialog(d)
+        return
+    end
+    local e = SiloAbgabemenge.offeneEingabe
+    if e ~= nil then
+        SiloAbgabemenge.offeneEingabe = nil
+        SiloAbgabemenge.oeffneEingabe(e)
+    end
 end
 
 -- ============================================================
@@ -432,7 +542,7 @@ local function init()
     LoadTrigger.update = Utils.overwrittenFunction(LoadTrigger.update, SiloAbgabemenge.triggerUpdate)
 
     addModEventListener(SiloAbgabemenge)
-    log("geladen (" .. tostring(modName) .. ", Version mit Mengen-Dialog)")
+    log("geladen (" .. tostring(modName) .. ", Version mit Mengen-Dialog und eigener Menge)")
 end
 
 init()

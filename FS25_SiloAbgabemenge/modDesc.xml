@@ -8,27 +8,33 @@
     </title>
     <description>
         <de><![CDATA[
-Lege fest, wie viel ein Silo beim Befüllen abgibt – in Schritten von 5.000 Litern.
+Lege fest, wie viel ein Silo beim Befüllen abgibt – aus der Liste oder als eigene Menge in Litern.
 
 Bedienung:
-- Wie gewohnt unter den Trichter fahren, Befüllen starten, Fruchtart wählen und „Start“.
-- Danach erscheint ein zweites Fenster mit der Menge: 5.000 l, 10.000 l, … und als letzter Eintrag „Alles“ mit der vollen möglichen Menge.
+- Wie gewohnt unter den Trichter fahren, Befüllen starten (R), Fruchtart wählen und „Start“.
+- Danach erscheint das Fenster „Abgabemenge“:
+  „Eigene Menge …“ – öffnet ein Eingabefeld für eine beliebige Literzahl (auch Kleinstmengen),
+  2.000 / 4.000 / 6.000 / 8.000 / 10.000 l, danach in 5.000-l-Schritten,
+  „Alles (x l)“ – die volle mögliche Menge.
 - Menge wählen und „Start“ – das Silo stoppt, sobald die Menge geladen ist.
 
-Sind keine vollen 5.000 l mehr im Silo oder im Fahrzeug frei, wird die Restmenge ohne Rückfrage geladen. Die zuletzt gewählte Menge ist beim nächsten Mal vorausgewählt.
+Mehr als im Silo liegt oder ins Fahrzeug passt, geht nicht – dann wird die Restmenge geladen. Die zuletzt gewählte Menge ist beim nächsten Mal vorausgewählt.
 
 Gilt für alle Ladestationen mit Fruchtart-Auswahl (Silos, Produktionen, Lager). KI-Helfer werden nicht begrenzt.
 Singleplayer, Multiplayer und Dedicated Server.
 ]]></de>
         <en><![CDATA[
-Choose how much a silo hands out when filling – in steps of 5,000 litres.
+Choose how much a silo hands out when filling – from a list or as your own amount in litres.
 
 Usage:
-- Drive under the spout as usual, start filling, choose the fill type and press "Start".
-- A second window then shows the amount: 5,000 l, 10,000 l, … and as the last entry "All" with the full possible amount.
+- Drive under the spout as usual, start filling (R), choose the fill type and press "Start".
+- The "Unload amount" window then appears:
+  "Custom amount ..." – opens an input field for any number of litres (small amounts too),
+  2,000 / 4,000 / 6,000 / 8,000 / 10,000 l, then in steps of 5,000 l,
+  "All (x l)" – the full possible amount.
 - Pick the amount and press "Start" – the silo stops as soon as that amount is loaded.
 
-If less than 5,000 l are left in the silo or free in the vehicle, the remaining amount is loaded without asking. The last chosen amount is preselected next time.
+You cannot get more than the silo holds or the vehicle can take – then the remaining amount is loaded. The last choice is preselected next time.
 
 Works for every loading station with fill type selection (silos, productions, storages). AI workers are not limited.
 Singleplayer, multiplayer and dedicated server.
@@ -55,6 +61,22 @@ Singleplayer, multiplayer and dedicated server.
         <text name="SA_start">
             <de>Start</de>
             <en>Start</en>
+        </text>
+        <text name="SA_eigene">
+            <de>Eigene Menge …</de>
+            <en>Custom amount …</en>
+        </text>
+        <text name="SA_eingabeText">
+            <de>Menge in Litern (höchstens %s):</de>
+            <en>Amount in litres (at most %s):</en>
+        </text>
+        <text name="SA_ungueltig">
+            <de>Ungültige Menge – bitte eine Zahl in Litern eingeben.</de>
+            <en>Invalid amount – please enter a number of litres.</en>
+        </text>
+        <text name="SA_keineEingabe">
+            <de>Eingabefeld nicht verfügbar – bitte eine Menge aus der Liste wählen.</de>
+            <en>Input field not available – please pick an amount from the list.</en>
         </text>
     </l10n>
 </modDesc>
