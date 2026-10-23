@@ -1878,3 +1878,28 @@ Entwicklermodus keine „Missing 'NF_wpPage_tabTitle'“-Zeilen.
 
 **Tests:** Mock `nfTabTitel` (de/en/fr mit Schlüssel → Wegpunkte/Waypoints/Points de passage; ohne Schlüssel → Fallback);
 Strukturcheck, Vollparse, kein `pcall`. Im Spiel: Spielsprache Französisch, Reiter und Kopfzeile „Points de passage“.
+
+# ERGÄNZUNG 2026-10-23 — Zweite Mod im Repo: FS25_SiloUnloadAmount (Silo-Abgabemenge)
+
+**Eigenständige Mod**, unabhängig von „Lebendige Straßen“: Ordner `FS25_SiloUnloadAmount/` mit eigener `modDesc.xml`,
+`build.py`, `modhub_check.py` und README. Der Release-Workflow (`.github/workflows/release.yml`) baut weiterhin nur
+`FS25_NachbarFelder`. PR #20.
+
+**Funktion:** Nach Fruchtart + Start im Silo-Dialog öffnet sich der `TextInputDialog` des Spiels; Menge in Litern
+eingeben, leer = alles, mehr als möglich = Restmenge, Abbrechen = nichts. Hooks auf `LoadTrigger`
+(`onFillTypeSelection`, `startLoading`, `stopLoading`, `update`), Menge per `SiloUnloadAmountEvent` an den Server.
+Anzeigename de „Silo-Abgabemenge“, en „Silo Unload Amount“, fr „Quantité De Sortie Du Silo“.
+
+**Verlauf (alles im Spiel vom User getestet, außer dem letzten Stand):** erst Tasten Strg+Alt+M/N, dann eigener
+Mengen-Dialog (MultiTextOption; blauer Strich an der Unterkante kam vom Profil `dialogBg`, behoben mit
+`hasFrame="false"`), dann Eingabefeld zusätzlich, zuletzt **nur noch Eingabefeld** (User-Wunsch). Eingabefeld im Spiel
+bestätigt (Screenshot 23.10.). Der aufgeräumte ModHub-Stand ist im Spiel noch nicht getestet.
+
+**ModHub-Stand** (nach `docs/MODHUB_REGELN.md`): descVersion 113, 1.0.0.0, EN/DE/FR inline, kein `pcall`, ZIP-Name
+englisch `FS25_SiloUnloadAmount.zip`, Icon 512×512 DXT1 131200 Byte (Rand aus dem geprüften NachbarFelder-Icon, eigenes
+Motiv ohne Text). `py modhub_check.py` ohne Befunde. Offen: TestRunner 0.9.22, Manufacturer `None`, Einreichung.
+
+**Screenshots und Icon-Vorschau:** `docs/bilder/SiloUnloadAmount/` – `modhub_1_ohne_hud.png` (erstes Bild, ohne HUD
+und Text), `modhub_2_silos.png`, `modhub_3_fruchtauswahl.png`, `modhub_4_mengeneingabe.png` (je 1600×900), dazu
+`icon_vorschau.png`. Die Screenshots sind aus 2000×563-Chatbildern hochgerechnet und daher etwas weich; bessere direkt
+in 16:9 aufnehmen. Gehören nicht in die ZIP.
