@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Baut FS25_SiloAbgabemenge.zip im Ordner dieser Datei.
+"""Baut FS25_SiloUnloadAmount.zip im Ordner dieser Datei.
 
 modDesc.xml muss in der ZIP ganz oben liegen, deshalb wird die feste
 Dateiliste einzeln gepackt und nicht der Ordner.
@@ -7,12 +7,12 @@ Dateiliste einzeln gepackt und nicht der Ordner.
 import os
 import zipfile
 
-NAME = "FS25_SiloAbgabemenge.zip"
+NAME = "FS25_SiloUnloadAmount.zip"
 
 DATEIEN = [
     "modDesc.xml",
-    "icon_SiloAbgabemenge.dds",
-    "SiloAbgabemenge.lua",
+    "icon_SiloUnloadAmount.dds",
+    "SiloUnloadAmount.lua",
 ]
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
