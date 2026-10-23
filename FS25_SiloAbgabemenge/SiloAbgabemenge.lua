@@ -356,16 +356,25 @@ function SiloAbgabemenge.sendeLimit(loadTrigger, limit)
 end
 
 function SiloAbgabemenge.triggerOnFillTypeSelection(self, superFunc, fillType)
-    -- nur Spieler-Auswahl aus dem Silo-Dialog; autoStart/automatisches Befuellen unveraendert
-    if g_client == nil or self.autoStart or self.automaticFilling
-       or fillType == nil or fillType == FillType.UNKNOWN
-       or self.validFillableObject == nil or not self:getAllowsActivation(self.validFillableObject) then
+    -- nur Spieler-Auswahl aus dem Silo-Dialog; autoStart (ohne Dialog) unveraendert.
+    -- automaticFilling wird bewusst NICHT geprueft: auch dann zeigt toggleLoading den Silo-Dialog.
+    local objekt = self.validFillableObject
+    if g_client == nil or self.autoStart or fillType == nil or fillType == FillType.UNKNOWN
+       or objekt == nil or not self:getAllowsActivation(objekt) then
+        log(string.format("Auswahl ohne Mengen-Dialog: client=%s autoStart=%s fillType=%s fahrzeug=%s",
+            tostring(g_client ~= nil), tostring(self.autoStart), tostring(fillType), tostring(objekt ~= nil)))
         return superFunc(self, fillType)
     end
 
     local moeglich = SiloAbgabemenge.getMoeglicheMenge(self, fillType)
-    if moeglich <= SiloAbgabemenge.SCHRITT_LITER or not SiloAbgabemenge.ladeDialog() then
+    log(string.format("Fruchtart %s gewaehlt, moeglich %s l", tostring(fillType), tostring(math.floor(moeglich))))
+    if moeglich <= SiloAbgabemenge.SCHRITT_LITER then
         -- 5.000 l oder weniger moeglich: es gibt nur die Restmenge, ohne Rueckfrage laden
+        SiloAbgabemenge.sendeLimit(self, 0)
+        return superFunc(self, fillType)
+    end
+    if not SiloAbgabemenge.ladeDialog() then
+        log("Mengen-Dialog nicht verfuegbar - lade ohne Begrenzung")
         SiloAbgabemenge.sendeLimit(self, 0)
         return superFunc(self, fillType)
     end
@@ -373,6 +382,7 @@ function SiloAbgabemenge.triggerOnFillTypeSelection(self, superFunc, fillType)
     local mengen, texte, startIndex = SiloAbgabemenge.baueListe(moeglich)
     local trigger = self
     local function onStart(limit)
+        log("Menge gewaehlt: " .. (limit > 0 and tostring(limit) .. " l" or "Alles"))
         SiloAbgabemenge.letzteMenge = limit
         SiloAbgabemenge.sendeLimit(trigger, limit)
         superFunc(trigger, fillType)
@@ -403,6 +413,7 @@ function SiloAbgabemenge:update(dt)
     end
     dialog:setData(d.titel, d.info, d.mengen, d.texte, d.startIndex, d.onStart)
     g_gui:showDialog(SiloAbgabemenge.DIALOG_NAME)
+    log("Mengen-Dialog geoeffnet (" .. tostring(#d.mengen) .. " Eintraege)")
 end
 
 -- ============================================================
@@ -421,7 +432,7 @@ local function init()
     LoadTrigger.update = Utils.overwrittenFunction(LoadTrigger.update, SiloAbgabemenge.triggerUpdate)
 
     addModEventListener(SiloAbgabemenge)
-    log("geladen (" .. tostring(modName) .. ")")
+    log("geladen (" .. tostring(modName) .. ", Version mit Mengen-Dialog)")
 end
 
 init()
