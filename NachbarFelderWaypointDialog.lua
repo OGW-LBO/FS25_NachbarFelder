@@ -1,9 +1,8 @@
 -- ============================================================
 -- NachbarFelderWaypointDialog
 -- Zeigt Wegpunkte einzeln mit Vor/Zurueck-Navigation.
--- Shift+Alt+W oeffnet den Dialog.
 -- ============================================================
--- Build 158: sichtbare Texte aus l10n (ModHub verlangt DE und EN).
+-- Texte aus l10n (ModHub verlangt DE und EN); fehlt ein Key, wird er selbst angezeigt.
 local function nfDialogText(key, ...)
     local s = key
     if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
@@ -18,7 +17,7 @@ end
 
 NachbarFelderWaypointDialog = {}
 
--- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+-- Log-Filter siehe NachbarFelder.lua
 local print = NachbarFelderLog.print
 local NachbarFelderWaypointDialog_mt = Class(NachbarFelderWaypointDialog, DialogElement)
 
@@ -36,9 +35,7 @@ function NachbarFelderWaypointDialog.registerDialog()
         NachbarFelderWaypointDialog.new(nil, NachbarFelderWaypointDialog_mt))
 end
 
--- ============================================================
--- Hilfsfunktion: aktuelle Wegpunkte
--- ============================================================
+--- @return table Wegpunktliste des Managers (Referenz, keine Kopie) oder {}
 function NachbarFelderWaypointDialog:getWaypoints()
     local m = g_NachbarFelderManager
     if m ~= nil and m.userTrafficWaypoints ~= nil then
@@ -47,18 +44,12 @@ function NachbarFelderWaypointDialog:getWaypoints()
     return {}
 end
 
--- ============================================================
--- Dialog oeffnen
--- ============================================================
 function NachbarFelderWaypointDialog:onOpen()
     DialogElement.onOpen(self)
     self.selectedIdx = 1
     self:refreshDisplay()
 end
 
--- ============================================================
--- Anzeige aktualisieren
--- ============================================================
 function NachbarFelderWaypointDialog:refreshDisplay()
     local function schritt()
         local wps   = self:getWaypoints()
@@ -72,7 +63,7 @@ function NachbarFelderWaypointDialog:refreshDisplay()
             return
         end
 
-        -- Index einschraenken
+        -- Index laeuft an beiden Enden um
         if self.selectedIdx < 1     then self.selectedIdx = count end
         if self.selectedIdx > count then self.selectedIdx = 1     end
 
@@ -103,8 +94,10 @@ function NachbarFelderWaypointDialog:onClickNext()
 end
 
 -- ============================================================
--- Teleportieren
+-- Aktionen
 -- ============================================================
+
+-- Setzt das Fahrzeug des Spielers bzw. den Spieler selbst 1 m ueber das Terrain am Wegpunkt.
 function NachbarFelderWaypointDialog:onClickTeleport()
     local function schritt()
         local wps = self:getWaypoints()
@@ -134,9 +127,7 @@ function NachbarFelderWaypointDialog:onClickTeleport()
     self:onClickClose()
 end
 
--- ============================================================
--- Loeschen
--- ============================================================
+-- Aendert die Liste direkt und speichert lokal, ohne Event an den Server.
 function NachbarFelderWaypointDialog:onClickDelete()
     local function schritt()
         local m   = g_NachbarFelderManager
@@ -160,14 +151,11 @@ function NachbarFelderWaypointDialog:onClickDelete()
     self:refreshDisplay()
 end
 
--- ============================================================
--- Schliessen
--- ============================================================
 function NachbarFelderWaypointDialog:onClickClose()
     if g_gui ~= nil and g_gui.closeDialog ~= nil then g_gui:closeDialog(self) end
 end
 
--- Escape-Taste
+-- ESC
 function NachbarFelderWaypointDialog:onClickBack()
     self:onClickClose()
 end

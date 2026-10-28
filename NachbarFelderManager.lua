@@ -1,15 +1,15 @@
 NachbarFelderManager = {}
 
--- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+-- Normale Ausgaben nur im Debug-Log, Warnungen/Fehler immer (siehe NachbarFelder.lua)
 local print = NachbarFelderLog.print
 
--- Build-Nummer: erscheint im Log bei loadMap - IMMER prüfen ob der Server
--- wirklich den erwarteten Build fährt (Server und Client werden getrennt bestückt)
+-- Steht beim loadMap im Log. Server und Clients werden getrennt bestückt,
+-- daran sieht man, ob beide denselben Stand fahren.
 NachbarFelderManager.BUILD = 178
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
--- Build 166: Begegnung zweier Nachbar-Fahrzeuge (siehe loeseBegegnung)
+-- Begegnung zweier Nachbar-Fahrzeuge (siehe loeseBegegnung)
 NachbarFelderManager.BEGEGNUNG_RADIUS  = 100     -- m, so nah muss der stehende Nachbar sein
 NachbarFelderManager.BEGEGNUNG_NAH     = 20      -- m, bis hier zaehlt jede Richtung, darueber nur "vor mir"
 NachbarFelderManager.BEGEGNUNG_STEHT_MS = 15000  -- so lange muss auch er schon stehen
@@ -20,11 +20,11 @@ local modName = g_currentModName
 local xmlSchema = XMLSchema.new("NachbarFelderSchema")
 local baseXmlKey = "NachbarFelder"
 
--- Separates Schema + Dateipfad für Traffic-Wegpunkte (mod-settings, nicht savegame)
+-- Eigenes Schema für die Verkehrs-Wegpunkte (liegen in modSettings, nicht im Savegame)
 local wpXmlSchema = XMLSchema.new("NachbarFelderWaypointSchema")
 local wpXmlKey    = "NachbarFelderWaypoints"
--- Bis Build 131 eine Datei fuer ALLE Karten - nach einem Kartenwechsel lagen die
--- alten Punkte auf der neuen Karte. Seit Build 132 je Karte (nfGetWpFilePath).
+-- Wegpunkte gelten je Karte (nfGetWpFilePath). Die alte gemeinsame Datei ist nur
+-- noch Rückfall, wenn sich die Karte nicht bestimmen lässt.
 local wpFilePathAlt = modSettingDirectory .. "NachbarFelderWaypoints.xml"
 local wpFilePath    = nil
 wpXmlSchema:register(XMLValueType.STRING, wpXmlKey .. "#uebernommenFuer", "Karte, in deren Datei diese alte Datei uebernommen wurde")
@@ -39,22 +39,16 @@ wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTractorL",   "CatTrac
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catLoader",     "CatLoader")
 wpXmlSchema:register(XMLValueType.INT,    wpXmlKey .. "#catTeleLoader", "CatTeleLoader")
 
--- Build 142: gesperrte Ladeplaetze je Karte dauerhaft merken (vorher nur je Session -
--- derselbe schlechte Platz im Shop-Hof wurde nach jedem Neustart wieder genommen)
+-- Gesperrte Ladeplätze je Karte dauerhaft merken, sonst wird ein schlechter Platz
+-- nach jedem Neustart wieder genommen.
 local lpXmlSchema = XMLSchema.new("NachbarFelderLadeplatzSchema")
 local lpXmlKey    = "NachbarFelderLadeplaetze"
 lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#x",     "LadeplatzX")
 lpXmlSchema:register(XMLValueType.FLOAT,  lpXmlKey .. ".platz(?)#z",     "LadeplatzZ")
 lpXmlSchema:register(XMLValueType.STRING, lpXmlKey .. ".platz(?)#grund", "Grund der Sperre")
 
---- Kennung der geladenen Karte fuer Dateinamen (Build 132).
---- missionInfo.mapId steht im Spielstand als <mapId> (z.B.
---- FS25_Beuren.MultifruitModMap_Beuren); ersatzweise der letzte Ordnername von
---- g_currentMission.baseDirectory (verifiziert: FarmlandManager.lua:62).
---- @return string|nil
--- Build 158: Spieler-Texte kommen aus l10n (der ModHub verlangt Deutsch UND
--- Englisch fuer alles, was im Spiel sichtbar ist). hasText prueft den Schluessel,
--- damit bei einem fehlenden Eintrag nicht der rohe Schluessel in der Meldung steht.
+--- Text aus l10n (ModHub verlangt Deutsch und Englisch für alles Sichtbare).
+--- Fehlt der Eintrag, wird der Schlüssel selbst zurückgegeben.
 local function nfText(key, ...)
     local s = key
     if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
@@ -71,6 +65,10 @@ local function nfMeldung(key, ...)
     return nfText("NachbarFelder") .. ": " .. nfText(key, ...)
 end
 
+--- Kennung der geladenen Karte für Dateinamen: missionInfo.mapId
+--- (z. B. FS25_Beuren.MultifruitModMap_Beuren), ersatzweise der letzte
+--- Ordnername von g_currentMission.baseDirectory (wie in FarmlandManager.lua).
+--- @return string|nil
 local function nfGetKartenKennung()
     local kennung = nil
     local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
@@ -89,9 +87,9 @@ local function nfGetKartenKennung()
     return string.sub(kennung, 1, 80)
 end
 
---- Wegpunkt-Datei der geladenen Karte (Build 132). Erst zur Laufzeit ermittelt -
---- beim Einlesen dieser Datei existiert noch keine Mission. Ohne Kartenkennung
---- bleibt es bei der alten gemeinsamen Datei (Verhalten bis Build 131).
+--- Wegpunkt-Datei der geladenen Karte. Wird erst zur Laufzeit bestimmt, beim
+--- Laden des Skripts gibt es noch keine Mission. Ohne Kartenkennung die alte
+--- gemeinsame Datei.
 local function nfGetWpFilePath()
     if wpFilePath == nil then
         local kennung = nfGetKartenKennung()
@@ -122,37 +120,37 @@ function NachbarFelderManager.new()
 
     self.MAX_ASSISTANT_WORKERS = 12
 
-    self.playersOnline = 0    -- Anzahl verbundener Spieler (0 = niemand online → Helfer pausiert)
-    self.playerJoinTime       = nil  -- g_time beim ersten Join; 3 Echtzeit-Minuten warten (robust gegen Zeitsprünge)
-    self.regularVehicleXMLs   = {}   -- bis zu 3 Stamm-Fahrzeug-XMLs (Wiederkehrende Fahrzeuge)
-    self.pendingRespawns      = {}   -- {filename, spawnAt} – Respawn-Warteschlange für Stammfahrzeuge
-    self.spawnPlaceIndex = 1 -- Index des besten Shop-Spawn-Punktes (wird in selectBestSpawnPlace gesetzt)
-    self.trafficVehicleBlacklist = {}   -- filename → true (Session-Blacklist: Patrol-Fahrzeuge ohne Navigation-Agent)
+    self.playersOnline = 0    -- verbundene Spieler; 0 = Helfer pausieren
+    self.playerJoinTime       = nil  -- g_time beim ersten Join; Wartezeit in Echtzeit, unabhängig von Zeitsprüngen
+    self.regularVehicleXMLs   = {}   -- bis zu 3 wiederkehrende Stammfahrzeuge (XML-Pfade)
+    self.pendingRespawns      = {}   -- {filename, spawnAt}: Respawn-Warteschlange der Stammfahrzeuge
+    self.spawnPlaceIndex = 1 -- bester Shop-Spawnpunkt, gesetzt in selectBestSpawnPlace
+    self.trafficVehicleBlacklist = {}   -- filename = true: Fahrzeuge ohne Navigations-Agent (gilt bis Neustart)
     self.patrolCounter = 0          -- negative Pseudo-Keys für Patrol-Einträge in vehicleType
-    self.trafficLimit = 4           -- max. gleichzeitige Traffic-Fahrzeuge (1–8, einstellbar)
-    self.trafficPaused = false      -- nachbarFelderTrafficStop/Start Console-Befehl
-    self.trafficTrailerSize = 2     -- 0=keine Anhänger  1=klein(≤4kL)  2=mittel(≤8kL)  3=alle(≤15kL)
-    self.engeMap        = true      -- enge Karte: nur Kleintraktoren + leichte Anbaugeraete
-    self.debugLog       = false     -- Build 165: ausfuehrliches Log (Einstellungen / logLevel=2)
-    self.spawnBereichRadius = 25    -- Umkreis um den Shop-Spawn, der frei sein muss (m)
-    self.spawnLookAt    = nil       -- gecachter Zielpunkt der Spawn-Blickrichtung {x=,z=,quelle=}
-    self.trafficPool = {}           -- Fahrzeug-Pool (Build 65): schlafende Patrol-Fahrzeuge
-    self.poolSize    = 6            -- max. schlafende Fahrzeuge (0 = Pool aus, Server-Konfig)
-    self.fahrerfigurenAufServer = true  -- Build 95: false = Fahrerfiguren nur auf dem Server weglassen
-    self.spielverkehrAnmelden   = true  -- Build 152: Fahrzeuge beim Spielverkehr anmelden (Autos bremsen)
-    self.rueckwaertsPlanen      = false -- Build 108; Build 125: Standard aus (Server-Konfig ohne Eintrag lief mit true, viele Sofort-Abweisungen)
-    self.dayRhythm      = true      -- Tagesrhythmus (Build 68): Verkehrsdichte folgt der Uhrzeit
-    self.zielQuelle     = "strassen" -- Build 104: "strassen" = Ziele aus dem KI-Strassennetz,
-                                     -- "wegpunkte" = nur die selbst gesetzten Punkte
-    self.trailerChance  = 40        -- Gespann-Quote in % (Build 69, Server-Konfig)
-    self.gespannSpawns  = 0         -- Zaehler: Traktor-Spawns MIT Anbaugeraet
-    self.soloSpawns     = 0         -- Zaehler: Traktor-Spawns OHNE Anbaugeraet
-    self.userTrafficWaypoints = {}  -- user-gesetzte Wegpunkte: {{x,z}, ...}
-    self._mgr_viewIdx = 0           -- Waypoint-Anzeige-Index für Shift+Alt+W Notification
-    self._wpHotspots  = {}          -- MapHotspot-Objekte für die Karte
-    self.trafficTrailerList   = nil  -- schwere Anbaugeraete (Pflug/Maehwerk) → Großtraktoren
-    self.trafficImplListLight = nil  -- leichte Anbaugeraete (Rechen/Zinkenrotor) → Mittelklasse
-    self.vehicleCatEnabled = {      -- Fahrzeugkategorien: true = aktiv, false = ausgeblendet
+    self.trafficLimit = 4           -- max. gleichzeitige Verkehrsfahrzeuge
+    self.trafficPaused = false      -- Konsole: nachbarFelderTrafficStop/Start
+    self.trafficTrailerSize = 2     -- 0 = keine Anhänger, 1 = bis 4 kL, 2 = bis 8 kL, 3 = bis 15 kL
+    self.engeMap        = true      -- enge Karte: nur Kleintraktoren und leichte Anbaugeräte
+    self.debugLog       = false     -- ausführliches Log (Einstellung oder logLevel=2)
+    self.spawnBereichRadius = 25    -- m, so weit muss der Shop-Spawn frei sein
+    self.spawnLookAt    = nil       -- Cache für die Spawn-Blickrichtung {x=,z=,quelle=}
+    self.trafficPool = {}           -- schlafende Patrol-Fahrzeuge
+    self.poolSize    = 6            -- max. schlafende Fahrzeuge, 0 = Pool aus
+    self.fahrerfigurenAufServer = true  -- false = auf dem Server keine Fahrerfiguren
+    self.spielverkehrAnmelden   = true  -- beim Spielverkehr anmelden, damit Autos bremsen
+    self.rueckwaertsPlanen      = false -- standardmäßig aus, führte zu vielen sofort abgewiesenen Fahrten
+    self.dayRhythm      = true      -- Verkehrsdichte folgt der Uhrzeit
+    self.zielQuelle     = "strassen" -- "strassen" = Ziele aus dem KI-Straßennetz,
+                                     -- "wegpunkte" = nur selbst gesetzte Punkte
+    self.trailerChance  = 40        -- Anteil Traktoren mit Anbaugerät in %
+    self.gespannSpawns  = 0         -- Zähler: Traktor-Spawns mit Anbaugerät
+    self.soloSpawns     = 0         -- Zähler: Traktor-Spawns ohne Anbaugerät
+    self.userTrafficWaypoints = {}  -- selbst gesetzte Wegpunkte {{x,z}, ...}
+    self._mgr_viewIdx = 0           -- Anzeige-Index für Shift+Alt+W
+    self._wpHotspots  = {}          -- MapHotspots der Wegpunkte
+    self.trafficTrailerList   = nil  -- schwere Anbaugeräte (Pflug, Mähwerk) für Großtraktoren
+    self.trafficImplListLight = nil  -- leichte Anbaugeräte (Schwader, Zinkenrotor) für die Mittelklasse
+    self.vehicleCatEnabled = {      -- Fahrzeugkategorien, false = ausgeblendet
         TRACTORSS           = true,
         TRACTORSM           = true,
         TRACTORSL           = true,
@@ -188,12 +186,11 @@ function NachbarFelderManager.new()
     createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".worker(?)#missionType", "Missionname")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#fieldId",    "FieldId")
-    -- Build 139: Auftrag an den Lohnunternehmer (NachbarFelderAuftrag.lua)
+    -- Auftrag an den Lohnunternehmer (NachbarFelderAuftrag.lua)
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".worker(?)#auftrag",       "Auftrag eines Spielers")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".worker(?)#auftragFarmId", "Farm des Auftraggebers")
-    -- Settings im SAVEGAME (Build 67): server-autoritativ, MP-synct.
-    -- Die lokale NachbarFelderSetting.xml bleibt nur Fallback fuer
-    -- Savegames, die noch keinen settings-Block haben.
+    -- Einstellungen liegen im Savegame (Server entscheidet, wird im MP synchronisiert).
+    -- NachbarFelderSetting.xml gilt nur für Spielstände ohne settings-Block.
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#active",             "ModActive")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#maxWorkers",         "MaxWorkers")
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".settings#trafficLimit",       "TrafficLimit")
@@ -202,21 +199,19 @@ function NachbarFelderManager.new()
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings#debugLog",           "DebugLog")
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".settings.mission(?)#type",   "MissionType")
     xmlSchema:register(XMLValueType.BOOL,   baseXmlKey .. ".settings.mission(?)#active", "MissionActive")
-    -- Vorfrucht-Gedaechtnis (Build 68): welche Frucht stand zuletzt auf dem Feld
+    -- Vorfrucht je Feld
     xmlSchema:register(XMLValueType.INT,    baseXmlKey .. ".fieldFruits.field(?)#id",    "FieldId")
     xmlSchema:register(XMLValueType.STRING, baseXmlKey .. ".fieldFruits.field(?)#fruit", "FruitName")
     return self
 end
 
 -- ============================================================
--- Settings-State (Build 67): server-autoritativer Einstellungs-Satz.
--- Architektur wie beim Wegpunkt-Editing: Client schickt Aenderung
--- (NachbarFelderSettingsEditEvent) -> Server wendet an, merkt sie
--- fuers Savegame vor und broadcastet den kompletten Stand
--- (NachbarFelderSettingsSyncEvent) an alle Clients zurueck.
+-- Einstellungen (der Server ist maßgeblich)
+-- Client schickt eine Änderung (NachbarFelderSettingsEditEvent), der Server
+-- übernimmt sie, merkt sie fürs Savegame vor und verteilt den kompletten
+-- Stand per NachbarFelderSettingsSyncEvent an alle Clients.
 -- ============================================================
 
--- Kompletten Einstellungs-Stand als Tabelle liefern
 function NachbarFelderManager:getSettingsState()
     local missions = {}
     for _, mh in pairs(self.missionHelper or {}) do
@@ -230,9 +225,9 @@ function NachbarFelderManager:getSettingsState()
         trafficLimit       = self.trafficLimit or 4,
         trafficTrailerSize = self.trafficTrailerSize or 2,
         engeMap            = self.engeMap ~= false,
-        debugLog           = self.debugLog == true,   -- Build 165
+        debugLog           = self.debugLog == true,
         missions           = missions,
-        -- Build 157: Helfer-Farm fuer die Clients (Karten-Symbole ausblenden); 0 = noch unbekannt
+        -- Clients brauchen die Helfer-Farm, um deren Kartensymbole auszublenden; 0 = noch unbekannt
         helferFarmId       = self:getHelferFarmIdAnzeige(),
     }
 end
@@ -240,7 +235,7 @@ end
 -- Einstellungs-Stand anwenden (Server nach Savegame-Load, Client nach Sync)
 function NachbarFelderManager:applySettingsState(state)
     if state == nil then return end
-    if state.helferFarmId ~= nil then   -- Build 157, nur fuer die Anzeige
+    if state.helferFarmId ~= nil then   -- nur für die Anzeige
         self.helferFarmIdSync = state.helferFarmId
     end
     if state.active ~= nil then
@@ -255,21 +250,21 @@ function NachbarFelderManager:applySettingsState(state)
     if state.trafficTrailerSize ~= nil then
         local tts = math.max(0, math.min(3, math.floor(state.trafficTrailerSize)))
         if tts ~= self.trafficTrailerSize then
-            self.trafficTrailerList = nil  -- Cache mit neuer Groesse neu aufbauen
+            self.trafficTrailerList = nil  -- Cache für die neue Größe verwerfen
         end
         self.trafficTrailerSize = tts
     end
     if state.engeMap ~= nil then
         local neu = state.engeMap == true
         if neu ~= (self.engeMap ~= false) then
-            -- Beide Caches muessen weg: die Fahrzeugliste haengt an den
-            -- Kategorien, die Geraeteliste am Gewichtslimit.
+            -- Beide Caches verwerfen: Fahrzeugliste hängt an den Kategorien,
+            -- Geräteliste am Gewichtslimit.
             self.trafficVehicleList = nil
             self.trafficTrailerList = nil
         end
         self.engeMap = neu
     end
-    if state.debugLog ~= nil then   -- Build 165
+    if state.debugLog ~= nil then
         self:setDebugLog(state.debugLog == true)
     end
     if state.missions ~= nil then
@@ -281,14 +276,13 @@ function NachbarFelderManager:applySettingsState(state)
             end
         end
     end
-    -- Settings-Seite aktualisieren, falls geladen (Client + SP)
     if self.settingsPage ~= nil and self.settingsPage.refreshFromManager ~= nil then
         if self.settingsPage ~= nil and self.settingsPage.refreshFromManager ~= nil then self.settingsPage:refreshFromManager() end
     end
 end
 
--- Einzelne Einstellung anwenden (laeuft auf dem SERVER; Wert kommt als
--- Zahl vom Event oder als bool/Zahl direkt von der SP/Host-GUI)
+-- Nur auf dem Server. value kommt vom Event als Zahl, aus der SP/Host-GUI
+-- auch als bool.
 function NachbarFelderManager:applySettingEdit(name, value)
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
     if name == nil or name == "" then return end
@@ -310,7 +304,7 @@ function NachbarFelderManager:applySettingEdit(name, value)
     elseif name == "trafficTrailerSize" then
         self.trafficTrailerSize = math.max(0, math.min(3, asInt(value)))
         self.trafficTrailerList = nil
-    elseif name == "debugLog" then   -- Build 165
+    elseif name == "debugLog" then
         self:setDebugLog(asBool(value))
     elseif name == "engeMap" then
         self.engeMap = asBool(value)
@@ -330,14 +324,13 @@ function NachbarFelderManager:applySettingEdit(name, value)
         return
     end
 
-    -- Ab jetzt ist der Live-Stand autoritativ: landet beim naechsten
-    -- Speichern im Savegame und schlaegt die Server-Konfig-Datei.
+    -- Der Live-Stand landet beim nächsten Speichern im Savegame und hat
+    -- dann Vorrang vor der Server-Konfig.
     self.settingsFromSavegame = true
     print("NachbarFelder: [SETTINGS] " .. tostring(name) .. " = " .. tostring(value))
     self:broadcastSettingsToClients()
 end
 
--- Kompletten Stand an alle Clients schicken (nur Server)
 function NachbarFelderManager:broadcastSettingsToClients()
     if g_server ~= nil and NachbarFelderSettingsSyncEvent ~= nil then
         g_server:broadcastEvent(NachbarFelderSettingsSyncEvent.new(self:getSettingsState()))
@@ -345,16 +338,14 @@ function NachbarFelderManager:broadcastSettingsToClients()
 end
 
 -- ============================================================
--- Effektive Farm-ID ermitteln (nie Spectator-Farm verwenden!)
--- AI-Jobs werden von der Engine sofort abgewiesen wenn farmId = SPECTATOR_FARM_ID.
---
--- Build 138: nicht mehr fest 2. Die Helfer-Farm bekommt Sonderrechte
--- (kein Geldabzug, darf jedes Feld bearbeiten) - sie darf deshalb NIE eine
--- Farm mit Spielern sein. Reihenfolge:
---   1. Server-Konfig <farmId> > 0 und die Farm existiert ohne Spieler
---   2. automatisch: hoechste Farm ohne Spieler, ohne Farmland, ohne Gebaeude
---   3. hoechste Farm ohne Spieler (auch mit Land/Gebaeuden)
---   4. keine gefunden -> Spectator-Farm, Helfer starten dann nicht (Warnung im Log)
+-- Helfer-Farm
+-- AI-Jobs mit farmId = SPECTATOR_FARM_ID weist die Engine sofort ab.
+-- Die Helfer-Farm hat Sonderrechte (keine Kosten, jedes Feld), darf also
+-- nie eine Farm mit Spielern sein. Reihenfolge:
+--   1. <farmId> aus der Server-Konfig, wenn die Farm existiert und leer ist
+--   2. höchste Farm ohne Spieler, Farmland und Gebäude
+--   3. höchste Farm ohne Spieler
+--   4. sonst Spectator-Farm, die Helfer starten dann nicht (Warnung im Log)
 -- Die Wahl gilt bis zum Server-Neustart.
 -- ============================================================
 function NachbarFelderManager:getFarmInfoForHelper(farmId)
@@ -367,7 +358,7 @@ function NachbarFelderManager:getFarmInfoForHelper(farmId)
     end
     local info = { farmId = farmId, name = tostring(farm.name or "?"), hatSpieler = false,
                    listeBekannt = false, farmlands = 0, gebaeude = 0 }
-    -- Mitglieder stehen in farm.players (aus farms.xml <players>), siehe AgrarOekonomie
+    -- Mitglieder stehen in farm.players (farms.xml <players>), die anderen Felder zur Sicherheit
     for _, feld in ipairs({ "players", "userIds", "activeUsers" }) do
         local liste = farm[feld]
         if type(liste) == "table" then
@@ -404,7 +395,7 @@ function NachbarFelderManager:getEffectiveFarmId()
     for id = 1, 16 do
         if id ~= spectator then
             local info = self:getFarmInfoForHelper(id)
-            -- Ohne bekannte Mitgliederliste lieber nicht nehmen (koennte eine Spieler-Farm sein)
+            -- Ohne Mitgliederliste nicht nehmen, könnte eine Spieler-Farm sein
             if info ~= nil and info.listeBekannt and not info.hatSpieler then
                 table.insert(kandidaten, info)
             end
@@ -446,18 +437,16 @@ function NachbarFelderManager:getEffectiveFarmId()
     self.farmId = gewaehlt.farmId
     print(string.format("NachbarFelder: Helfer-Farm = %d '%s' (%s, Farmland %d, Gebaeude %d)",
         gewaehlt.farmId, gewaehlt.name, grund, gewaehlt.farmlands, gewaehlt.gebaeude))
-    self:broadcastSettingsToClients()   -- Build 157: Clients kennen damit die Helfer-Farm
+    self:broadcastSettingsToClients()   -- damit die Clients die Helfer-Farm kennen
     return self.farmId
 end
 
 -- ============================================================
--- Admin-Check (Build 75)
--- Eingreifende Aktionen (Wegpunkte/Settings aendern, Helfer starten/
--- loeschen) sind nur noch fuer Admins erlaubt. Reine Anzeige (Karte
--- an/aus, WP-Liste ansehen) bleibt fuer alle frei.
--- Server-seitig: Verbindungen von Master-Usern werden ueber
--- MessageType.MASTERUSER_ADDED gemerkt (Muster aus FS25_EasyDevControls);
--- Fallback prueft den User direkt an der Connection.
+-- Admin-Rechte
+-- Ändern (Wegpunkte, Einstellungen, Helfer starten/löschen) nur für Admins,
+-- reine Anzeige für alle. Der Server merkt sich Master-User-Verbindungen über
+-- MessageType.MASTERUSER_ADDED (wie FS25_EasyDevControls), ersatzweise wird
+-- der User an der Connection geprüft.
 -- ============================================================
 function NachbarFelderManager:onMasterUserAdded(user)
     if user ~= nil and user.getConnection ~= nil then
@@ -468,13 +457,12 @@ function NachbarFelderManager:onMasterUserAdded(user)
     end
 end
 
--- Server: Ist die Verbindung ein Admin? (nil = lokaler Aufruf -> ja)
+-- Server: connection == nil ist ein lokaler Aufruf und gilt als Admin.
 function NachbarFelderManager:getIsConnectionAdmin(connection)
     if connection == nil then return true end
     if self.adminConnections ~= nil and self.adminConnections[connection] == true then
         return true
     end
-    -- Fallback: direkt am User-Objekt nachsehen
     local isAdmin = false
     if g_currentMission ~= nil and g_currentMission.userManager ~= nil
        and g_currentMission.userManager.getUserByConnection ~= nil then
@@ -486,8 +474,7 @@ function NachbarFelderManager:getIsConnectionAdmin(connection)
     return isAdmin
 end
 
--- Client/SP: Darf der LOKALE Spieler eingreifen?
--- SP/Host = immer; Dedi-Client nur nach Admin-Login (isMasterUser).
+-- Lokaler Spieler: SP und Host immer, auf dem Dedi nur nach Admin-Login.
 function NachbarFelderManager:getIsLocalAdmin()
     if g_currentMission == nil then return false end
     if g_currentMission:getIsServer() then return true end
@@ -503,30 +490,21 @@ function NachbarFelderManager:notifyAdminRequired()
 end
 
 -- ============================================================
--- Geld: NF-Jobs kosten nichts (Build 91)
---
--- Frueher fuellte ensureFarmMoney() das Konto der NPC-Farm 2 auf, weil
--- AIJob:updateCost() einen Job sofort mit AIMessageErrorOutOfMoney stoppt,
--- sobald das Guthaben die Helferkosten nicht mehr deckt (AIJob.lua:177).
--- Die Funktion las allerdings farm.money - ein Feld, das es in FS25 nicht
--- gibt; der Kontostand heisst farm:getBalance(). Sie hat also nie etwas
--- bewirkt (belegt: Diagnose meldete "Farm -1 EUR", und "Konto aufgefuellt"
--- stand nie im Log). Dass es trotzdem lief, lag allein daran, dass Farm 2
--- genug Guthaben hatte.
---
--- Statt das Auffuellen zu reparieren - was einen echten Eingriff in das
--- NPC-Konto und in farms.xml bedeutet haette - bekommen die Jobs jetzt
--- getPricePerMs() = 0 (siehe driveToField und die Feldarbeit). Ohne Kosten
--- gibt es keine Geldpruefung, kein Leerlaufen und nichts zurueckzusetzen.
+-- Kosten
+-- AIJob:updateCost() stoppt einen Job mit AIMessageErrorOutOfMoney, sobald
+-- das Guthaben die Helferkosten nicht deckt. Die NF-Jobs liefern deshalb
+-- getPricePerMs() = 0 (siehe driveToField und Feldarbeit), so gibt es keine
+-- Geldprüfung und keinen Eingriff ins Konto der Helfer-Farm.
+-- Der Kontostand heißt in FS25 farm:getBalance(), ein farm.money gibt es nicht.
 -- ============================================================
 
 -- ============================================================
--- WP-Erreichbarkeit lernen: Ziele die wiederholt nicht erreichbar
--- sind (AIMessageErrorNotReachable) werden für die Session als
--- Fahrziel gesperrt - analog zu fieldPathFails bei Feldern.
+-- Erreichbarkeit der Wegpunkte
+-- Ziele, die wiederholt AIMessageErrorNotReachable liefern, werden bis zum
+-- Neustart als Fahrziel gesperrt (wie fieldPathFails bei Feldern).
 -- ============================================================
---- "(x=... z=...)" zu einer Wegpunkt-Nummer, leer wenn unbekannt (Build 104).
---- Liest die gemeinsame Liste, damit auch Strassenziele Koordinaten zeigen.
+--- "(x=... z=...)" zu einer Wegpunkt-Nummer, leer wenn unbekannt.
+--- Nutzt die gemeinsame Liste, damit auch Straßenziele Koordinaten zeigen.
 function NachbarFelderManager:getWaypointPosText(idx)
     local list = self.patrolWpList or self.userTrafficWaypoints
     local wp = list ~= nil and list[idx] or nil
@@ -535,24 +513,24 @@ function NachbarFelderManager:getWaypointPosText(idx)
         math.floor(wp.x or wp[1] or 0), math.floor(wp.z or wp[2] or 0))
 end
 
--- Wegpunkt-Typ "Spawnpunkt" (Build 132): vom Admin gesetzter Ladeplatz fuer
--- neue Fahrzeuge. 3 ist bereits "Durchfahrt" (Strassenziele aus dem KI-Netz).
+-- Wegpunkt-Typ "Spawnpunkt": vom Admin gesetzter Ladeplatz für neue Fahrzeuge.
+-- 3 ist "Durchfahrt" (Straßenziele aus dem KI-Netz).
 NachbarFelderManager.WP_CAT_SPAWN = 4
 
---- Ist der Wegpunkt ein Spawnpunkt? Fuer beide WP-Formen:
---- { x=, z=, cat= } (userTrafficWaypoints) und { x, z, ry, cat } (Fahrzeug-Zielliste).
+--- Für beide Formen: { x=, z=, cat= } (userTrafficWaypoints) und
+--- { x, z, ry, cat } (Zielliste eines Fahrzeugs).
 function NachbarFelderManager:getIstSpawnpunkt(wp)
     if wp == nil then return false end
     return (wp.cat or wp[4] or 0) == NachbarFelderManager.WP_CAT_SPAWN
 end
 
---- Ist die Nummer einer der selbst gesetzten Wegpunkte? (Build 104)
+--- Selbst gesetzte Wegpunkte stehen vorn in der Liste.
 function NachbarFelderManager:getIsEigenerWaypoint(idx)
     return self.userTrafficWaypoints ~= nil and idx ~= nil
        and idx <= #self.userTrafficWaypoints
 end
 
---- Ist idx in der Zielliste DIESES Fahrzeugs ein Parkpunkt? (Build 107)
+--- Parkpunkt in der Zielliste dieses Fahrzeugs?
 function NachbarFelderManager:getIsParkpunkt(w, idx)
     if idx == nil then return false end
     if w ~= nil and w.anzahlParkpunkte ~= nil then
@@ -566,12 +544,12 @@ function NachbarFelderManager:registerWaypointFail(idx)
     self.wpFails = self.wpFails or {}
     self.wpFails[idx] = (self.wpFails[idx] or 0) + 1
     if self.wpFails[idx] == 2 then
-        -- Koordinaten mitloggen: WP-Nummer = Nummer des Karten-Hotspots,
-        -- damit der Punkt in-game direkt gefunden und neu gesetzt werden kann.
+        -- Nummer entspricht dem Karten-Hotspot, mit Koordinaten lässt sich
+        -- der Punkt im Spiel finden und neu setzen.
         local pos = self:getWaypointPosText(idx)
         print("NachbarFelder: [TRAFFIC] WP" .. tostring(idx) .. pos ..
             " fuer diese Session als Ziel gesperrt (2x nicht erreichbar)")
-        -- Gesamtliste der aktuell gesperrten WPs (eine Zeile, greifbar per Log-Suche)
+        -- alle gesperrten Ziele in einer Logzeile
         local list = {}
         for i, c in pairs(self.wpFails) do
             if c >= 2 then table.insert(list, i) end
@@ -588,19 +566,13 @@ function NachbarFelderManager:isWaypointBlocked(idx)
 end
 
 -- ============================================================
--- Start-Tauglichkeit eines Wegpunkts (Build 86)
---
--- Ein Wegpunkt kann als ZIEL prima funktionieren und als STARTPLATZ trotzdem
--- unbrauchbar sein: Die KI faehrt beim GOTO bis in die Naehe des Ziels und
--- haelt auf befahrbarem Grund. Liegt die WP-Koordinate selbst ein paar Meter
--- daneben (typisch, wenn der Punkt zu Fuss am Strassenrand gesetzt wurde),
--- dann steht das Fahrzeug nach dem Einschnappen auf die exakte Koordinate
--- abseits des Navmesh - und der naechste GOTO wird nach ~60 ms abgewiesen.
---
--- Belegt im Server-Log vom 2026-09-10: Abweisungen immer bei "0m" Abstand zum
--- WP, mit UND ohne Anbaugeraet, waehrend derselbe WP als Fahrziel erreicht
--- wurde. Deshalb wird die Start-Untauglichkeit getrennt von der Ziel-Sperre
--- gefuehrt - ein solcher WP bleibt weiterhin anfahrbar.
+-- Wegpunkt als Startplatz
+-- Ein Punkt kann als Ziel funktionieren und als Startplatz trotzdem nicht:
+-- Die KI hält beim GOTO in der Nähe des Ziels auf befahrbarem Grund. Liegt
+-- die Koordinate ein paar Meter daneben (z. B. zu Fuß am Straßenrand gesetzt),
+-- steht das Fahrzeug nach dem Einschnappen abseits des Navmesh und der
+-- nächste GOTO wird nach rund 60 ms abgewiesen. Darum getrennt von der
+-- Ziel-Sperre geführt, der Punkt bleibt anfahrbar.
 -- ============================================================
 function NachbarFelderManager:registerWaypointStartFail(idx)
     if idx == nil then return end
@@ -621,16 +593,9 @@ function NachbarFelderManager:isWaypointBadStart(idx)
 end
 
 
--- Zufälligen WP wählen; gesperrte WPs, excludeIdx und von schlafenden
--- Pool-Fahrzeugen belegte WPs werden vermieden.
--- Nach 30 Fehlversuchen wird der letzte Zufallswert akzeptiert
--- (Schutz falls fast alle WPs gesperrt sind).
--- Funktioniert für beide WP-Formen: {x=,z=} (userTrafficWaypoints)
--- und {[1]=x,[2]=z} (worker.waypoints).
---- Naechster freier Parkpunkt fuer ein Patrol-Fahrzeug (Build 105).
---- Parkpunkte sind die selbst gesetzten Wegpunkte (Nummern 1 bis
---- #userTrafficWaypoints). Steht das Fahrzeug schon an einem (< 25 m), gibt es
---- nil zurueck - dann macht es genau dort Feierabend.
+--- Nächster freier Parkpunkt für ein Patrol-Fahrzeug. Parkpunkte sind die
+--- selbst gesetzten Wegpunkte (1 bis #userTrafficWaypoints). Steht das Fahrzeug
+--- schon an einem (< 25 m), kommt nil zurück und es parkt dort.
 --- @return integer|nil Index in w.waypoints
 function NachbarFelderManager:findFreeParkpunkt(w)
     local wps = w ~= nil and w.waypoints or nil
@@ -650,7 +615,7 @@ function NachbarFelderManager:findFreeParkpunkt(w)
             return nil
         end
         if d < bestD and not self:isWaypointBlocked(i) and not self:isWaypointBadStart(i)
-           and not self:getIstSpawnpunkt(wp)   -- Build 132: nie auf dem Spawnpunkt parken
+           and not self:getIstSpawnpunkt(wp)   -- nie auf dem Spawnpunkt parken
            and not self:isWpPosOccupied(wp[1], wp[2])
            and not self:isSpotBlockedByAnyVehicle(wp[1], wp[2], 10, veh) then
             best, bestD = i, d
@@ -659,22 +624,21 @@ function NachbarFelderManager:findFreeParkpunkt(w)
     return best
 end
 
--- Build 106: bevorzugte Hop-Laenge. Log 13.09.: Ziele quer ueber die Karte
--- brauchten bis zu 87 s Wegsuche (68805/70385/87358 ms) und scheiterten dann
--- oft trotzdem; waehrenddessen meldete der Waechter "30s ohne Bewegung".
--- Kurze Fahrten waren frueher in 2-12 s geplant.
+-- Bevorzugte Hop-Länge in m. Ziele quer über die Karte brauchen über eine Minute
+-- Wegsuche und scheitern oft trotzdem, kurze Strecken sind in Sekunden geplant.
 local NF_HOP_MIN_M = 150
 local NF_HOP_MAX_M = 700
 
---- @param refX number|nil, refZ number|nil Bezugspunkt fuer die Hop-Laenge;
+--- Zufälliges Fahrziel; meidet gesperrte Punkte, Spawnpunkte, excludeIdx und belegte Plätze.
+--- Für beide Formen: {x=,z=} (userTrafficWaypoints) und {[1]=x,[2]=z} (worker.waypoints).
+--- @param refX number|nil, refZ number|nil Bezugspunkt für die Hop-Länge;
 --- ohne Angabe gilt der Wegpunkt excludeIdx (= letztes Ziel) als Bezug.
 function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, refZ)
     local n = waypoints ~= nil and #waypoints or 0
     if n < 1 then return nil end
     if n == 1 then return 1 end
 
-    -- Build 106: erst ein Ziel in 150-700 m suchen; nur wenn keins frei ist,
-    -- geht es wie bisher per Zufall ueber die ganze Liste.
+    -- Erst ein Ziel im Hop-Bereich suchen, sonst Zufall über die ganze Liste.
     if refX == nil and excludeIdx ~= nil and waypoints[excludeIdx] ~= nil then
         local ref = waypoints[excludeIdx]
         refX, refZ = ref.x or ref[1], ref.z or ref[2]
@@ -682,7 +646,7 @@ function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, re
     if refX ~= nil and refZ ~= nil then
         local nah = {}
         for i = 1, n do
-            -- Build 132: Spawnpunkte sind nie Fahrziel (sonst parkt dort jemand)
+            -- Spawnpunkte nie als Ziel, sonst parkt dort jemand
             if i ~= excludeIdx and not self:isWaypointBlocked(i)
                and not self:isWaypointBadStart(i)
                and not self:getIstSpawnpunkt(waypoints[i]) then
@@ -690,10 +654,9 @@ function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, re
                 local wx, wz = wp.x or wp[1], wp.z or wp[2]
                 if wx ~= nil and wz ~= nil then
                     local d = MathUtil.vector2Length(wx - refX, wz - refZ)
-                    -- Build 107: isWpPosOccupied kennt nur schlafende Pool-Fahrzeuge.
-                    -- Ein Fahrzeug, das gerade an einem Parkpunkt PARKT, war fuer die
-                    -- Zielwahl unsichtbar - der naechste bekam denselben Punkt als Ziel
-                    -- und blieb davor stehen (13.09. 12:12, Ziel WP7, "30s ohne Bewegung").
+                    -- isWpPosOccupied kennt nur schlafende Pool-Fahrzeuge. Ein gerade
+                    -- parkendes Fahrzeug fängt erst isSpotBlockedByAnyVehicle ab, sonst
+                    -- bekommt der Nächste denselben Punkt und bleibt davor stehen.
                     if d >= NF_HOP_MIN_M and d <= NF_HOP_MAX_M
                        and not self:isWpPosOccupied(wx, wz)
                        and not self:isSpotBlockedByAnyVehicle(wx, wz, 12, nil) then
@@ -706,11 +669,9 @@ function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, re
             return nah[math.random(#nah)]
         end
     end
-    -- Build 103: Ein Wegpunkt, der als STARTPLATZ gesperrt ist, taugt auch als
-    -- Ziel nichts mehr. Dort kommen Fahrzeuge zwar an, aber nie wieder weg -
-    -- am 12.09. sammelten sich so vier Stueck an der Sackgasse bei WP21
-    -- (x=190 z=-52). Findet die Schleife nichts Freies, bleibt es beim
-    -- Zufallspunkt: lieber ein schlechtes Ziel als gar keine Fahrt.
+    -- Als Startplatz untaugliche Punkte auch als Ziel meiden: Fahrzeuge kommen
+    -- dort an, aber nicht mehr weg. Nach 30 Versuchen gilt der letzte Zufallspunkt,
+    -- lieber ein schlechtes Ziel als gar keine Fahrt.
     local idx = math.random(n)
     for _ = 1, 30 do
         if idx ~= excludeIdx and not self:isWaypointBlocked(idx)
@@ -729,12 +690,10 @@ function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, re
 end
 
 -- ============================================================
--- Server-Konfiguration: modSettings/FS25_LivingRoads/
---                       NachbarFelderServerConfig.xml
--- (gleicher Ordner wie NachbarFelderWaypoints.xml)
--- Die Settings-GUI wirkt nur lokal - auf dem Dedicated Server
--- gilt diese Datei. Fehlt sie, wird eine Vorlage mit den
--- aktuellen Defaults geschrieben (dann editieren + Neustart).
+-- Server-Konfiguration: modSettings/FS25_LivingRoads/NachbarFelderServerConfig.xml
+-- Auf dem Dedicated Server gibt es keine Settings-GUI, dort gilt diese Datei.
+-- Fehlt sie, wird eine Vorlage mit den Standardwerten angelegt
+-- (bearbeiten, dann Server neu starten).
 -- ============================================================
 function NachbarFelderManager:loadServerConfig()
     if self.serverConfigLoaded then return end
@@ -751,7 +710,7 @@ function NachbarFelderManager:loadServerConfig()
                 local c = self.vehicleCatEnabled or {}
                 setXMLString(xf, root .. ".hinweis",
                     "Serverseitige Einstellungen fuer FS25_LivingRoads - wirken nach einem Server-Neustart")
-                setXMLInt(xf, root .. ".farmId",              0)   -- Build 138: 0 = automatisch (leere Farm ohne Spieler)
+                setXMLInt(xf, root .. ".farmId",              0)   -- 0 = automatisch (leere Farm ohne Spieler)
                 setXMLInt(xf, root .. ".maxWorkers",          self.MAX_ASSISTANT_WORKERS)
                 setXMLInt(xf, root .. ".trafficLimit",        self.trafficLimit)
                 setXMLInt(xf, root .. ".trafficTrailerSize",  self.trafficTrailerSize)
@@ -766,10 +725,10 @@ function NachbarFelderManager:loadServerConfig()
                 setXMLInt(xf, root .. ".spawnIntervalMaxMinutes", 5)
                 setXMLFloat(xf, root .. ".parkTimeFactor",        1.0)
                 setXMLInt(xf, root .. ".poolSize",                6)
-                setXMLInt(xf, root .. ".aufraeumenMinTage",       NachbarFelderManager.AUFRAEUMEN_MIN_TAGE)   -- Build 175
+                setXMLInt(xf, root .. ".aufraeumenMinTage",       NachbarFelderManager.AUFRAEUMEN_MIN_TAGE)
                 setXMLBool(xf, root .. ".fahrerfigurenAufServer", true)
-                setXMLBool(xf, root .. ".rueckwaertsPlanen",      false)   -- Build 125
-                setXMLBool(xf, root .. ".spielverkehrAnmelden",   true)    -- Build 152
+                setXMLBool(xf, root .. ".rueckwaertsPlanen",      false)
+                setXMLBool(xf, root .. ".spielverkehrAnmelden",   true)
                 setXMLBool(xf, root .. ".dayRhythm",              true)
                 setXMLString(xf, root .. ".zielQuelle",           "strassen")
                 setXMLInt(xf, root .. ".trailerChance",           40)
@@ -799,39 +758,34 @@ function NachbarFelderManager:loadServerConfig()
         self.firstSpawnDelayMs     = readInt("firstSpawnDelaySecs", 180, 0, 3600) * 1000
         self.patrolHopsMin         = readInt("patrolHopsMin",      10, 1, 99)
         self.patrolHopsMax         = readInt("patrolHopsMax",      20, 1, 99)
-        -- Log-Stufe: 1 = normal (ohne Hop-/GOTO-Dauerzeilen), 2 = Debug
+        -- 1 = normal, 2 = Debug-Log (die Einstellung im Spiel hat Vorrang)
         self.logLevel              = readInt("logLevel",           1, 1, 2)
-        -- Build 165: logLevel=2 schaltet das Debug-Log ein (Einstellung im Spiel geht vor)
         self:setDebugLog(self.logLevel >= 2)
-        -- Build 138: Helfer-Farm, 0 = automatisch (siehe getEffectiveFarmId)
+        -- 0 = automatisch, siehe getEffectiveFarmId
         self.cfgFarmId             = readInt("farmId",             0, 0, 16)
         if self.patrolHopsMax < self.patrolHopsMin then
             self.patrolHopsMax = self.patrolHopsMin
         end
-        -- Spawn-Taktung (Ruckler-Vermeidung): Fahrzeuge pro Spawn-Tick und
-        -- Pause zwischen Spawns (Minuten bei 1-facher Zeit; Build 176: mit dem Zeitfaktor
-        -- skaliert, also etwa Echtzeit-Minuten)
+        -- Spawns verteilen, sonst ruckelt es: Fahrzeuge pro Tick und Pause dazwischen
+        -- in Minuten (mit dem Zeitfaktor skaliert, also etwa Echtzeit)
         self.spawnPerTick     = readInt("spawnPerTick",            1, 1, 3)
         self.spawnIntervalMin = readInt("spawnIntervalMinMinutes", 2, 0, 60)
         self.spawnIntervalMax = readInt("spawnIntervalMaxMinutes", 5, 1, 120)
         if self.spawnIntervalMax < self.spawnIntervalMin then
             self.spawnIntervalMax = self.spawnIntervalMin
         end
-        -- Parkzeit-Faktor: 1.0 = Standard, 2.0 = doppelt so lange Pausen
+        -- 1.0 = Standard, 2.0 = doppelt so lange Parkpausen
         local ptf = getXMLFloat(xf, root .. ".parkTimeFactor")
         if ptf ~= nil and ptf >= 0.2 and ptf <= 10 then
             self.parkTimeFactor = ptf
         end
-        -- Fahrzeug-Pool (Build 65): max. schlafende Fahrzeuge, 0 = Pool aus
         self.poolSize = readInt("poolSize", self.poolSize or 6, 0, 12)
-        -- Build 175: Mindestabstand in Spieltagen fuer das Aufraeumen beim Monatswechsel, 0 = nie
+        -- Mindestabstand in Spieltagen für das Aufräumen beim Monatswechsel, 0 = nie
         self.aufraeumenMinTage = readInt("aufraeumenMinTage", NachbarFelderManager.AUFRAEUMEN_MIN_TAGE, 0, 365)
-        -- Tagesrhythmus (Build 68): Verkehrsdichte folgt der Uhrzeit
         local dr = getXMLBool(xf, root .. ".dayRhythm")
         if dr ~= nil then self.dayRhythm = dr end
-        -- Build 104: Woher kommen die Fahrziele?
-        --   strassen  = Punkte auf dem KI-Strassennetz der Karte (Standard)
-        --   wegpunkte = ausschliesslich die selbst gesetzten Wegpunkte
+        -- Fahrziele: "strassen" = KI-Straßennetz der Karte (Standard),
+        -- "wegpunkte" = nur die selbst gesetzten Punkte
         local zq = getXMLString(xf, root .. ".zielQuelle")
         if zq ~= nil then
             zq = string.lower(zq)
@@ -839,33 +793,29 @@ function NachbarFelderManager:loadServerConfig()
                 self.zielQuelle = zq
             end
         end
-        -- Gespann-Quote in % (Build 69): Ziel-Anteil Traktoren mit Geraet
         self.trailerChance = readInt("trailerChance", self.trailerChance or 40, 0, 100)
-        -- Fahrzeugkategorien: Konfig-Datei ist nur noch FALLBACK (Build 71).
-        -- Hat die Wegpunkt-Datei bereits Kategorien (= in der GUI gesetzt),
-        -- gewinnen diese - sonst ging die GUI-Einstellung beim Neustart verloren.
+        -- Fahrzeugkategorien: Stehen sie schon in der Wegpunkt-Datei (in der GUI
+        -- gesetzt), haben diese Vorrang, sonst ginge die GUI-Wahl beim Neustart verloren.
         local function readBool(key, cur)
             local v = getXMLBool(xf, root .. "." .. key)
             if v == nil then return cur end
             return v
         end
-        -- Umkreis um den Haendler, der frei sein muss, bevor neu gespawnt wird.
+        -- Umkreis um den Händler, der vor einem Spawn frei sein muss
         self.spawnBereichRadius = readInt("spawnBereichRadius",
             self.spawnBereichRadius or 25, 0, 200)
 
-        -- Fahrerfiguren nur auf dem Server weglassen (Build 95). NUR auf einem
-        -- Dedicated Server auf false setzen - auf einem Spieler-Host saessen
-        -- fuer diesen Spieler sonst keine Fahrer in den NF-Fahrzeugen.
+        -- false nur auf einem Dedicated Server: auf einem Spieler-Host säßen
+        -- für diesen Spieler sonst keine Fahrer in den Fahrzeugen.
         self.fahrerfigurenAufServer = readBool("fahrerfigurenAufServer",
             self.fahrerfigurenAufServer ~= false)
 
-        -- Build 108: Rueckwaertsplanen fuer NF-Fahrzeuge ohne Anbaugeraet.
+        -- Rückwärtsplanen, nur für Fahrzeuge ohne Anbaugerät
         self.rueckwaertsPlanen = readBool("rueckwaertsPlanen", self.rueckwaertsPlanen ~= false)
 
-        -- Build 152: beim Spielverkehr anmelden (false = Verhalten bis Build 151)
         self.spielverkehrAnmelden = readBool("spielverkehrAnmelden", self.spielverkehrAnmelden ~= false)
 
-        -- Enge Karte: schmale Wege, nur Kleintraktoren mit leichtem Geraet.
+        -- Enge Karte: schmale Wege, nur Kleintraktoren mit leichtem Gerät
         local em = readBool("engeMap", nil)
         if em ~= nil and em ~= (self.engeMap ~= false) then
             self.engeMap = em
@@ -881,14 +831,13 @@ function NachbarFelderManager:loadServerConfig()
             c.WHEELLOADERVEHICLES = readBool("vehicles.wheelLoaders",   c.WHEELLOADERVEHICLES ~= false)
             c.TELELOADERVEHICLES  = readBool("vehicles.teleLoaders",    c.TELELOADERVEHICLES ~= false)
             self.vehicleCatEnabled = c
-            self.trafficVehicleList = nil  -- Fahrzeugliste mit neuen Kategorien neu aufbauen
+            self.trafficVehicleList = nil  -- mit den neuen Kategorien neu aufbauen
         else
             print("NachbarFelder: Server-Konfig vehicles.* ignoriert - " ..
                 "In-Game-Kategorien aus der Wegpunkt-Datei sind aktiv")
         end
         delete(xf)
-        -- WICHTIG: eigene lokale Referenz nutzen - 'c' existiert nur im
-        -- vehicles.*-Zweig (Build-71-Fehler: index nil with 'TRACTORSS')
+        -- Eigenes c, das obige existiert nur im vehicles.*-Zweig
         local c = self.vehicleCatEnabled or {}
         print("NachbarFelder: Server-Konfig geladen: maxWorkers=" ..
             tostring(self.MAX_ASSISTANT_WORKERS) ..
@@ -925,14 +874,11 @@ function NachbarFelderManager:installHooks()
     self.hooksInstalled = true
     print("NachbarFelder: Hooks werden installiert")
 
-    -- Build 172: Die FarmlandManager-Hooks der Helfer-Zeit (getIsOwnedByFarmAtWorldPosition,
-    -- getCanAccessLandAtWorldPosition, getIsOwnedByFarmAlongLine -> fuer die Helfer-Farm
-    -- ueberall "gehoert") sind entfernt. Sie waren fuer Feldarbeit gedacht, griffen aber
-    -- auch beim reinen Verkehr; in Lua nutzt der GOTO-Weg sie nicht (LUADOC: nur
-    -- Feldarbeit, Leveler, Platzieren, WheelDestruction - dort liessen sie die Raeder der
-    -- Nachbarn Pflanzen zerstoeren). Uebernommen aus PR #12 (Build "170" der Parallel-Sitzung).
+    -- Bewusst keine FarmlandManager-Hooks (getIsOwnedByFarmAtWorldPosition usw.): der
+    -- GOTO-Weg fragt sie nicht ab, sie wirken nur bei Feldarbeit, Leveler, Platzieren und
+    -- WheelDestruction - dort wuerden die Raeder der Nachbarn sonst Pflanzen zerstoeren.
 
-    -- AIJobTypeManager: nil-Rückgabe absichern
+    -- getJobTypeIndex kann nil liefern; dann ueber den Jobnamen nachschlagen
     AIJobTypeManager.getJobTypeIndex = Utils.overwrittenFunction(
         AIJobTypeManager.getJobTypeIndex,
         function(aiJobTypeManager, superFunc, job)
@@ -944,8 +890,7 @@ function NachbarFelderManager:installHooks()
         end)
 
     -- Kein Geldabzug fuer die Helfer-Farm, solange Nachbar-Fahrzeuge unterwegs sind: KI-Lohn
-    -- und Sprit der Fahrten liefen sonst als Minus auf ihrem Konto auf (sichtbar in der
-    -- Farmuebersicht im Multiplayer). Build 172: bleibt bewusst erhalten (PR #12 entfernte ihn).
+    -- und Sprit liefen sonst als Minus auf ihrem Konto auf (im MP in der Farmuebersicht sichtbar).
     if FSBaseMission ~= nil and FSBaseMission.addMoney ~= nil then
         FSBaseMission.addMoney = Utils.overwrittenFunction(FSBaseMission.addMoney,
             function(mission, superFunc, amount, farmId, moneyType, ...)
@@ -959,12 +904,8 @@ function NachbarFelderManager:installHooks()
             end)
     end
 
-    -- Aufräumen beim Spielende: NUR AI-Jobs stoppen und Feldbesitz
-    -- wiederherstellen - die Fahrzeuge löscht die Engine beim Shutdown
-    -- selbst (BaseMission.delete). Eigenes vehicle:delete() hier erzeugte
-    -- "doppelt geloescht"-Callstacks im Log (Vehicle.lua:1377), weil die
-    -- Engine die Fahrzeuge danach nochmal löschte.
-    -- Referenz FWA (newFile.lua): stoppt beim Delete nur die Agents.
+    -- Beim Spielende nur die KI-Jobs stoppen. Die Fahrzeuge loescht BaseMission.delete
+    -- selbst; ein eigenes vehicle:delete() hier fuehrt zu doppeltem Loeschen (Vehicle.lua).
     FSBaseMission.delete = Utils.overwrittenFunction(FSBaseMission.delete,
         function(mission, superFunc, ...)
             if g_NachbarFelderManager ~= nil then
@@ -974,21 +915,19 @@ function NachbarFelderManager:installHooks()
             return superFunc(mission, ...)
         end)
 
-    -- Spielstand speichern
     ItemSystem.save = Utils.prependedFunction(ItemSystem.save, g_NachbarFelderManager.saveToXMLFile)
 end
 
 -- ============================================================
--- loadMap: Wird auf ALLEN Instanzen aufgerufen (Server + Client)
--- Wichtig: Server bekommt das jetzt auch, weil addModEventListener
--- bereits in init() in NachbarFelder.lua aufgerufen wird!
+-- loadMap: laeuft auf Server und Client (addModEventListener sitzt
+-- schon in init() von NachbarFelder.lua, daher auch auf dem Dedi)
 -- ============================================================
 function NachbarFelderManager:loadMap()
     print("NachbarFelder: loadMap auf " ..
         (g_currentMission:getIsServer() and "SERVER" or "CLIENT") ..
         " (Build " .. tostring(NachbarFelderManager.BUILD) .. ")")
 
-    -- Settings-UI: nur wenn Spieler vorhanden (Client oder SP)
+    -- Einstellungsseite nur mit Spieler (Client oder SP)
     if not g_currentMission:getIsServer() or g_currentMission.isMasterUser then
         if misssionSettingsPage == nil then
             misssionSettingsPage = NachbarFelderSettingsPage.new(self)
@@ -999,29 +938,23 @@ function NachbarFelderManager:loadMap()
 
     self:addConsoleCommands()
 
-    -- Build 153: eigene Kategorie im Hilfe-Menue (ESC > Hilfe)
     self:ladeHilfe()
-
-    -- Build 157: Nachbar-Fahrzeuge ohne Helfer-Symbol auf der Karte
     self:installKartenHook()
 
-    -- Client-lokale Anzeige-Einstellungen (Karten-Hotspots an/aus, Build 71)
+    -- Client-lokale Anzeige-Einstellungen (Karten-Hotspots an/aus)
     self:loadClientPrefs()
 
-    -- Wegpunkte immer laden (Client: für UI + Map-Marker; Server: für Traffic-Logik)
+    -- Client braucht die Wegpunkte fuer UI und Kartenmarker, der Server fuer den Verkehr
     self:loadWaypoints()
 
-    -- Server-seitige Initialisierung
     if g_currentMission:getIsServer() then
         self:serverSideInit()
-        -- Server-Konfig SOFORT beim Start laden/anlegen - NICHT erst bei der
-        -- ersten Spielminute mit Spielern (sonst existiert die Vorlage nie,
-        -- wenn niemand joint). Muss NACH loadWaypoints laufen, damit die
-        -- Konfig-Kategorien die WP-Datei-Werte überschreiben.
+        -- Server-Konfig schon beim Start laden bzw. anlegen, sonst entsteht die Vorlage
+        -- nie, solange niemand joint. Nach loadWaypoints, damit die Konfig-Kategorien
+        -- die Werte aus der Wegpunkt-Datei ueberschreiben.
         self:loadServerConfig()
-        -- Savegame-Settings zuletzt anwenden (Build 67): im Spiel
-        -- gesetzte Einstellungen schlagen die Server-Konfig-Datei
-        -- (die Datei liefert nur noch die Basis-Defaults).
+        -- Einstellungen aus dem Savegame zuletzt: sie schlagen die Konfig-Datei,
+        -- die nur die Grundwerte liefert.
         if self.savegameSettings ~= nil then
             self:applySettingsState(self.savegameSettings)
             self.settingsFromSavegame = true
@@ -1031,8 +964,8 @@ function NachbarFelderManager:loadMap()
     end
 end
 
---- Helfer-Farm fuer die Anzeige (Build 157): Server = eigene Wahl, Client = per Settings-Sync.
---- 0 = unbekannt bzw. Spectator - dann wird nichts ausgeblendet.
+--- Helfer-Farm fuer die Anzeige: Server = eigene Wahl, Client = per Settings-Sync.
+--- @return number farmId, 0 bei unbekannt oder Spectator (dann wird nichts ausgeblendet)
 function NachbarFelderManager:getHelferFarmIdAnzeige()
     local fid = nil
     if g_currentMission ~= nil and g_currentMission:getIsServer() then
@@ -1045,9 +978,9 @@ function NachbarFelderManager:getHelferFarmIdAnzeige()
     return fid
 end
 
---- Gehoert der Karten-Hotspot zu einem Nachbar-Fahrzeug? (Build 157)
---- Kennzeichen: Besitzer-Farm des Fahrzeugs (bzw. seines Zugfahrzeugs) = Helfer-Farm. Die
---- Helfer-Farm hat nie Spieler (Build 138), andere Fahrzeuge trifft das also nicht.
+--- Gehoert der Karten-Hotspot zu einem Nachbar-Fahrzeug?
+--- Kennzeichen: Besitzer-Farm des (Zug-)Fahrzeugs = Helfer-Farm. Die Helfer-Farm hat
+--- nie Spieler, andere Fahrzeuge trifft das also nicht.
 function NachbarFelderManager:getIstNachbarHotspot(hotspot)
     local fid = self:getHelferFarmIdAnzeige()
     if fid == 0 or hotspot == nil then return false end
@@ -1062,10 +995,9 @@ function NachbarFelderManager:getIstNachbarHotspot(hotspot)
     return veh:getOwnerFarmId() == fid
 end
 
---- Helfer-Symbol der Nachbar-Fahrzeuge auf Minimap und grosser Karte ausblenden (Build 157).
---- Beide zeichnen jeden Hotspot ueber IngameMap:drawHotspot (IngameMapElement ->
---- drawHotspotsOnly); Hotspots kennen ihr Fahrzeug (getVehicle, vgl. IngameMapElement).
---- So verwechselt niemand die Nachbarn mit eigenen Helfern. Nur mit Client, einmal.
+--- Blendet das Helfer-Symbol der Nachbar-Fahrzeuge auf Minimap und grosser Karte aus,
+--- damit sie nicht mit eigenen Helfern verwechselt werden. Beide Karten zeichnen ueber
+--- IngameMap:drawHotspot (auch IngameMapElement:drawHotspotsOnly). Nur mit Client, einmalig.
 function NachbarFelderManager:installKartenHook()
     if NachbarFelderManager.kartenHookInstalliert or g_client == nil then return end
     if IngameMap == nil or IngameMap.drawHotspot == nil then
@@ -1086,10 +1018,9 @@ function NachbarFelderManager:installKartenHook()
     print("NachbarFelder: Helfer-Symbole der Nachbar-Fahrzeuge auf der Karte ausgeblendet")
 end
 
---- Ingame-Hilfe laden (Build 153). Gleiches Format und gleicher Weg wie die
---- Hilfe des Spiels: HelpLineManager:loadFromXML liest <helpLines>/<category>/<page>
---- (so laedt z. B. Courseplay FS25 seine Hilfe); die $l10n_-Texte kommen aus
---- dem l10n-Block der modDesc. Nur mit Spieler (nicht auf dem reinen Dedi), einmal je Sitzung.
+--- Eigene Kategorie in der Ingame-Hilfe (ESC > Hilfe). HelpLineManager:loadFromXML liest
+--- <helpLines>/<category>/<page> wie bei der Spielhilfe (so macht es auch Courseplay);
+--- die $l10n_-Texte kommen aus der modDesc. Nur mit Client, einmal je Sitzung.
 function NachbarFelderManager:ladeHilfe()
     if self.hilfeGeladen or g_client == nil then return end
     self.hilfeGeladen = true
@@ -1100,22 +1031,19 @@ function NachbarFelderManager:ladeHilfe()
     end
     if g_helpLineManager ~= nil and g_helpLineManager.loadFromXML ~= nil then
         g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
-        self:setzeHilfeSymbole(dir)   -- Build 171
+        self:setzeHilfeSymbole(dir)
         print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
     else
         print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
     end
 end
 
---- Symbole der linken Seitenliste in der Ingame-Hilfe (Build 171).
----
---- Die Liste zeigt je Seite page.iconSliceId (Zelle "icon", BitmapElement:setImageSlice ->
---- OverlayManager:getSliceInfoById; Vorlage: Courseplay FS25 CpHelpFrame:
---- populateCellForItemInSection). Ohne den Wert bleibt das Feld dunkel (User 07.10.).
---- Die Symbole liegen als Atlas help/hilfe_icons.dds, angemeldet mit
---- OverlayManager:addTextureConfigFile unter dem Praefix "nfHilfe" (wie Courseplay
---- "cpIconSprite"). Eingetragen wird nur auf den Seiten unserer Kategorie und nur,
---- wo das Spiel noch nichts gesetzt hat.
+--- Symbole fuer die Seitenliste der Ingame-Hilfe.
+--- Die Liste zeigt je Seite page.iconSliceId (BitmapElement:setImageSlice ->
+--- OverlayManager:getSliceInfoById); ohne Wert bleibt das Feld dunkel. Der Atlas
+--- help/hilfe_icons.dds wird per addTextureConfigFile unter "nfHilfe" angemeldet
+--- (wie Courseplay "cpIconSprite"). Gesetzt wird nur in unserer Kategorie und nur,
+--- wo noch nichts eingetragen ist.
 NachbarFelderManager.HILFE_SYMBOLE = {
     "nfHilfe.ueberblick", "nfHilfe.wegpunkte", "nfHilfe.einstellungen",
     "nfHilfe.tasten", "nfHilfe.verkehr",
@@ -1130,8 +1058,8 @@ function NachbarFelderManager:setzeHilfeSymbole(dir)
     if configs == nil or configs["nfHilfe"] == nil then
         g_overlayManager:addTextureConfigFile(Utils.getFilename("help/hilfe_icons.xml", dir), "nfHilfe")
     end
-    -- Nur Namen, die das Spiel selbst liefert (wie Courseplay) - getCategories mit
-    -- fremdem Namen ist nicht belegt. Unsere Mod zuerst.
+    -- Nur Umgebungsnamen, die das Spiel selbst liefert; wie sich getCategories bei
+    -- fremden Namen verhaelt, ist nicht belegt. Unsere Mod zuerst.
     if hm.getCustomEnvironmentNames == nil then return end
     local umgebungen = {}
     for _, name in ipairs(hm:getCustomEnvironmentNames() or {}) do
@@ -1170,54 +1098,45 @@ function NachbarFelderManager:serverSideInit()
     self.serverInitialized = true
     print("NachbarFelder: Server-Initialisierung gestartet")
 
-    -- Alle Hooks installieren
     self:installHooks()
-
-    -- Alle verfügbaren Shop-Spawn-Punkte loggen und besten auswählen
     self:selectBestSpawnPlace()
 
-    -- Anzahl mietbarer Helfer erhöhen
+    -- Mehr Helfer-Plaetze, damit die Nachbarn die Spieler-Helfer nicht blockieren
     if g_currentMission.maxNumHirables ~= nil then
         g_currentMission.maxNumHirables = g_currentMission.maxNumHirables + 20
     end
 
-    -- Einstellungen aus dem Spielstand lesen (angewendet in loadMap)
+    -- Savegame-Einstellungen nur lesen, angewendet werden sie in loadMap
     self:loadFromXML()
-    -- Wegpunkte wurden bereits in loadMap() geladen (Client + Server)
     self:updateWpHotspots()
 
     local timeScale = g_currentMission:getEffectiveTimeScale()
     self.timeToNextStart = math.random(1 * timeScale, 2 * timeScale)
 
-    -- Events auf dem Server abonnieren
     g_messageCenter:unsubscribe(MessageType.MINUTE_CHANGED, self)
     g_messageCenter:subscribe(MessageType.MINUTE_CHANGED, self.onMinuteChanged, self)
 
-    -- Build 175: Monatswechsel raeumt nicht mehr jedes Mal auf, sondern erst, wenn seit dem
-    -- letzten Aufraeumen AUFRAEUMEN_MIN_TAGE Spieltage vergangen sind (onPeriodChanged).
-    -- Vorher war deleteAllVehicles direkt abonniert - bei "1 Tag pro Monat" jeden Spieltag.
+    -- Aufgeraeumt wird beim Monatswechsel erst nach AUFRAEUMEN_MIN_TAGE Spieltagen, sonst
+    -- wuerde bei "1 Tag pro Monat" jeden Spieltag alles geloescht.
     g_messageCenter:unsubscribe(MessageType.PERIOD_CHANGED, self)
     g_messageCenter:subscribe(MessageType.PERIOD_CHANGED, self.onPeriodChanged, self)
     self.aufraeumTag = self:getSpieltag()
 
-    -- Admin-Logins merken (Build 75): Grundlage fuer den Event-Admin-Check
+    -- Admin-Logins merken, Grundlage fuer den Admin-Check bei Events
     if MessageType ~= nil and MessageType.MASTERUSER_ADDED ~= nil then
         g_messageCenter:unsubscribe(MessageType.MASTERUSER_ADDED, self)
         g_messageCenter:subscribe(MessageType.MASTERUSER_ADDED, self.onMasterUserAdded, self)
     end
 
-    -- KEIN Mission00.addPlayer Hook mehr - funktioniert nicht zuverlässig auf Dedicated Server.
-    -- Stattdessen: playerSystem-Abgleich in onMinuteChanged() übernimmt die Zählung.
-    -- removePlayer-Hook für sofortiges stopAllHelpers wenn letzter Spieler geht:
+    -- Mission00.addPlayer ist auf dem Dedi unzuverlaessig; gezaehlt wird in onMinuteChanged.
+    -- removePlayer wird gehookt, um beim letzten Spieler sofort alle Helfer zu stoppen.
     if g_currentMission.playerSystem ~= nil and g_currentMission.playerSystem.removePlayer ~= nil then
-        -- overwrittenFunction statt appendedFunction: unser Code läuft BEVOR der Original-
-        -- removePlayer die Spieler-Daten bereinigt. So sind Agents noch gültig wenn wir
-        -- stopAllHelpers() aufrufen → kein "attempt to index nil with deleteAgent".
+        -- overwritten statt appended: stopAllHelpers muss laufen, bevor removePlayer die
+        -- Spielerdaten abraeumt, sonst sind die Agents schon ungueltig (deleteAgent auf nil).
         g_currentMission.playerSystem.removePlayer = Utils.overwrittenFunction(
             g_currentMission.playerSystem.removePlayer,
             function(ps, superFunc, player)
                 if g_NachbarFelderManager ~= nil and g_currentMission:getIsServer() then
-                    -- Anzahl verbleibender Spieler bestimmen (ohne den weggehenden)
                     local remaining = 0
                     if ps.players ~= nil then
                         for _, p in pairs(ps.players) do
@@ -1227,14 +1146,11 @@ function NachbarFelderManager:serverSideInit()
                         end
                     end
                     if remaining <= 0 then
-                        -- Letzter Spieler: Helfer ZUERST stoppen (Agents noch gültig)
                         print("NachbarFelder: Letzter Spieler weg - stoppe alle Helfer")
                         g_NachbarFelderManager:stopAllHelpers()
                     end
                 end
-                -- Dann originale Spieler-Entfernung
                 superFunc(ps, player)
-                -- Spielerzähler aktualisieren
                 if g_NachbarFelderManager ~= nil then
                     local finalCount = 0
                     if g_currentMission.players ~= nil then
@@ -1253,9 +1169,8 @@ function NachbarFelderManager:serverSideInit()
 end
 
 -- ============================================================
--- prepareForShutdown: Beim Spielende NUR AI-Jobs stoppen.
--- KEINE Fahrzeuge löschen - das
--- macht die Engine direkt danach selbst (sonst "delete twice").
+-- prepareForShutdown: nur KI-Jobs stoppen. Die Fahrzeuge loescht die
+-- Engine direkt danach selbst (sonst "delete twice").
 -- ============================================================
 function NachbarFelderManager:prepareForShutdown()
     for fieldId, k in pairs(self.vehicleType or {}) do
@@ -1263,7 +1178,7 @@ function NachbarFelderManager:prepareForShutdown()
             if self:getIsVehicleAlive(veh) then
                 self:stopAIJobSafely(veh)
             end
-            self:meldeBeimSpielverkehrAb(veh)   -- Build 152: solange das Verkehrssystem noch lebt
+            self:meldeBeimSpielverkehrAb(veh)   -- solange das Verkehrssystem noch existiert
         end
     end
     for _, p in ipairs(self.trafficPool or {}) do
@@ -1275,20 +1190,17 @@ function NachbarFelderManager:prepareForShutdown()
 end
 
 -- ============================================================
--- stopAllHelpers: Alle aktiven Helfer sofort stoppen und despawnen.
--- Wird aufgerufen wenn letzter Spieler den Server verlässt.
+-- stopAllHelpers: alle Helfer stoppen und entfernen, wenn der letzte
+-- Spieler den Server verlaesst.
 -- ============================================================
 function NachbarFelderManager:stopAllHelpers()
     if not g_currentMission:getIsServer() then return end
-    -- Alle Fahrzeuge löschen (nutzt die bestehende Logik)
     self:deleteAllVehicles()
-    -- Respawn-Queue leeren: kein Spieler → kein Respawn nötig; nach Login startet der
-    -- timeToNextStart-Timer ohnehin neu.
+    -- Ohne Spieler kein Respawn; nach dem naechsten Login startet der Timer neu
     self.pendingRespawns = {}
-    -- Timer zurücksetzen damit nach Wiedereinstieg sauber neu gestartet wird
     local timeScale = (g_currentMission and g_currentMission:getEffectiveTimeScale()) or 1
     self.timeToNextStart = math.random(1 * timeScale, 4 * timeScale)
-    -- Nach Login läuft erst 3 Echtzeit-Minuten Ladepause, dann der timeToNextStart-Timer.
+    -- Nach dem Login laufen erst 3 Min Echtzeit-Ladepause, dann timeToNextStart
     print(string.format(
         "NachbarFelder: Alle Helfer gestoppt (kein Spieler online). Erster Spawn ca. %d Min " ..
         "nach Spieler-Login (3 Min Echtzeit-Pause + %d Min Timer)",
@@ -1296,11 +1208,9 @@ function NachbarFelderManager:stopAllHelpers()
 end
 
 -- ============================================================
--- Wegpunkt an der aktuellen Spielerposition setzen
--- Taste "NachbarFelder: Wegpunkt setzen" (Standard Strg+Alt+O, die Belegung
--- im Spielerprofil kann abweichen) und die Buttons "Wegpunkt/Spawnpunkt hier
--- setzen" im Reiter Wegpunkte (Build 134). Gespeichert in der Wegpunkt-Datei
--- der Karte. Nur Admin.
+-- Wegpunkt an der Spielerposition setzen (nur Admin)
+-- Taste "NachbarFelder: Wegpunkt setzen" (Standard Strg+Alt+O) und die Buttons
+-- im Reiter Wegpunkte. Gespeichert in der Wegpunkt-Datei der Karte.
 -- ============================================================
 function NachbarFelderManager:onInputAddWaypoint(actionName, inputValue, callbackState, isAnalog, isMouse, deviceCategory)
     self:addWaypointAtPlayer(0)
@@ -1309,31 +1219,26 @@ end
 --- Neuen Punkt an der Position des lokalen Spielers setzen (MP-Client: an den Server senden).
 --- @param cat number 0 = normaler Wegpunkt, WP_CAT_SPAWN = Spawnpunkt
 --- @return boolean true, wenn gesetzt bzw. an den Server gesendet
---- @return string|nil Grund, wenn nicht gesetzt - fuer die Anzeige im Menue, wo
----                    Ingame-Meldungen vom Menue verdeckt sind
+--- @return string|nil Grund, wenn nicht gesetzt (fuer die Anzeige im Menue, das
+---                    Ingame-Meldungen verdeckt)
 function NachbarFelderManager:addWaypointAtPlayer(cat)
     local istSpawn = cat == NachbarFelderManager.WP_CAT_SPAWN
     if not istSpawn then cat = 0 end
     local art = nfText(istSpawn and "NF_wpArt_spawn" or "NF_wpArt_wegpunkt")
-    -- Nur Admins duerfen Wegpunkte setzen (Build 75)
     if not self:getIsLocalAdmin() then
         self:notifyAdminRequired()
         return false, "Nur fuer Admins"
     end
     print("NachbarFelder: [WP] " .. art .. " setzen ausgeloest")
     local x, y, z, ry
-    -- Build 133: FS25 kennt kein player.currentVehicle / controlledVehicle - der
-    -- Spielcode fragt das Fahrzeug nur ueber getCurrentVehicle() ab (64 Aufrufe,
-    -- kein einziger Feldzugriff). Versuch 1 lief deshalb nie: zu Fuss wurde die
-    -- Richtung 0, aus dem Fahrzeug Kamera-Euler-Y (nur -90..+90 Grad, Blick statt
-    -- Fahrtrichtung). Fuer Spawnpunkte ist die Richtung aber entscheidend.
-    -- Muster wie AISystem.lua:862-875: Fahrzeug -> rootNode + Vorwaertsvektor,
-    -- zu Fuss -> getMapPositionAndLookYaw (Player.lua:1310), sonst Kamera (0,0,-1).
-    -- ry-Konvention wie waehleSpawnpunkt: dx = sin(ry), dz = cos(ry).
+    -- Position und Richtung wie in AISystem.lua: im Fahrzeug rootNode + Vorwaertsvektor,
+    -- zu Fuss getMapPositionAndLookYaw, sonst die Kamera. FS25 liefert das Fahrzeug nur
+    -- ueber getCurrentVehicle(), currentVehicle/controlledVehicle gibt es nicht mehr.
+    -- Fuer Spawnpunkte zaehlt die Richtung. ry wie in waehleSpawnpunkt: dx = sin(ry), dz = cos(ry).
     local richtungQuelle = nil
     local player = self.localPlayer or g_localPlayer
     if player ~= nil then
-        -- Versuch 1: Fahrzeug, in dem der Spieler sitzt -> Fahrtrichtung
+        -- 1. Fahrzeug, in dem der Spieler sitzt: Fahrtrichtung
         local vehicle = nil
         if player.getCurrentVehicle ~= nil then
             vehicle = player:getCurrentVehicle()
@@ -1345,8 +1250,8 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
             local vx, vy, vz = getWorldTranslation(vehicle.rootNode)
             if math.abs(vx) > 1 or math.abs(vz) > 1 then
                 x, y, z = vx, vy, vz
-                -- Vorwaertsvektor statt Euler-Y: am Hang kann getWorldRotation
-                -- das Y um 180 Grad kippen (x/z-Rotation gleicht es aus).
+                -- Vorwaertsvektor statt Euler-Y: am Hang kann getWorldRotation das Y
+                -- um 180 Grad kippen (die x/z-Rotation gleicht es aus).
                 local dx, _, dz = localDirectionToWorld(vehicle.rootNode, 0, 0, 1)
                 if math.abs(dx) > 0.001 or math.abs(dz) > 0.001 then
                     ry = math.atan2(dx, dz)
@@ -1354,7 +1259,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
                 end
             end
         end
-        -- Versuch 2: zu Fuss -> Spielerposition, Richtung = Blickrichtung
+        -- 2. Zu Fuss: Spielerposition und Blickrichtung
         if x == nil and player.getMapPositionAndLookYaw ~= nil then
             local px, pz, yaw = player:getMapPositionAndLookYaw()
             if px ~= nil and pz ~= nil and (math.abs(px) > 1 or math.abs(pz) > 1) then
@@ -1365,7 +1270,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
                 end
             end
         end
-        -- Versuch 2b: Spieler-rootNode (nur Position, dessen Drehung ist immer 0)
+        -- 2b. Spieler-rootNode: nur Position, seine Drehung ist immer 0
         if x == nil and player.rootNode ~= nil and player.rootNode ~= 0 then
             local px, py, pz = getWorldTranslation(player.rootNode)
             if math.abs(px) > 1 or math.abs(pz) > 1 then
@@ -1373,7 +1278,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
             end
         end
     end
-    -- Versuch 3: Kamera (immer in der Welt positioniert – zuverlässigster Fallback)
+    -- 3. Kamera: ist immer in der Welt positioniert, daher der sicherste Fallback
     if x == nil and getCamera ~= nil then
         local cam = getCamera()
         if cam ~= nil and cam ~= 0 then
@@ -1387,7 +1292,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         print("NachbarFelder: [WP] Position nicht verfuegbar")
         return false, "Position nicht verfuegbar"
     end
-    -- Richtung noch offen (Versuch 2b/3): Blickrichtung der Kamera (schaut entlang -Z)
+    -- Richtung noch offen (Fall 2b/3): Blickrichtung der Kamera, die entlang -Z schaut
     if ry == nil and getCamera ~= nil then
         local cam = getCamera()
         if cam ~= nil and cam ~= 0 then
@@ -1404,8 +1309,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     local richtungText = nfText("NF_richtungAus", nfText(richtungQuelle or "NF_richtung_unbekannt"))
     print(string.format("NachbarFelder: [WP] Position x=%d z=%d, %s (%.0f Grad)",
         x, z, richtungText, math.deg(ry) % 360))
-    -- Nähecheck: kein Duplikat innerhalb von 10 Metern
-    local MIN_DIST = 10
+    local MIN_DIST = 10   -- m, Mindestabstand zum naechsten Wegpunkt
     self.userTrafficWaypoints = self.userTrafficWaypoints or {}
     for i, wp in ipairs(self.userTrafficWaypoints) do
         local dist = math.sqrt((x - wp.x)^2 + (z - wp.z)^2)
@@ -1422,7 +1326,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     end
     -- Spawnpunkt: das eigene Fahrzeug steht noch auf der Flaeche und zaehlt als Hindernis
     local zusatz = istSpawn and (" " .. nfText("NF_msg_jetztWegfahren")) or ""
-    -- Dedi-MP-Client: Änderung an den Server schicken (der speichert + synct zurück)
+    -- MP-Client: Aenderung an den Server schicken, der speichert und zurueck synct
     if not g_currentMission:getIsServer() then
         if g_client == nil then
             return false, "Keine Verbindung zum Server"
@@ -1450,8 +1354,8 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
 end
 
 -- ============================================================
--- Taste "NachbarFelder: Wegpunkte nacheinander anzeigen": jeder Druck zeigt
--- den naechsten WP als Meldung. Teleportieren/Loeschen/Typ: Reiter Wegpunkte.
+-- Taste "Wegpunkte nacheinander anzeigen": jeder Druck zeigt den naechsten
+-- WP als Meldung. Teleportieren, Loeschen und Typ gibt es im Reiter Wegpunkte.
 -- ============================================================
 function NachbarFelderManager:onInputManageWaypoints(actionName, inputValue, callbackState, isAnalog, isMouse, deviceCategory)
     local wps   = self.userTrafficWaypoints or {}
@@ -1498,10 +1402,9 @@ function NachbarFelderManager:_teleportToWp(wp)
 end
 
 -- ============================================================
--- Letzten Traffic-Wegpunkt entfernen (Taste "NachbarFelder: Letzten Wegpunkt entfernen").
+-- Letzten Wegpunkt entfernen (Taste, nur Admin)
 -- ============================================================
 function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, callbackState, isAnalog, isMouse, deviceCategory)
-    -- Nur Admins duerfen Wegpunkte loeschen (Build 75)
     if not self:getIsLocalAdmin() then
         self:notifyAdminRequired()
         return
@@ -1510,7 +1413,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
         print("NachbarFelder: [TRAFFIC] Keine Wegpunkte vorhanden")
         return
     end
-    -- Dedi-MP-Client: Änderung an den Server schicken (der speichert + synct zurück)
+    -- MP-Client: Loeschen beim Server anfragen
     if not g_currentMission:getIsServer() then
         if g_client ~= nil then
             g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
@@ -1535,10 +1438,8 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
 end
 
 -- ============================================================
--- Wegpunkt-Änderung ausführen (läuft auf dem SERVER).
--- Aufgerufen via NachbarFelderWaypointEditEvent vom Dedi-Client.
--- saveWaypoints() schreibt die Datei und broadcastet die neue
--- Liste an alle Clients (Hotspots/WP-Seite aktualisieren sich).
+-- Wegpunkt-Aenderung vom Client (NachbarFelderWaypointEditEvent), nur Server.
+-- saveWaypoints() schreibt die Datei und verteilt die Liste an alle Clients.
 -- ============================================================
 NachbarFelderManager.VEHCAT_KEYS = {
     "TRACTORSS", "TRACTORSM", "TRACTORSL", "WHEELLOADERVEHICLES", "TELELOADERVEHICLES",
@@ -1552,7 +1453,6 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
         local x  = math.floor((a or 0) + 0.5)
         local z  = math.floor((b or 0) + 0.5)
         local ry = c or 0
-        -- Build 134: OP_ADD_SPAWN legt den Punkt gleich als Spawnpunkt an
         local cat = (op == E.OP_ADD_SPAWN) and NachbarFelderManager.WP_CAT_SPAWN or 0
         local art = (cat == NachbarFelderManager.WP_CAT_SPAWN) and "Spawnpunkt" or "Wegpunkt"
         for i, wp in ipairs(self.userTrafficWaypoints) do
@@ -1582,7 +1482,7 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
         local idx = math.floor((a or 0) + 0.5)
         local wp  = self.userTrafficWaypoints[idx]
         if wp == nil then return end
-        -- Erlaubt: 0 Normal, 1 Kurz, 2 Lang, 4 Spawnpunkt (Build 132)
+        -- Erlaubt: 0 Normal, 1 Kurz, 2 Lang, 4 Spawnpunkt
         local c = math.floor((b or 0) + 0.5)
         if c ~= 1 and c ~= 2 and c ~= NachbarFelderManager.WP_CAT_SPAWN then c = 0 end
         wp.cat = c
@@ -1606,9 +1506,7 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
 end
 
 -- ============================================================
--- Besten Shop-Spawn-Punkt auswählen
--- Logkt alle verfügbaren Spawn-Punkte und wählt den, der am nächsten
--- zur Mitte aller Spawn-Punkte liegt (= zentralster Platz auf dem Hof).
+-- Shop-Spawnplatz bestimmen und loggen
 -- ============================================================
 function NachbarFelderManager:selectBestSpawnPlace()
     local sp = g_currentMission and g_currentMission.storeSpawnPlaces
@@ -1625,25 +1523,18 @@ function NachbarFelderManager:selectBestSpawnPlace()
         " (" .. tostring(#sp) .. " Punkte)")
 end
 
---- Spawnplatz der NachbarFelder-Fahrzeuge (Build 96): der Shop-Spawnplatz,
---- den auch das Spiel fuer gekaufte Fahrzeuge nimmt - bei aktiver Mod
---- "Filiallieferungen" also der Lieferort des Spielers.
----
---- Build 94 hatte stattdessen den Original-Shop der Karte wiederhergestellt.
---- Gemessen war das schlechter: vom Original-Shop (Beuren x=-157 z=-138) kam am
---- 11.09. KEIN einziger GOTO weg (0 von 5, jeweils ~55 ms NotReachable), vom
---- Lieferort (x=-528 z=190) am 10.09. beide frischen Spawns (2 von 2).
---- Deshalb wieder der Platz des Spiels - live, ohne Kopie, damit eine spaetere
---- Aenderung des Lieferorts sofort mitwirkt.
+--- Spawnplatz der NachbarFelder-Fahrzeuge: derselbe Shop-Spawnplatz, den das
+--- Spiel fuer gekaufte Fahrzeuge nimmt (mit "Filiallieferungen" also der
+--- Lieferort). Vom Lieferort kommt die KI zuverlaessiger los als vom
+--- Original-Shop. Bewusst live gelesen, damit ein geaenderter Lieferort sofort gilt.
 function NachbarFelderManager:getNfSpawnPlace()
     local sp = g_currentMission and g_currentMission.storeSpawnPlaces
     return sp and sp[1] or nil
 end
 
---- Spawnplatz-Liste fuer VehicleLoadingData:setLoadingPlace() (Build 96):
---- unveraendert die Liste des Spiels. Beim ersten Spawn wird der tatsaechliche
---- Platz einmal geloggt (bei Serverstart hat Filiallieferungen ihn evtl. noch
---- nicht verschoben, die Zeile "Shop-Spawn [1]" zeigt dann den Kartenplatz).
+--- Spawnplatz-Liste fuer VehicleLoadingData:setLoadingPlace(), unveraendert vom Spiel.
+--- Der tatsaechliche Platz wird beim ersten Spawn einmal geloggt: bei Serverstart
+--- hat Filiallieferungen ihn evtl. noch nicht verschoben.
 function NachbarFelderManager:getNfSpawnPlaces()
     local sp = g_currentMission and g_currentMission.storeSpawnPlaces or {}
     if not self.spawnPlatzGemeldet and sp[1] ~= nil then
@@ -1654,22 +1545,17 @@ function NachbarFelderManager:getNfSpawnPlaces()
     return sp
 end
 
---- Strassenrichtung aus den KI-Strassensplines der Karte (Build 98).
+--- Strassenrichtung aus den KI-Strassensplines der Karte.
 ---
---- Der GOTO-Job braucht eine Zielrichtung (AIParameterPositionAngle:validate
---- lehnt ohne Winkel ab) und die KI rangiert am Ziel, bis sie genau so steht
---- (AITaskDriveTo -> setAITarget mit dirX/dirZ). Bisher war das die beim Setzen
---- des Wegpunkts gespeicherte ry - zu Fuss gesetzt ist die aber nicht die
---- Strassenrichtung, und das Gespann drehte sich am Ziel quer.
+--- Der GOTO-Job braucht eine Zielrichtung (AIParameterPositionAngle:validate lehnt
+--- ohne Winkel ab), und die KI rangiert am Ziel, bis sie genau so steht
+--- (AITaskDriveTo -> setAITarget mit dirX/dirZ). Die beim Setzen des Wegpunkts
+--- gespeicherte ry taugt dafuer nicht, wenn er zu Fuss gesetzt wurde.
 ---
---- Die Karte bringt die Strassen mit, auf denen die KI faehrt: jede Spline unter
---- einem onCreateAIRoadSpline-Knoten landet auf dem Server in
---- aiSystem.roadSplines und im Navigationsnetz (AISystem.lua:217-236; Beuren:
---- ein Knoten in maps/mapEU.i3d). AISystem liest sie selbst mit
---- getSplinePosition als Weltkoordinaten (AISystem.lua:1272-1274).
----
---- Hier werden sie einmal alle 4 m abgetastet und in ein 32-m-Raster gelegt;
---- eine Abfrage prueft dann nur die Nachbarzellen.
+--- Splines unter einem onCreateAIRoadSpline-Knoten landen auf dem Server in
+--- aiSystem.roadSplines (AISystem.lua:217-236); getSplinePosition liefert
+--- Weltkoordinaten. Abgetastet wird alle 4 m, abgelegt in einem 32-m-Raster,
+--- damit eine Abfrage nur die Nachbarzellen prueft.
 --- @return boolean true, wenn die Stuetzpunkte vorliegen
 function NachbarFelderManager:buildRoadSamples()
     if self.roadSamples ~= nil then return true end
@@ -1684,7 +1570,7 @@ function NachbarFelderManager:buildRoadSamples()
             local len = getSplineLength(spline)
             if len == nil or len < 1 then return end
             local steps = math.max(1, math.ceil(len / 4))
-            local px, py, pz = getSplinePosition(spline, 0)   -- Build 127: Hoehe mit
+            local px, py, pz = getSplinePosition(spline, 0)
             for i = 1, steps do
                 local x, y, z = getSplinePosition(spline, i / steps)
                 local dx, dz = x - px, z - pz
@@ -1708,8 +1594,8 @@ function NachbarFelderManager:buildRoadSamples()
     self.roadSamples    = grid
     self.roadSampleCell = cell
 
-    -- Abdeckung der Wegpunkte gleich mitloggen: wer keine KI-Strasse im
-    -- Umkreis hat, parkt weiter mit der gespeicherten Richtung.
+    -- Abdeckung gleich mitloggen: Wegpunkte ohne KI-Strasse im Umkreis parken
+    -- mit ihrer gespeicherten Richtung.
     local ohne, mit = {}, 0
     for i, wp in ipairs(self.userTrafficWaypoints or {}) do
         if self:getRoadHeadingAt(wp.x or 0, wp.z or 0, 20) ~= nil then
@@ -1723,21 +1609,17 @@ function NachbarFelderManager:buildRoadSamples()
         #splines, n, mit, #(self.userTrafficWaypoints or {}),
         #ohne > 0 and (" (ohne KI-Strasse im Umkreis 20 m: " .. table.concat(ohne, ", ") .. ")") or ""))
 
-    -- Build 104: Fahrziele gleich mit erzeugen - das laeuft hier ohne Spieler.
+    -- Fahrziele gleich mit erzeugen, solange kein Spieler online ist
     self:buildRoadWaypointList()
     return true
 end
 
---- Fahrziele aus dem KI-Strassennetz erzeugen (Build 104).
+--- Fahrziele aus dem KI-Strassennetz erzeugen.
 ---
---- Handgesetzte Wegpunkte liegen zwangslaeufig NEBEN der Fahrbahn - dort haelt
---- die KI im Seitenstreifen und kommt nicht wieder weg (Logs 11./12.09.:
---- Dauerparker auf x=190/-52, x=-918/358, x=-888/334). Punkte des Strassennetzes
---- haben dieses Problem nicht: die KI faehrt selbst darauf.
----
---- Aus den ~10000 Stuetzpunkten wird eine handliche Auswahl mit Mindestabstand
---- ausgeduennt, damit Ziele ueber die Karte verteilt sind und nicht drei Stueck
---- in derselben Kurve liegen. Kategorie 3 = Durchfahrt (Build 105).
+--- Handgesetzte Wegpunkte liegen meist neben der Fahrbahn; dort haelt die KI im
+--- Seitenstreifen und kommt oft nicht wieder weg. Punkte des Strassennetzes
+--- faehrt sie selbst an. Die Stuetzpunkte werden mit Mindestabstand ausgeduennt,
+--- damit sich die Ziele ueber die Karte verteilen. Kategorie 3 = Durchfahrt.
 --- @return table|nil Liste { x, z, ry, kategorie }
 function NachbarFelderManager:buildRoadWaypointList()
     if self.roadWaypoints ~= nil then return self.roadWaypoints end
@@ -1780,12 +1662,10 @@ function NachbarFelderManager:buildRoadWaypointList()
     return gewaehlt
 end
 
---- Fahrziel-Liste der Patrol-Fahrzeuge (Build 104): eigene Wegpunkte zuerst,
---- danach - bei zielQuelle="strassen" - die Punkte des KI-Strassennetzes.
---- Die Nummerierung bleibt damit stabil: WP1..WP38 sind weiter deine Punkte.
---- Eigene Punkte behalten ihre Pausen-Kategorie (dort wird geparkt),
---- Strassenziele bekommen Kategorie 3 = Durchfahrt (Build 105): geparkt wird
---- nur an Parkpunkten, nie auf der Fahrbahn.
+--- Fahrziel-Liste der Patrol-Fahrzeuge: eigene Wegpunkte zuerst (ihre Nummern
+--- bleiben stabil), danach bei zielQuelle="strassen" die Punkte des KI-Strassennetzes.
+--- Eigene Punkte behalten ihre Pausen-Kategorie, Strassenziele bekommen
+--- Kategorie 3 (Durchfahrt): auf der Fahrbahn wird nie geparkt.
 --- @return table Liste { x, z, ry, kategorie }
 function NachbarFelderManager:getPatrolWaypointList()
     if self.patrolWpList ~= nil then return self.patrolWpList end
@@ -1806,14 +1686,11 @@ function NachbarFelderManager:getPatrolWaypointList()
     return liste
 end
 
---- Naechster Punkt der KI-Strasse zu (x, z) (Build 99).
+--- Naechster Punkt der KI-Strasse zu (x, z).
 ---
---- Build 102: optionaler Mindestabstand. Fuer die Rettung eines festsitzenden
---- Fahrzeugs ist der naechstgelegene Punkt naemlich wertlos: die nSeries stand
---- am 12.09. auf x=190 z=-52 DIREKT auf der Strasse und wurde trotzdem bei
---- jedem Aufwecken dreimal abgewiesen. Nicht die Entfernung zur Strasse ist
---- dort das Problem, sondern der Platz selbst. Mit Mindestabstand verlaesst das
---- Fahrzeug die tote Zone wirklich.
+--- minDist dient der Rettung festsitzender Fahrzeuge: steht eines direkt auf der
+--- Strasse und kommt trotzdem nicht los, liegt es am Platz selbst, und der
+--- naechstgelegene Punkt hilft nicht weiter.
 --- @param minDist number|nil nur Punkte ab diesem Abstand (Vorgabe 0)
 --- @return number|nil rx, number|nil rz Punkt auf der Strasse
 --- @return number|nil ry Y-Rotation der Strasse dort
@@ -1843,26 +1720,20 @@ function NachbarFelderManager:getNearestRoadPoint(x, z, maxDist, minDist)
     end
     if best == nil then return nil end
     return best[1], best[2],
-        MathUtil.getYRotationFromDirection(best[3], best[4]), math.sqrt(bestD2), best[5]   -- Build 127: [5] Hoehe
+        MathUtil.getYRotationFromDirection(best[3], best[4]), math.sqrt(bestD2), best[5]   -- [5] Fahrbahnhoehe
 end
 
---- Punkt der KI-Strasse mit passender Fahrtrichtung (Build 136).
+--- Punkt der KI-Strasse mit passender Fahrtrichtung.
 ---
---- KI-Strassen sind Einbahn-Splines: fuer Gegenverkehr legt der Kartenbauer eine
---- zweite, umgekehrte Spline daneben (Bergisch Land: 61 von 68 Strassen-Splines
---- haben einen Zwilling mit "R" am Namen, 7 sind echte Einbahnen). Bis Build 135
---- wurde die Richtung des naechsten Punkts einfach um 180 Grad gedreht, wenn sie
---- nicht zum Ziel zeigte - beim Ladeplatz, bei der Zielrichtung des Fahrauftrags
---- und bei jeder Rettung. Auf einer Einbahn steht Fahrzeug oder Ziel dann gegen die
---- Fahrtrichtung, und die KI (nur vorwaerts, AIDrivable:getAIAllowsBackwards = false,
---- AIDrivable.lua:587) lehnt nach ~50 ms ab (AIMessageErrorNotReachable). Log
---- 19.09. Bergisch Land: Ziel WP50 von drei Standorten sofort abgewiesen, alle drei
---- Ladeplaetze am Shop ebenso.
+--- KI-Strassen sind Einbahn-Splines; Gegenverkehr ist eine zweite, umgekehrte
+--- Spline daneben (oft mit "R" am Namen). Eine um 180 Grad gedrehte Richtung
+--- stuende auf einer Einbahn gegen die Fahrtrichtung. Die KI faehrt nur vorwaerts
+--- (AIDrivable:getAIAllowsBackwards = false) und lehnt dann mit
+--- AIMessageErrorNotReachable ab.
 ---
---- Jetzt: unter den Punkten im Umkreis der naechste, dessen Richtung hoechstens
---- 60 Grad von der Wunschrichtung abweicht (bei Gegenverkehr also die Zwillings-
---- Spur). Gibt es keinen, der naechste Punkt MIT seiner eigenen Richtung - nie
---- gedreht; die KI sucht sich den Weg dann selbst uebers Netz.
+--- Gesucht wird daher der naechste Punkt, dessen Richtung hoechstens 60 Grad von
+--- der Wunschrichtung abweicht (bei Gegenverkehr die Zwillingsspur). Gibt es
+--- keinen, der naechste Punkt mit seiner eigenen Richtung, nie gedreht.
 --- @param wantDx number|nil Wunschrichtung x (nil = egal, naechster Punkt)
 --- @param wantDz number|nil Wunschrichtung z
 --- @return number|nil rx, number|nil rz, number|nil ry, number|nil dist, number|nil h
@@ -1905,7 +1776,7 @@ function NachbarFelderManager:getRoadPointInRichtung(x, z, maxDist, minDist, wan
     return sp[1], sp[2], MathUtil.getYRotationFromDirection(sp[3], sp[4]), math.sqrt(d2), sp[5], passt
 end
 
---- Richtung der naechsten KI-Strasse an (x, z) (Build 98).
+--- Richtung der naechsten KI-Strasse an (x, z).
 --- @return number|nil Y-Rotation (wie MathUtil.getYRotationFromDirection), nil ohne Strasse
 --- @return number|nil Abstand zur Strasse in m
 function NachbarFelderManager:getRoadHeadingAt(x, z, maxDist)
@@ -1913,7 +1784,7 @@ function NachbarFelderManager:getRoadHeadingAt(x, z, maxDist)
     return ry, dist
 end
 
---- Y-Rotation, mit der das Spiel Fahrzeuge auf den Spawnplatz stellt (Build 94):
+--- Y-Rotation, mit der das Spiel Fahrzeuge auf den Spawnplatz stellt:
 --- VehicleLoadingData:setLoadingPlace() nimmt die Querrichtung des Platzes,
 --- MathUtil.getYRotationFromDirection(place.dirPerpX, place.dirPerpZ).
 function NachbarFelderManager:getNfSpawnRotY()
@@ -1925,38 +1796,15 @@ function NachbarFelderManager:getNfSpawnRotY()
     return 0
 end
 
---- Fahrerfigur eines NF-Fahrzeugs auf dem Server weglassen (Build 95).
+--- Rueckwaertsplanen fuer ein NF-Fahrzeug erlauben.
 ---
---- Das Spiel loescht und laedt die Fahrerfigur bei JEDEM KI-Start neu
---- (Enterable:setVehicleCharacter, Enterable.lua:1240/1259). Auf dem Dedicated
---- Server kostete das in 67 Minuten 32 s Ladezeit, bis zu 524 ms am Stueck -
---- und jeder dieser Stillstaende trifft alle Spieler. Gezeichnet wird auf dem
---- Server aber nichts (Render System Driver: NULL).
----
---- Sicher, weil die Figur nicht uebers Netz geht: Enterable:onWriteStream()
---- schickt nur isTabbable und den steuernden Nutzer, keinen Figurenstil - die
---- Clients bauen ihre Figur selbst. Und weil das Spiel Spezialisierungs-
---- Funktionen als Felder auf jedes Fahrzeug kopiert
---- (SpecializationUtil.copyTypeFunctionsInto: target[funcName] = func), greift
---- das Ueberschreiben pro Fahrzeug fuer jeden Aufruf, auch fuer
---- setRandomVehicleCharacter, das intern self:setVehicleCharacter() ruft.
----
---- Wirkt nur mit fahrerfigurenAufServer=false in der Server-Konfig und nur auf
---- der Instanz, die der Server ist - der Client eines Spielers ist nie betroffen.
---- Rueckwaertsplanen fuer ein NF-Fahrzeug erlauben (Build 108).
----
---- Das Spiel laesst KI-Fahrauftraege grundsaetzlich nicht rueckwaerts planen:
 --- AIDrivable:getAIAllowsBackwards() gibt fest false zurueck (AIDrivable.lua:587),
---- createAgent reicht den Wert an createVehicleNavigationAgent weiter
---- (AIDrivable.lua:370-372). Am 13.09. stand ein TK4 mit der Front vor einem
---- Gebaeude und drueckte minutenlang vorwaerts dagegen, obwohl ein kurzes
---- Zuruecksetzen gereicht haette.
+--- createAgent reicht das an createVehicleNavigationAgent weiter. Ein Fahrzeug, das
+--- mit der Front vor einem Hindernis steht, drueckt dann endlos dagegen.
 ---
---- Die Funktion wird pro Fahrzeug ueberschrieben (Spezialisierungsfunktionen
---- sind Instanzfelder, SpecializationUtil.copyTypeFunctionsInto). Die Pruefung
---- laeuft bei JEDEM Auftrag neu, weil createAgent jedes Mal neu fragt:
---- mit angehaengtem Geraet bleibt es beim Spielverhalten (kein Rueckwaerts-
---- rangieren mit Anhaenger - Einknickgefahr).
+--- Spezialisierungsfunktionen sind Instanzfelder (SpecializationUtil.copyTypeFunctionsInto),
+--- daher pro Fahrzeug ueberschreibbar. createAgent fragt bei jedem Auftrag neu; mit
+--- angehaengtem Geraet bleibt es beim Spielverhalten (Einknickgefahr).
 function NachbarFelderManager:applyRueckwaertsPlanen(vehicle)
     if self.rueckwaertsPlanen == false then return end
     if vehicle == nil or vehicle.getAIAllowsBackwards == nil or vehicle.nf_rueckwaerts then return end
@@ -1972,23 +1820,19 @@ function NachbarFelderManager:applyRueckwaertsPlanen(vehicle)
     end
 end
 
---- Fahrerfigur bleibt im Fahrzeug, bis es geloescht wird (Build 168).
+--- Fahrerfigur bleibt im Fahrzeug, bis es geloescht wird.
 ---
 --- Das Spiel entlaedt die Figur bei jedem Auftragsende (restoreVehicleCharacter ->
 --- deleteVehicleCharacter, wenn niemand drinsitzt) und laedt beim naechsten Start eine
 --- neue (setRandomVehicleCharacter -> setVehicleCharacter -> loadCharacter). Nachbar-
---- Fahrzeuge bekommen bei jedem Ziel, Parkende und Waechter-Schritt einen neuen Auftrag -
---- jedes Mal Figur weg und neu laden = Ruckler beim Spieler. Jetzt: nach dem ersten
---- Laden werden Loeschen und Neuladen fuer dieses Fahrzeug uebersprungen, solange kein
---- Spieler drinsitzt. Beim Loeschen des Fahrzeugs raeumt Enterable:onDelete die Figur
---- direkt ab (spec.vehicleCharacter:delete(), ohne deleteVehicleCharacter) - nichts bleibt
---- liegen. Die Figur ist sichtbar wie bisher (Sichtbarkeit nur nach Kamera-Abstand,
---- VehicleCharacter:updateVisibility), also auch beim Parken.
+--- Fahrzeuge bekommen sehr oft neue Auftraege, das gaebe jedes Mal einen Ruckler.
+--- Nach dem ersten Laden werden Loeschen und Neuladen daher uebersprungen, solange
+--- kein Spieler drinsitzt. Beim Loeschen des Fahrzeugs raeumt Enterable:onDelete die
+--- Figur direkt ab (spec.vehicleCharacter:delete()), es bleibt nichts liegen.
 ---
---- Laeuft auf Server und Clients: die Clients laden ihre Figur selbst (Build 95). Auf dem
---- Client wird ein Nachbar-Fahrzeug wie bei den Karten-Symbolen (Build 157) an der
---- Helfer-Farm erkannt (pruefeFahrerfiguren). Mit fahrerfigurenAufServer=false bleibt es
---- auf dem Server beim Weglassen der Figur (applyServerDriverFigure).
+--- Laeuft auf Server und Clients; die Clients laden ihre Figur selbst. Mit
+--- fahrerfigurenAufServer=false bleibt es auf dem Server beim Weglassen der Figur
+--- (applyServerDriverFigure).
 function NachbarFelderManager:applyFahrerBleibt(vehicle)
     if vehicle == nil or vehicle.nf_fahrerBleibt or vehicle.nf_keineFigur then return end
     if vehicle.spec_enterable == nil or vehicle.setVehicleCharacter == nil
@@ -2012,8 +1856,8 @@ function NachbarFelderManager:applyFahrerBleibt(vehicle)
     end
 end
 
---- Nachbar-Fahrzeuge auf Server und Client mit applyFahrerBleibt versehen (Build 168).
---- Alle 2 s; Kennzeichen wie bei den Karten-Symbolen: Besitzer-Farm = Helfer-Farm.
+--- Nachbar-Fahrzeuge (Besitzer = Helfer-Farm) auf Server und Client mit
+--- applyFahrerBleibt versehen. Prueft alle 2 s.
 function NachbarFelderManager:pruefeFahrerfiguren()
     if g_time == nil or (self.fahrerPruefungAm or 0) > g_time then return end
     self.fahrerPruefungAm = g_time + 2000
@@ -2029,6 +1873,14 @@ function NachbarFelderManager:pruefeFahrerfiguren()
     end
 end
 
+--- Fahrerfigur eines NF-Fahrzeugs auf dem Server weglassen
+--- (nur mit fahrerfigurenAufServer=false).
+---
+--- Das Spiel laedt die Figur bei jedem KI-Start neu (Enterable:setVehicleCharacter).
+--- Auf dem Dedicated Server kostet das Ladezeit am Stueck, die alle Spieler trifft,
+--- obwohl dort nichts gezeichnet wird. Die Figur geht nicht uebers Netz
+--- (Enterable:onWriteStream schickt keinen Figurenstil), die Clients bauen ihre
+--- eigene. Das Ueberschreiben pro Fahrzeug greift auch fuer setRandomVehicleCharacter.
 function NachbarFelderManager:applyServerDriverFigure(vehicle)
     if self.fahrerfigurenAufServer ~= false then return end
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
@@ -2044,19 +1896,17 @@ function NachbarFelderManager:applyServerDriverFigure(vehicle)
 end
 
 -- ============================================================
--- registerGlobalActionEvents: Kompatibilität (Legacy-Hook)
+-- registerGlobalActionEvents: Legacy-Hook, bleibt aus Kompatibilität
 -- ============================================================
 function NachbarFelderManager:registerGlobalActionEvents(player, inputBinding)
-    -- Nichts mehr nötig hier; alles läuft über addPlayerActionEvents und loadMap
+    -- leer; Aktionen laufen über addPlayerActionEvents und loadMap
 end
 
 -- ============================================================
--- stopAIJobSafely: Laufenden AI-Job stoppen BEVOR das Fahrzeug
--- gelöscht wird. Ohne diesen Stopp bleibt der Job im aiSystem
--- registriert und crasht dann jeden Frame in AIJobFieldWork:stop()
--- mit "attempt to index nil with 'deleteAgent'" (Vehicle weg).
--- API verifiziert (FS25-LUADOC): AIJobVehicle:stopCurrentAIJob(message),
--- AIJobVehicle:getJob(), AIJobVehicle:getIsAIActive()
+-- stopAIJobSafely: laufenden KI-Job stoppen, bevor das Fahrzeug
+-- gelöscht wird. Sonst bleibt der Job im aiSystem registriert und
+-- AIJobFieldWork:stop() wirft jeden Frame "attempt to index nil
+-- with 'deleteAgent'".
 -- ============================================================
 function NachbarFelderManager:stopAIJobSafely(vehicle)
     local function schritt()
@@ -2079,19 +1929,16 @@ function NachbarFelderManager:stopAIJobSafely(vehicle)
 end
 
 -- WP-Kategorien: 0=Normal(20-60s)  1=Kurz(5-20s)  2=Lang(2-5min)
--- Build 105: 3 = Durchfahrt (Strassenziele) - kein Parken auf der Fahrbahn
+-- 3=Durchfahrt (Strassenziele, kein Parken auf der Fahrbahn)
 local NF_CAT_NAMES = { [0]="Normal", [1]="Kurz", [2]="Lang", [3]="Durchfahrt", [4]="Spawnpunkt" }
 
 -- ============================================================
--- Log-Stufen (Build 130): 1 = normal (Standard), 2 = Debug.
--- Auf Stufe 1 entfallen die Dauerschreiber (jede Hop-/GOTO-Zeile,
--- ~6-12 Zeilen/Minute bei 4 Patrols) - spart String-Müll (Lua-GC)
--- und Schreib-I/O und hält das Log lesbar.
--- Für Fehlersuche in der ServerConfig logLevel=2 setzen.
--- Fehler/Lebenszyklus loggen immer.
+-- Log-Stufen: 1 = normal, 2 = Debug
 -- ============================================================
---- Debug-Log an/aus (Build 165). Steuert NachbarFelderLog.debug (alle Log-Zeilen
---- der Mod) und die alte Log-Stufe (Dauerschreiber nur auf Stufe 2).
+--- Debug-Log an/aus. Steuert NachbarFelderLog.debug und die Log-Stufe:
+--- Dauerschreiber (jede Hop-/GOTO-Zeile) erscheinen nur auf Stufe 2. Das spart
+--- String-Muell fuer den GC und haelt das Log lesbar. Fehler und Lebenszyklus
+--- werden immer geloggt.
 function NachbarFelderManager:setDebugLog(an)
     an = an == true
     local vorher = self.debugLog == true
@@ -2111,9 +1958,8 @@ function NachbarFelderManager:log(lvl, msg)
     end
 end
 
--- Verbundene Spieler zaehlen (Build 131) - gleiche Regel wie onMinuteChanged
--- (farmId > 0 = wirklich im Spiel). Benannte Funktion ohne
--- Closure, damit der Sekundentakt im update() keinen GC-Muell erzeugt.
+-- Verbundene Spieler zaehlen (farmId > 0 = wirklich im Spiel). Benannte Funktion
+-- statt Closure, damit der Sekundentakt in update() keinen GC-Muell erzeugt.
 local function nfCountConnectedPlayers()
     local n = 0
     local players = g_currentMission ~= nil and g_currentMission.players or nil
@@ -2127,9 +1973,7 @@ local function nfCountConnectedPlayers()
     return n
 end
 
--- Mähdrescher-Tank leeren. Als benannte Funktion ausgelagert (Build 79):
--- nfEmptyCombineTank(veh) erzeugt KEINE Closure pro Aufruf -
--- die frühere anonyme Funktion war Pro-Frame-GC-Müll.
+-- Mähdrescher-Tank leeren. Benannte Funktion statt Closure pro Aufruf (GC-Müll).
 local function nfEmptyCombineTank(veh)
     for idx, fu in ipairs(veh:getFillUnits()) do
         if (fu.fillLevel or 0) > 0 then
@@ -2138,8 +1982,8 @@ local function nfEmptyCombineTank(veh)
     end
 end
 
--- Parkzeiten mit Server-Konfig-Faktor skalieren (parkTimeFactor,
--- z.B. 2.0 = doppelt so lange Pausen → weniger Fahr-/Spawn-Zyklen)
+-- Parkzeiten mit parkTimeFactor aus der Server-Konfig skalieren
+-- (z. B. 2.0 = doppelt so lange Pausen, weniger Fahr-/Spawn-Zyklen)
 function NachbarFelderManager:scaleParkSecs(secs)
     local f = self.parkTimeFactor or 1
     if f == 1 then return secs end
@@ -2147,8 +1991,7 @@ function NachbarFelderManager:scaleParkSecs(secs)
 end
 
 local function nfCatParkSecs(cat)
-    -- Build 105: Strassenziele sind reine Durchfahrt - nur der Moment, den der
-    -- naechste Auftrag zum Anlaufen braucht, keine Standzeit auf der Strasse.
+    -- Strassenziele sind reine Durchfahrt: nur kurz, bis der naechste Auftrag anlaeuft
     if cat == 3 then return 2 end
     local s
     if cat == 1 then s = math.random(5, 20)
@@ -2161,20 +2004,14 @@ local function nfCatParkSecs(cat)
 end
 
 -- ============================================================
--- update: NUR auf Server (oder SP)
+-- update: Telemetrie überall, Statusmaschine nur auf Server (oder SP)
 -- ============================================================
 function NachbarFelderManager:update(dt)
-    -- Ruckler-Diagnose (Build 74): auffaellig lange Frames protokollieren,
-    -- damit im Log sichtbar wird, WOMIT ein Ruckler zusammenfaellt
-    -- (Spawn? Loeschung? Speichern? gar nichts von uns?).
-    -- Laeuft auf Server UND Client (vor dem Server-Guard), max. 80 Eintraege.
-    -- Frame-Spike-Telemetrie (Build 78): NUR bei verbundenen Spielern messen.
-    -- Der Dedi drosselt im Leerlauf auf 5 Ticks/s (= konstant 200ms/Frame) -
-    -- das ist normales Idle-Verhalten, keine Last. Die frueheren Dauer-
-    -- Meldungen "50 langsame Frames, max 200ms" rund um die Uhr waren
-    -- deshalb Fehlalarme (Beleg: Wert fiel exakt beim Spieler-Join).
-    -- Schwelle zusaetzlich ADAPTIV: > max(100ms, 2.5x gleitender Schnitt),
-    -- damit Uebergaenge zwischen Idle- und Aktiv-Tickrate nicht fehlzaehlen.
+    -- Ruckler-Diagnose: auffaellig lange Frames zaehlen, auf Server und Client.
+    -- Gemessen wird nur mit verbundenen Spielern: der Dedi drosselt im Leerlauf
+    -- auf 5 Ticks/s (konstant 200 ms/Frame), das ist keine Last. Die Schwelle ist
+    -- adaptiv (> max(100 ms, 2.5x gleitender Schnitt)), damit Wechsel zwischen
+    -- Idle- und Aktiv-Tickrate nicht fehlzaehlen.
     if dt ~= nil and dt > 0 then
         if self._dtAvg == nil then
             self._dtAvg = dt
@@ -2182,17 +2019,16 @@ function NachbarFelderManager:update(dt)
             self._dtAvg = self._dtAvg * 0.98 + dt * 0.02
         end
     end
-    -- Build 168: Fahrerfiguren der Nachbar-Fahrzeuge bleiben sitzen (Server und Client)
+    -- Fahrerfiguren der Nachbar-Fahrzeuge bleiben sitzen (Server und Client)
     self:pruefeFahrerfiguren()
-    -- Build 98: Strassen-Stuetzpunkte vorberechnen, solange niemand online ist -
-    -- dann trifft die einmalige Rechenzeit keinen Spieler. Ohne Splines
-    -- (noch nicht geladen / Karte ohne) ist der Aufruf nur ein Tabellen-Check.
+    -- Strassen-Stuetzpunkte vorberechnen, solange niemand online ist, damit die
+    -- einmalige Rechenzeit keinen Spieler trifft. Ohne Splines nur ein Tabellen-Check.
     if self.roadSamples == nil and g_currentMission:getIsServer()
        and (self.playersOnline or 0) == 0 then
         self:buildRoadSamples()
     end
-    -- Build 105: Fahrzeug- und Geraetelisten ebenfalls ohne Spieler bauen - sie
-    -- lesen jetzt pro Kandidat eine XML-Datei (nfLoadSpecs).
+    -- Fahrzeug- und Geraetelisten ebenfalls ohne Spieler bauen: sie lesen pro
+    -- Kandidat eine XML-Datei (nfLoadSpecs).
     if self.serverConfigLoaded and g_currentMission:getIsServer()
        and (self.playersOnline or 0) == 0 then
         if self.trafficVehicleList == nil then self:buildTrafficVehicleList() end
@@ -2201,11 +2037,8 @@ function NachbarFelderManager:update(dt)
 
     local perfActive = true
     if g_currentMission:getIsServer() then
-        -- Build 131: Spieler im SEKUNDENTAKT pruefen statt playersOnline
-        -- (nur minuetlich aktualisiert). Der Dedi drosselt beim letzten
-        -- Disconnect sofort auf 5 Ticks/s - bis zur naechsten Spielminute
-        -- wurden diese Leerlauf-Frames als "langsam" gezaehlt (Test 17.09.:
-        -- 18+2 bzw. 14+5 Frames direkt nach dem Verlassen).
+        -- Spieler im Sekundentakt zaehlen: playersOnline wird nur minuetlich
+        -- aktualisiert, der Dedi drosselt aber sofort nach dem letzten Disconnect.
         if self._perfPlayersAt == nil or (g_time or 0) >= self._perfPlayersAt then
             self._perfPlayersAt = (g_time or 0) + 1000
             local n = nfCountConnectedPlayers()
@@ -2214,17 +2047,14 @@ function NachbarFelderManager:update(dt)
         perfActive = (self._perfPlayers or 0) > 0
     end
     if perfActive then
-        -- Build 131: Schwelle auf 190 ms gedeckelt. Die Engine kappt dt bei
-        -- 200 ms - eine hoehere adaptive Schwelle machte den Detektor nach
-        -- laengerer Last blind (kein Frame kann sie mehr ueberschreiten).
+        -- Schwelle bei 190 ms deckeln: die Engine kappt dt bei 200 ms, eine hoehere
+        -- adaptive Schwelle koennte kein Frame mehr ueberschreiten.
         local slowLimit = math.min(190, math.max(100, (self._dtAvg or 0) * 2.5))
         if dt ~= nil and dt > slowLimit then
             self._spkCount = (self._spkCount or 0) + 1
             if dt > (self._spkMax or 0) then self._spkMax = dt end
-            -- Kleinste TATSAECHLICH angewandte Schwelle merken: fuer sie gilt
-            -- die Log-Aussage ">Xms" fuer jeden gezaehlten Frame. Frueher
-            -- wurde die Schwelle erst beim Drucken neu berechnet ("(>377ms)
-            -- ... max 200ms" - widerspruechlich).
+            -- Kleinste tatsaechlich angewandte Schwelle merken: nur fuer sie gilt
+            -- ">Xms" in der Log-Zeile fuer jeden gezaehlten Frame.
             if self._spkLimitMin == nil or slowLimit < self._spkLimitMin then
                 self._spkLimitMin = slowLimit
             end
@@ -2255,10 +2085,6 @@ function NachbarFelderManager:update(dt)
         self._spkNextAt   = nil
     end
 
-    -- Speicher-Telemetrie (Build 76) entfaellt seit Build 158: die ModHub-Pruefung
-    -- beanstandet das manuelle Aufraeumen des Speichers. Die Meldung ueber
-    -- langsame Frames bleibt.
-
     -- Im Dedicated-MP: nur Server führt Status-Maschine aus
     if not g_currentMission:getIsServer() then return end
 
@@ -2286,8 +2112,8 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Zurückgestellte Kupplungen (needAttachment): InputAttacher-Joints sind
-    -- jetzt im vehicleSystem registriert → Attachment sicher möglich.
+    -- Zurückgestellte Kupplungen (needAttachment): die InputAttacher-Joints
+    -- sind inzwischen im vehicleSystem registriert.
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
         if w ~= nil and w.needAttachment then
@@ -2296,10 +2122,8 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Überwachungs-Blöcke (Build 79): laufen im 250ms-Takt statt jeden Frame.
-    -- Sie prüfen ausschließlich Sekunden-Grenzen (90s-Timeout, Parkzeiten,
-    -- 12s/60s-Watchdogs, Tank-Leerung) - Frame-Genauigkeit bringt dort nichts,
-    -- kostet aber pro Frame mehrere Tabellen-Scans + getWorldTranslation-Aufrufe.
+    -- Überwachung im 250-ms-Takt statt jeden Frame: geprüft werden nur
+    -- Sekunden-Grenzen, Frame-Genauigkeit bringt dort nichts.
     local slowTick = false
     if self._slowNextAt == nil or (g_time or 0) >= self._slowNextAt then
         self._slowNextAt = (g_time or 0) + 250
@@ -2308,8 +2132,7 @@ function NachbarFelderManager:update(dt)
 
     if slowTick then
 
-    -- Status=9999 Fahrzeuge nach 5 Echtzeit-Minuten automatisch löschen
-    -- (needTimer ist dort false → separater Check nötig)
+    -- Status 9999 nach 90 s löschen (needTimer ist dort false, daher eigener Check)
     for v, k in pairs(self.vehicleType) do
         if k.NachbarFelderWorker ~= nil and k.NachbarFelderWorker.status == 9999 then
             if k.NachbarFelderWorker.stuckAt == nil then
@@ -2323,24 +2146,21 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Patrol-Park-Timer: geparktes Fahrzeug fährt nach Ablauf zum Shop zurück.
-    -- Läuft AUSSERHALB des needTimer-Mechanismus (Patrol hat kein needTimer im Status 2).
+    -- Patrol-Park-Timer: geparktes Fahrzeug fährt nach Ablauf weiter.
+    -- Läuft außerhalb von needTimer (Patrol hat in Status 2 keinen needTimer).
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
         if w ~= nil and w.isPatrol and w.status == 2 and w.parkUntil ~= nil then
             if g_time >= w.parkUntil then
                 w.parkUntil = nil
-                -- Tagesrhythmus (Build 68): sind mehr Fahrzeuge aktiv als
-                -- die Uhrzeit erlaubt (Nacht/Mittag/Abend), macht dieses
-                -- Fahrzeug jetzt Feierabend statt den naechsten Hop.
+                -- Tagesrhythmus: sind mehr Fahrzeuge aktiv, als die Uhrzeit erlaubt,
+                -- macht dieses Fahrzeug Feierabend.
                 if self:countActivePatrols() > self:getEffectiveTrafficLimit() then
                     w.hopsLeft = 1
                 end
                 w.hopsLeft  = (w.hopsLeft or 1) - 1
-                -- Build 105: Feierabend nur an einem Parkpunkt. Bisher schlief
-                -- das Fahrzeug dort ein, wo es gerade stand - oft auf der Strasse,
-                -- und blieb dort bis zum naechsten Aufwecken im Weg. Jetzt faehrt es
-                -- vorher zum naechsten freien Parkpunkt (einmal pro Feierabend).
+                -- Feierabend nur an einem Parkpunkt, sonst bleibt das Fahrzeug auf der
+                -- Strasse im Weg. Vorher einmal zum naechsten freien Parkpunkt fahren.
                 local parkZiel = nil
                 if w.hopsLeft <= 0 and not w.feierabendFahrt then
                     parkZiel = self:findFreeParkpunkt(w)
@@ -2359,11 +2179,8 @@ function NachbarFelderManager:update(dt)
                     w.status    = 1
                     w.needTimer = true
                 elseif w.hopsLeft <= 0 then
-                    -- Alle Hops erledigt → Feierabend: an Ort und Stelle in den
-                    -- Pool (Build 65). Das Fahrzeug steht bereits geparkt am WP
-                    -- und bleibt dort stehen bis es wieder gebraucht wird.
-                    -- Scheitert das Poolen (voll/deaktiviert), greift der alte
-                    -- Weg (Heimfahrt bzw. Loeschen).
+                    -- Feierabend: an Ort und Stelle in den Pool. Scheitert das
+                    -- (voll/deaktiviert), Heimfahrt bzw. Loeschen.
                     w.patrolWdLastX = nil
                     w.patrolWdStage = nil
                     if self:sleepPatrolEntry(k, true) then
@@ -2400,21 +2217,7 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Bewegungs-Watchdog für Patrol-Fahrzeuge im GOTO (Status 1):
-    -- Steht es 12 s still und ist schon am Ziel (< 15 m) → gilt als angekommen,
-    --   parkt (Build 98). Sonst steckt es fest:
-    -- Stufe 1 (30s): NEUES zufaelliges Ziel (nicht dasselbe Ziel!), kein Teleport.
-    --   Gleiches Ziel wuerde das Fahrzeug sofort wieder in dieselbe Engstelle schicken.
-    -- Stufe 2 (60s): Nochmal neues Ziel, letzte Chance.
-    -- Stufe 3 (90s): an Ort und Stelle in den Pool, bei vollem Pool loeschen.
-    --
-    -- Build 101: Fristen verdreifacht. Die Messzeilen vom 12.09. zeigen beim
-    -- 12-s-Alarm durchgehend "Motor an | fahrbereit true | Agent ja" bei 0 km/h -
-    -- das ist die laufende Wegsuche, kein Feststecken. Im selben Log brauchte sie
-    -- 2416, 9059, 11504 und 12147 ms. Mit 12 s Frist hat der Wächter also genau
-    -- die Auftraege abgebrochen, die gleich losgefahren waeren.
-    -- Echte Bewegung (>5m) setzt Stufen-Zaehler zurueck.
-    -- Build 122: Klapp-Nachpruefung 10 s nach dem Einklappbefehl
+    -- Klapp-Nachpruefung 10 s nach dem Einklappbefehl
     if self.klappPruefung ~= nil and #self.klappPruefung > 0 then
         for i = #self.klappPruefung, 1, -1 do
             local e = self.klappPruefung[i]
@@ -2440,8 +2243,7 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    -- Build 142: umgekipptes Gespann sofort erkennen statt 60 s Stillstand abzuwarten
-    -- (Log 01.10.: Helfer lag am Ladeplatz im Shop-Hof auf dem Dach).
+    -- Umgekipptes Gespann sofort erkennen statt 60 s Stillstand abzuwarten
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
         if w ~= nil and w.status ~= nil and w.status < 100 then
@@ -2455,7 +2257,7 @@ function NachbarFelderManager:update(dt)
                         print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
                             "[TRAFFIC] Fahrzeug",
                             tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
-                        -- Build 148: Platz sperren (zwei verschiedene Gespanne kippten auf demselben Platz)
+                        -- Platz sperren: dort kippen erfahrungsgemaess auch andere Gespanne
                         self:merkeSpawnFehlschlag(w, x, z, "umgekippt (Platz)")
                         self:stopAIJobSafely(veh)
                         w.kippSeit  = nil
@@ -2469,16 +2271,18 @@ function NachbarFelderManager:update(dt)
         end
     end
 
+    -- Bewegungs-Watchdog fuer Patrol-Fahrzeuge im GOTO (Status 1):
+    --   steht es 12 s still und ist schon am Ziel (< 15 m), gilt es als angekommen.
+    --   Sonst Stufe 1 (30 s): neues Ziel (dasselbe fuehrt in dieselbe Engstelle),
+    --   Stufe 2 (60 s): nochmal neues Ziel, Stufe 3 (90 s): auf die Strasse setzen bzw. Pool.
+    -- Die Fristen sind bewusst lang: die Wegsuche der KI steht teils ueber 10 s bei
+    -- 0 km/h, ein kuerzerer Waechter bricht genau die Auftraege ab, die gleich losfahren.
+    -- Echte Bewegung (> 5 m) setzt die Stufe zurueck.
     for _, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
-        -- Build 94: erst messen, wenn der GOTO-Job tatsaechlich laeuft.
-        -- Status 1 gilt schon waehrend der ~6 s Wartezeit vor dem Start und
-        -- nach jedem neuen Ziel; bisher lief die Uhr dabei weiter, und
-        -- "Stufe1 - 12s fest" loeste ~6 s nach einem neuen Ziel aus, obwohl das
-        -- Fahrzeug nie festsass (60 Ausloesungen in 66 min, jede mit neuem Job
-        -- und neu geladener Fahrerfigur = Standbild beim Spieler).
-        -- fieldGotoStartedAt wird beim echten Job-Start gesetzt und bei jedem
-        -- Job-Ende wieder geloescht.
+        -- Erst messen, wenn der GOTO-Job wirklich laeuft (fieldGotoStartedAt, beim
+        -- Job-Ende geloescht). Status 1 gilt schon waehrend der Wartezeit vor dem Start;
+        -- sonst loest Stufe 1 aus, ohne dass das Fahrzeug je festsass.
         if w ~= nil and w.isPatrol and w.status == 1 and w.fieldGotoStartedAt == nil then
             w.patrolWdLastX = nil
         elseif w ~= nil and w.isPatrol and w.status == 1 then
@@ -2493,11 +2297,11 @@ function NachbarFelderManager:update(dt)
                 if w.patrolWdLastX == nil then
                     w.patrolWdLastX, w.patrolWdLastZ, w.patrolWdSince = x, z, g_time
                 elseif MathUtil.vector2Length(x - w.patrolWdLastX, z - w.patrolWdLastZ) > 5 then
-                    -- Echte Bewegung → alles zuruecksetzen
+                    -- echte Bewegung: alles zuruecksetzen
                     w.patrolWdLastX, w.patrolWdLastZ, w.patrolWdSince = x, z, g_time
                     w.patrolWdStage = 0
-                    w.wdRettungen   = nil   -- Build 107
-                    w.begegnungen   = nil   -- Build 166: faehrt wieder
+                    w.wdRettungen   = nil
+                    w.begegnungen   = nil   -- faehrt wieder
                 else
                     local stuckMs = g_time - (w.patrolWdSince or g_time)
                     local stage   = w.patrolWdStage or 0
@@ -2507,31 +2311,22 @@ function NachbarFelderManager:update(dt)
                         zielDist = MathUtil.vector2Length(x - w.patrolTargetX, z - w.patrolTargetZ)
                     end
 
-                    -- Build 167: Steht ein frisch geladenes Fahrzeug nach 30 s noch auf
-                    -- seinem Ladeplatz, taugt der Platz nicht. Log 04.10. 14:01-14:12: vier
-                    -- von fuenf Fahrzeugen kamen vom Ladeplatz ~78 m vor dem Shop nie weg
-                    -- (Motor an, Auftrag aktiv, 0 km/h). Bisher zaehlte nur ein sofort
-                    -- abgewiesener Start als Fehlschlag. Nur einmal je Fahrzeug.
-                    -- Build 173: Umkreis 25 m statt 10 m (Log 07.10.: Vestrum 130 stand 30 s
-                    -- still, der Platz wurde nicht gesperrt - vermutlich ein paar Meter
-                    -- angerollt). Entfernung und Ergebnis stehen im Debug-Log.
+                    -- Steht ein frisch geladenes Fahrzeug nach 30 s noch auf seinem Ladeplatz,
+                    -- taugt der Platz nicht: sperren, einmal je Fahrzeug. Der Umkreis ist grosszuegig,
+                    -- weil es vorher oft ein paar Meter anrollt.
                     if stuckMs > 30000 and stage == 0 and zielDist >= 15 then
                         self:merkeSpawnFehlschlag(w, x, z, "steht nach dem Start still",
                             NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS, true)
                     end
 
-                    -- Build 174: Stufe 3 als Funktion - auch die Schleifen-Erkennung springt hierher
+                    -- Stufe 3 als Funktion: die Schleifen-Erkennung springt ebenfalls hierher
                     local function stufe3()
-                        -- Stufe 3: Aufgeben → an Ort und Stelle in den Pool
-                        -- (Build 93: kein Teleport); sonst wie frueher loeschen
+                        -- Stufe 3: aufgeben
                         w.patrolWdLastX = nil
                         w.patrolWdStage = 0
-                        -- Build 107: Wer drei Stufen lang keinen Meter vorankam, steckt
-                        -- fest (TK4 am 13.09.: Front vor einem Gebaeude, vier Runden
-                        -- Stufe1/2/3 - Pool - Aufwecken ohne jede Bewegung). Einschlafen
-                        -- an Ort und Stelle aendert daran nichts. Deshalb einmal auf die
-                        -- KI-Strasse setzen und mit neuem Ziel weiterfahren; erst wenn
-                        -- auch das nichts bringt, wie bisher in den Pool.
+                        -- Wer drei Stufen lang nicht vorankam, steckt fest;
+                        -- Einschlafen an Ort und Stelle aendert daran nichts. Daher einmal auf die
+                        -- KI-Strasse setzen und weiterfahren, erst danach Pool bzw. Loeschen.
                         local gerettet = false
                         if (w.wdRettungen or 0) < 1 then
                             self:stopAIJobSafely(veh)
@@ -2541,7 +2336,7 @@ function NachbarFelderManager:update(dt)
                                 w.wdRettungen   = (w.wdRettungen or 0) + 1
                                 w.patrolWdLastX = nil
                                 local curDest = w.patrolDestIdx or 1
-                                local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Build 109: ab Fahrzeug
+                                local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Ziel ab Fahrzeugposition
                                 w.waypointIdx   = curDest
                                 w.patrolDestIdx = newDest
                                 w.patrolTargetX = w.waypoints[newDest][1]
@@ -2567,13 +2362,9 @@ function NachbarFelderManager:update(dt)
                     end
 
                     if stuckMs > 12000 and zielDist < 15 then
-                        -- Build 98: Steht am Ziel, der Job endet aber nicht - die
-                        -- KI erreicht die geforderte Zielrichtung nicht ganz und
-                        -- wartet. Bisher griff dann Stufe 1 und setzte das
-                        -- Fahrzeug 4 m zurueck ("stand gut, wurde nach Sekunden
-                        -- einen Tick nach hinten versetzt", 11.09.). Jetzt: Job
-                        -- beenden und parken wie bei normaler Ankunft (Worker,
-                        -- Build 90: stehen bleiben, wo und wie es angekommen ist).
+                        -- Steht am Ziel, der Job endet aber nicht: die KI erreicht die geforderte
+                        -- Zielrichtung nicht ganz und wartet. Job beenden und parken wie bei
+                        -- normaler Ankunft, ohne das Fahrzeug zu versetzen.
                         self:stopAIJobSafely(veh)
                         w.fieldGotoStartedAt = nil
                         w.gotoRejects   = nil
@@ -2589,15 +2380,12 @@ function NachbarFelderManager:update(dt)
                             zielDist, tostring(w.patrolDestIdx), tostring(w.fieldId)))
 
                     elseif stuckMs > 30000 and stage == 0 and self:loeseBegegnung(k, veh, x, z) then
-                        -- Build 166: zwei Nachbar-Fahrzeuge warten aufeinander - dieses
-                        -- weicht aus (siehe loeseBegegnung), das andere faehrt weiter
+                        -- zwei Nachbar-Fahrzeuge warten aufeinander: dieses weicht aus (loeseBegegnung)
                         w.patrolWdStage = 1
 
                     elseif stuckMs > 30000 and stage == 0 and self:merkeStufe1Schleife(w) then
-                        -- Build 174: dritte Stufe 1 binnen 5 min - das Fahrzeug rollt zwischen-
-                        -- durch ein paar Meter (Waechter beginnt jedes Mal bei 0), kommt aber
-                        -- nicht weiter (Log 07.10.: Vario 200 viermal Stufe 1 in 3 min). Direkt
-                        -- Stufe 3: auf die KI-Strasse setzen bzw. Pool.
+                        -- Wiederholte Stufe 1 in kurzer Zeit: das Fahrzeug rollt zwischendurch ein
+                        -- paar Meter (Waechter beginnt neu), kommt aber nicht weiter. Direkt Stufe 3.
                         print(string.format("NachbarFelder: [TRAFFIC] Stufe1 zum %d. Mal in %d min - gilt als" ..
                             " festgefahren, weiter mit Stufe 3 (patrolId=%s)",
                             NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL,
@@ -2605,17 +2393,10 @@ function NachbarFelderManager:update(dt)
                         stufe3()
 
                     elseif stuckMs > 30000 and stage == 0 then
-                        -- Stufe 1: neues zufaelliges Ziel
-                        -- (gleiches Ziel waere sinnlos - fuehrt direkt zur selben Engstelle)
-                        -- Laufenden Job SAUBER stoppen bevor neu gestartet wird -
-                        -- sonst kollidiert der neue GOTO mit dem alten Job.
-                        -- Build 98: ohne den frueheren 4-m-Teleport rueckwaerts -
-                        -- das Zuruecksetzen war fuer Spieler ein sichtbarer Ruck.
-                        -- Den Weg aus der Engstelle plant die KI selbst.
-                        -- Build 100: Zustand VOR dem Stoppen festhalten - danach
-                        -- ist der Agent geloescht und nichts mehr zu sehen.
-                        -- Build 107: zeigen, OB etwas im Weg ist - Zielabstand, ob der
-                        -- Zielplatz besetzt ist und welches Fahrzeug am naechsten steht.
+                        -- Stufe 1: neues zufaelliges Ziel (dasselbe fuehrt in dieselbe Engstelle).
+                        -- Laufenden Job sauber stoppen, sonst kollidiert der neue GOTO mit ihm.
+                        -- Kein Teleport: den Weg aus der Engstelle plant die KI selbst.
+                        -- Diagnose vor dem Stoppen loggen, danach ist der Agent geloescht.
                         local fremdD, fremdName = self:getNaechstesFremdfahrzeug(x, z, veh)
                         local zielBelegt = w.patrolTargetX ~= nil
                             and self:isSpotBlockedByAnyVehicle(w.patrolTargetX, w.patrolTargetZ, 10, veh)
@@ -2625,11 +2406,11 @@ function NachbarFelderManager:update(dt)
                             zielBelegt and "BELEGT" or "frei",
                             tostring(fremdName or "-"), fremdD or -1, self:getVehicleAiDiag(veh)))
                         self:stopAIJobSafely(veh)
-                        w.fieldGotoStartedAt = nil   -- Build 94: Uhr ruht bis zum naechsten Start
+                        w.fieldGotoStartedAt = nil   -- Uhr ruht bis zum naechsten Start
                         w.patrolWdLastX = nil
                         w.patrolWdStage = 1
                         local curDest = w.patrolDestIdx or 1
-                        local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Build 109: ab Fahrzeug
+                        local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Ziel ab Fahrzeugposition
                         w.waypointIdx   = curDest
                         w.patrolDestIdx = newDest
                         w.patrolTargetX = w.waypoints[newDest][1]
@@ -2641,13 +2422,13 @@ function NachbarFelderManager:update(dt)
                         w.needTimer = true
 
                     elseif stuckMs > 60000 and stage == 1 then
-                        -- Stufe 2: Wieder fest → anderes zufaelliges Ziel, letzte Chance
+                        -- Stufe 2: wieder fest, anderes zufaelliges Ziel als letzte Chance
                         self:stopAIJobSafely(veh)
-                        w.fieldGotoStartedAt = nil   -- Build 94: Uhr ruht bis zum naechsten Start
+                        w.fieldGotoStartedAt = nil   -- Uhr ruht bis zum naechsten Start
                         w.patrolWdLastX = nil
                         w.patrolWdStage = 2
                         local curDest = w.patrolDestIdx or 1
-                        local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Build 109: ab Fahrzeug
+                        local newDest = self:pickPatrolWaypoint(w.waypoints, curDest, x, z) or curDest  -- Ziel ab Fahrzeugposition
                         w.waypointIdx   = curDest
                         w.patrolDestIdx = newDest
                         w.patrolTargetX = w.waypoints[newDest][1]
@@ -2666,7 +2447,7 @@ function NachbarFelderManager:update(dt)
         end
     end
 
-    end  -- Ende slowTick-Block (Build 79)
+    end  -- Ende slowTick-Block
 
     for v, k in pairs(self.vehicleType) do
         if k.NachbarFelderWorker ~= nil and k.NachbarFelderWorker.needTimer then
@@ -2688,10 +2469,9 @@ function NachbarFelderManager:update(dt)
                     local vehIndex = (s == 0) and 2 or 3
                     local attached = k.NachbarFelderWorker.vehiclesToLoad[vehIndex]
                     local pendingInfo = self:attachObjects(vehicle, attached, vehIndex == 2)
-                    -- Build 125: Feldhelfer UND Verkehr an die Kupplung setzen (Build 117:
-                    -- k.NachbarFelderWorker ist hier schon der Worker)
+                    -- Geraet an die Kupplung setzen
                     if pendingInfo ~= nil then
-                        self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
+                        self:kuppleGeraet(pendingInfo)   -- drehrichtig setzen, weich kuppeln
                     elseif attached ~= nil then
                         if not attached.isAddedToPhysics then attached:addToPhysics() end
                     end
@@ -2719,8 +2499,8 @@ function NachbarFelderManager:update(dt)
                     k.NachbarFelderWorker.needTimer = true
 
                 elseif s == 1 then
-                    -- Patrol: Fahrzeug muss spec_aiFieldWorker haben, sonst kann es keinen GOTO-Job
-                    -- ausführen → sofort sperren, bevor ein GOTO-Versuch (Spawn+Verschwinden) entsteht.
+                    -- Patrol ohne spec_aiFieldWorker kann keinen GOTO-Job ausführen:
+                    -- sofort sperren, bevor es gespawnt wird und gleich wieder verschwindet.
                     if k.NachbarFelderWorker.isPatrol and vehicle.spec_aiFieldWorker == nil then
                         local fname    = vehicle.configFileName
                         local baseName = fname ~= nil and (string.match(fname, "[^/\\]+$") or fname)
@@ -2749,9 +2529,7 @@ function NachbarFelderManager:update(dt)
                         k.NachbarFelderWorker.needTimer = true
 
                     elseif k.NachbarFelderWorker.isPatrol and k.NachbarFelderWorker.firstStart then
-                        -- Gespann-Teleport NACH dem Kuppeln (Zapfwellen-Fix) bzw.
-                        -- Fallback wenn onSpawnedVehicle keinen Teleport ausführen konnte.
-                        -- teleportVehicle bewegt Traktor + gekuppeltes Gerät gemeinsam.
+                        -- Erster Start nach dem Kuppeln: Start- und Ziel-WP festlegen.
                         local nfW = k.NachbarFelderWorker
                         local wps = nfW.waypoints
                         nfW.firstStart = nil
@@ -2778,8 +2556,7 @@ function NachbarFelderManager:update(dt)
                                 end
                                 schritt()
                             end
-                            -- Belegte Plaetze meiden (Build 73): kein Teleport auf
-                            -- einen WP, an dem schon ein Fahrzeug steht (Explosion).
+                            -- Belegte Plaetze meiden: kein WP, an dem schon ein Fahrzeug steht.
                             local freeIdx = self:findFreeSpawnWp(wps, nearestIdx, vehicle)
                             if freeIdx ~= nil then nearestIdx = freeIdx end
                             nfW.waypointIdx = nearestIdx
@@ -2789,18 +2566,10 @@ function NachbarFelderManager:update(dt)
                                 nfW.patrolTargetX = wps[nd][1]
                                 nfW.patrolTargetZ = wps[nd][2]
                             end
-                            -- Build 91: gar kein Spawn-Teleport mehr.
-                            -- Fuer einen Spawn auf einem Wegpunkt gibt es keine
-                            -- verlaessliche Ausrichtung: die gespeicherte ry ist
-                            -- die Blickrichtung beim Setzen (zu Fuss = quer zur
-                            -- Fahrbahn), die Luftlinie zum Ziel trifft die Strasse
-                            -- nur auf geraden Stuecken. Das Ergebnis war beide
-                            -- Male ein quer abgestelltes Gespann. Der Shop-Spawn
-                            -- ist die einzige Stelle mit einer vom Spiel selbst
-                            -- definierten, korrekten Ausrichtung - also starten
-                            -- Fahrzeuge dort und fahren die Strecke selbst.
-                            -- Build 136: "Ladeplatz" statt "Shop" - geladen wird laengst an
-                            -- der KI-Strasse bzw. am Spawnpunkt, nicht mehr am Shop
+                            -- Kein Spawn-Teleport auf den Wegpunkt: dort gibt es keine verlaessliche
+                            -- Ausrichtung (die gespeicherte ry ist die Blickrichtung beim Setzen, oft quer
+                            -- zur Fahrbahn). Nur der Ladeplatz hat eine vom Spiel definierte Ausrichtung,
+                            -- also startet das Gespann dort und faehrt die Strecke selbst.
                             print("NachbarFelder: [TRAFFIC] Gespann startet am Ladeplatz " ..
                                 "und faehrt selbst zu WP" .. tostring(nearestIdx))
                             if #wps >= 2 and nfW.patrolDestIdx ~= nil then
@@ -2816,34 +2585,28 @@ function NachbarFelderManager:update(dt)
                         end
 
                     elseif k.NachbarFelderWorker.isPatrol then
-                        -- Patrol: teleportVehicle ist im MP-Dedicated-Server asynchron (ein Frame Latenz).
-                        -- Status=1.5 gibt weitere 3s Settle-Zeit, damit das Fahrzeug physikalisch
-                        -- an der WP-Position ist bevor createAgent() den Navmesh-Startknoten sucht.
+                        -- Patrol: teleportVehicle ist auf dem Dedicated Server asynchron (ein Frame Latenz).
+                        -- Status 1.5 gibt 3 s Settle-Zeit, damit das Fahrzeug physikalisch an der
+                        -- WP-Position steht, bevor createAgent() den Navmesh-Startknoten sucht.
                         k.NachbarFelderWorker.status    = 1.5
                         k.NachbarFelderWorker.needTimer = true
                     else
-                        -- Build 150: Feldhelfer gibt es nicht mehr - Eintrag ohne Patrol aufraeumen
+                        -- Eintrag ohne Patrol (Feldhelfer gibt es nicht mehr) aufraeumen
                         k.NachbarFelderWorker.status    = 100
                         k.NachbarFelderWorker.needTimer = true
                     end
 
                 elseif s == 1.5 then
-                    -- Post-Teleport-Settle abgelaufen → GOTO starten.
-                    -- Status MUSS vor driveToField auf 1 zurück: onAIJobFinished prüft status==1.
+                    -- Settle-Zeit abgelaufen: GOTO starten.
+                    -- Status vor driveToField auf 1 setzen, onAIJobFinished prüft status==1.
                     local nfW = k.NachbarFelderWorker
                     nfW.status = 1
                     nfW.fieldGotoStartedAt = g_time
-                    -- Ziel-Winkel: die KI rangiert am Ziel, bis sie genau so
-                    -- steht. Build 98: Richtung der naechsten KI-Strasse
-                    -- (getRoadHeadingAt) - so parkt das Fahrzeug laengs, auch
-                    -- wenn der Wegpunkt zu Fuss und quer gesetzt wurde. Nur ohne
+                    -- Ziel-Winkel: die KI rangiert am Ziel, bis sie genau so steht. Daher die
+                    -- Richtung der naechsten KI-Strasse, damit das Fahrzeug laengs parkt; nur ohne
                     -- Strasse im Umkreis von 20 m gilt die gespeicherte WP-Richtung.
-                    -- 180-Grad-Variante nach Anfahrtsrichtung waehlen.
-                    -- Build 99: Auch der ZIELPUNKT wandert auf die KI-Strasse.
-                    -- Ein Wegpunkt liegt oft ein paar Meter daneben; die KI haelt
-                    -- dann im Seitenstreifen, und von dort kommt kein neuer
-                    -- Fahrauftrag mehr weg (Log 12.09.: zwei Fahrzeuge standen bei
-                    -- x=124 z=-93 bzw. x=218 z=-50 dauerhaft fest).
+                    -- Strassenziele wandern zusaetzlich auf die Fahrbahn: daneben haelt die KI im
+                    -- Seitenstreifen und kommt von dort nicht mehr weg.
                     local targetRy = 0
                     local wps = nfW.waypoints
                     local wp  = (wps ~= nil and nfW.patrolDestIdx ~= nil)
@@ -2855,24 +2618,21 @@ function NachbarFelderManager:update(dt)
                             local px, _, pz = getWorldTranslation(vehicle.rootNode)
                             vx, vz = px, pz
                         end
-                        -- Build 136: Fahrspur passend zur Anfahrtsrichtung waehlen
-                        -- (Zwillings-Spline) statt die Richtung um 180 Grad zu drehen -
-                        -- gedreht zeigte das Ziel auf Einbahnen gegen die Fahrtrichtung.
+                        -- Spur passend zur Anfahrtsrichtung waehlen (Zwillings-Spline), nicht drehen:
+                        -- auf Einbahnen zeigte das Ziel sonst gegen die Fahrtrichtung.
                         local wdx, wdz = nil, nil
                         if vx ~= nil then wdx, wdz = wp[1] - vx, wp[2] - vz end
                         local rx, rz, roadRy = self:getRoadPointInRichtung(wp[1], wp[2], 20, 0, wdx, wdz)
                         if roadRy ~= nil then
                             targetRy = roadRy
-                            -- Build 105: Parkpunkte (eigene Wegpunkte) NICHT auf
-                            -- die Strasse ziehen - dort soll das Fahrzeug ja
-                            -- gerade neben der Fahrbahn stehen. Nur Strassenziele
-                            -- wandern auf die Fahrbahn.
+                            -- Parkpunkte (eigene Wegpunkte) nicht auf die Strasse ziehen, dort soll
+                            -- das Fahrzeug neben der Fahrbahn stehen.
                             if not self:getIsParkpunkt(nfW, nfW.patrolDestIdx) then
                                 nfW.patrolTargetX, nfW.patrolTargetZ = rx, rz
                             end
                         elseif vx ~= nil then
-                            -- ohne KI-Strasse im Umkreis (Parkpunkt abseits): wie bisher
-                            -- nach Anfahrtsrichtung drehen - dort gibt es keine Spur
+                            -- ohne KI-Strasse im Umkreis (Parkpunkt abseits): nach Anfahrtsrichtung
+                            -- drehen, dort gibt es keine Spur
                             local dx = (nfW.patrolTargetX or vx) - vx
                             local dz = (nfW.patrolTargetZ or vz) - vz
                             if math.sqrt(dx * dx + dz * dz) > 1 then
@@ -2906,12 +2666,10 @@ function NachbarFelderManager:update(dt)
                     end
 
                 elseif s == 100 then
-                    -- Patrol: in den Pool statt loeschen (Build 65). Klappt das
-                    -- nicht (Pool voll/aus, noPool-Blacklist, kein freier WP),
-                    -- wird wie bisher geloescht.
+                    -- Patrol: in den Pool statt loeschen. Klappt das nicht (Pool voll/aus,
+                    -- noPool, kein freier WP), wird geloescht.
                     if k.NachbarFelderWorker.isPatrol and self:sleepPatrolEntry(k, false) then
-                        -- schlaeft im Pool; Eintrag wurde bereits entfernt.
-                        -- Kein pendingRespawn noetig - das Fahrzeug existiert weiter.
+                        -- schlaeft im Pool; Eintrag ist entfernt, kein pendingRespawn noetig
                     else
                         local wVehs = k.NachbarFelderWorker.vehiclesToLoad
                         for _, veh in ipairs(wVehs) do
@@ -2920,7 +2678,7 @@ function NachbarFelderManager:update(dt)
                                 veh:delete()
                             end
                         end
-                        -- Wiederkehrendes Fahrzeug → nach 5-8 Min Echtzeit neu spawnen
+                        -- Stammfahrzeug: nach 5-8 Min Echtzeit neu spawnen
                         if k.NachbarFelderWorker.isPatrol and k.NachbarFelderWorker.isRegular
                            and not k.NachbarFelderWorker.noPool then
                             local xml = k.NachbarFelderWorker.regularXML
@@ -2944,7 +2702,7 @@ function NachbarFelderManager:update(dt)
 end
 
 -- ============================================================
--- onMinuteChanged: NUR auf Server
+-- onMinuteChanged (nur Server)
 -- ============================================================
 function NachbarFelderManager:onMinuteChanged(minute)
     if not g_currentMission:getIsServer() then return end
@@ -2953,13 +2711,12 @@ function NachbarFelderManager:onMinuteChanged(minute)
     self:loadServerConfig()
 
 
-    -- Spieler-Zähler ZUERST aktualisieren (addPlayer-Hook feuert auf Ded. Server nicht zuverlässig)
-    -- Nur Spieler zählen die wirklich im Spiel sind (farmId > 0 = Stufe-2, nicht nur Ladebildschirm)
+    -- Spieler selbst zaehlen, der addPlayer-Hook feuert auf dem Dedicated Server nicht zuverlaessig.
+    -- Nur Spieler mit farmId > 0 sind wirklich im Spiel, farmId 0/nil heisst noch im Ladebildschirm.
     local realCount = 0
     if g_currentMission.players ~= nil then
         for _, player in pairs(g_currentMission.players) do
             if player ~= nil then
-                -- Stufe-2 Spieler haben farmId > 0; Stufe-1 (lädt noch) haben farmId=0 oder nil
                 local pFarmId = player.farmId or 0
                 if pFarmId > 0 then
                     realCount = realCount + 1
@@ -2969,10 +2726,9 @@ function NachbarFelderManager:onMinuteChanged(minute)
     end
     if realCount ~= self.playersOnline then
         print("NachbarFelder: Spieler: " .. tostring(self.playersOnline) .. " -> " .. tostring(realCount))
-        -- Wenn jemand neu dazukommt während niemand da war → Grace-Period starten
-        -- (Stufe-1: Spieler ist im Ladebildschirm, noch nicht wirklich im Spiel)
+        -- Erster Spieler auf leerem Server: Wartezeit vor dem ersten Spawn starten
         if self.playersOnline <= 0 and realCount > 0 then
-            self.playerJoinTime = g_time  -- Echtzeit-Timestamp; robust gegen Zeitsprünge
+            self.playerJoinTime = g_time  -- Echtzeit, robust gegen Zeitspruenge
             print("NachbarFelder: Erster Spieler erkannt - warte " ..
                 tostring(math.floor((self.firstSpawnDelayMs or 180000) / 60000)) ..
                 " Minuten (Echtzeit) vor erstem Spawn")
@@ -2985,26 +2741,23 @@ function NachbarFelderManager:onMinuteChanged(minute)
         end
     end
 
-    -- Player-Gate: Keine Helfer wenn kein Spieler online
     if self.playersOnline <= 0 then return end
 
-    -- Grace-Period nach erstem Join (Echtzeit statt Spielminuten,
-    -- sonst frisst TimeResetOnJoin den Zähler bei Zeitsprung sofort leer)
+    -- Wartezeit in Echtzeit, nicht in Spielminuten: TimeResetOnJoin wuerde
+    -- einen Spielminuten-Zaehler beim Zeitsprung sofort leerlaufen lassen.
     if self.playerJoinTime ~= nil then
         if g_time - self.playerJoinTime < (self.firstSpawnDelayMs or 180000) then return end
         self.playerJoinTime = nil
-        self.timeToNextStart = 0  -- sofort spawnen nach der Wartezeit
+        self.timeToNextStart = 0
     end
 
     local timeScale = g_currentMission:getEffectiveTimeScale()
-    -- Build 176: Faktor fuer Spielminuten-Zeitgeber, die Echtzeit meinen (>= 1, auch bei Pause)
+    -- Faktor fuer Spielminuten-Zeitgeber, die eigentlich Echtzeit meinen (>= 1, auch bei Pause)
     local zeitFaktor = math.max(1, timeScale or 1)
 
-    -- Build 176: Blockier-Pruefung in ECHTZEIT. Der alte Zaehler isBlocked (aus der Vorlage)
-    -- rechnete in Spielminuten mit Schwellen 1x/100x/300x Zeitfaktor - die hoben sich auf:
-    -- 4 Spielminuten ohne Bewegung = 240 s / Zeitfaktor (bei 120x nur 2 s), und er erfasste
-    -- auch parkende Fahrzeuge (Parkzeit bis 300 s). Jetzt: Fahrzeug steht BLOCK_ECHTZEIT_MS
-    -- (4 min) innerhalb von 1 m, ohne zu parken -> Pool bzw. loeschen wie bisher. Festgefahrene
+    -- Blockier-Pruefung in Echtzeit: steht ein Fahrzeug BLOCK_ECHTZEIT_MS lang innerhalb
+    -- von 1 m, ohne zu parken, kommt es in den Pool bzw. wird geloescht. In Spielminuten
+    -- gerechnet waere die Schwelle bei hohem Zeitfaktor nur wenige Sekunden. Festgefahrene
     -- Fahrzeuge im Fahrbetrieb loest vorher schon der Waechter (30-s-Stufen).
     for v, k in pairs(self.vehicleType) do
         local w = k.NachbarFelderWorker
@@ -3026,7 +2779,7 @@ function NachbarFelderManager:onMinuteChanged(minute)
                     self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %d s unbewegt (Status %s) -" ..
                         " Pool bzw. entfernen (patrolId=%s)", math.floor(NachbarFelderManager.BLOCK_ECHTZEIT_MS / 1000),
                         tostring(w.status), tostring(w.fieldId)))
-                    -- Patrol: geblocktes Fahrzeug in den Pool statt loeschen (Build 65)
+                    -- Verkehr: in den Pool statt loeschen
                     if not (w.isPatrol and self:sleepPatrolEntry(k, false)) then
                         local status = w.status
                         for _, vehicleRM in ipairs(w.vehiclesToLoad or {}) do
@@ -3045,29 +2798,21 @@ function NachbarFelderManager:onMinuteChanged(minute)
     local sleeping = g_sleepManager:getIsSleeping()
     if sleeping then return end
 
-    -- "Mod aktiv"-Schalter (Settings-Seite): Aus = keine neuen Spawns,
-    -- laufende Fahrzeuge arbeiten fertig. Der Schalter war bisher ohne
-    -- Wirkung - seit Build 67 wird er MP-synct und greift hier.
+    -- "Mod aktiv" aus: keine neuen Spawns, laufende Fahrzeuge arbeiten fertig (MP-synchronisiert)
     if self.active == false then return end
 
-    -- Spawn-Tick fuer den KI-VERKEHR: gegen das Traffic-Limit pruefen,
-    -- NICHT gegen "Anzahl Arbeiter" (Bug bis Build 71: cc zaehlte auch
-    -- Patrol-Fahrzeuge - mit maxWorkers=2 blieb der Verkehr bei 2 stehen,
-    -- egal wie hoch trafficLimit stand). Seit Build 150 gibt es nur noch
-    -- den Verkehr.
+    -- Gegen das Traffic-Limit pruefen, nicht gegen "Anzahl Arbeiter"
     if self:countActivePatrols() < self:getEffectiveTrafficLimit() then
         self.timeToNextStart = self.timeToNextStart - 1
         if self.timeToNextStart <= 0 then
-            -- Standard: nur 1 Fahrzeug pro Spawn-Tick (spawnPerTick).
-            -- Jeder Spawn (I3D-Laden + Physik + MP-Sync) erzeugt einen kurzen
-            -- Ruckler - mehrere direkt hintereinander stapeln sich spürbar.
+            -- Standard 1 Fahrzeug pro Tick: jeder Spawn (I3D-Laden, Physik, MP-Sync)
+            -- erzeugt einen kurzen Ruckler, mehrere direkt hintereinander stapeln sich.
             local spawnedThisTick = 0
             local nWpsTotal = self.userTrafficWaypoints ~= nil and #self.userTrafficWaypoints or 0
             local lastOverride = nil
             for _attempt = 1, (self.spawnPerTick or 1) do
-                -- Start-WP über pickPatrolWaypoint: gesperrte WPs vermeiden.
-                -- lastOverride ausschließen: sonst spawnen mehrere Fahrzeuge
-                -- desselben Ticks am SELBEN WP und blockieren sich gegenseitig.
+                -- lastOverride ausschliessen, sonst spawnen mehrere Fahrzeuge desselben
+                -- Ticks am selben WP und blockieren sich gegenseitig.
                 local overrideWp = nil
                 if nWpsTotal >= 1 then
                     overrideWp = self:pickPatrolWaypoint(self.userTrafficWaypoints, lastOverride)
@@ -3082,10 +2827,8 @@ function NachbarFelderManager:onMinuteChanged(minute)
                 end
             end
             if spawnedThisTick > 0 then
-                -- Pause bis zum nächsten Spawn (Spielminuten, konfigurierbar):
-                -- entzerrt die Spawns → weniger Ruckler auf dem Server.
-                -- Build 176: mit dem Zeitfaktor skaliert - die Pause soll Echtzeit
-                -- entzerren; bei 120x waren 2-5 Spielminuten nur 1-2,5 s. Bei 1x unveraendert.
+                -- Pause bis zum naechsten Spawn in Spielminuten, mit dem Zeitfaktor skaliert,
+                -- damit sie auch bei hohem Zeitfaktor in Echtzeit spuerbar bleibt.
                 local pMin = math.floor((self.spawnIntervalMin or 2) * zeitFaktor + 0.5)
                 local pMax = math.max(pMin, math.floor((self.spawnIntervalMax or 5) * zeitFaktor + 0.5))
                 self.timeToNextStart = math.random(pMin, pMax)
@@ -3097,38 +2840,23 @@ function NachbarFelderManager:onMinuteChanged(minute)
 end
 
 -- ============================================================
--- Spawn-Blickrichtung (map-unabhaengig)
+-- Spawn-Blickrichtung (kartenunabhaengig)
 --
--- Frisch gespawnte Traktoren schauen sonst in die Richtung, die der
--- Shop-Spawnplatz vorgibt - auf manchen Karten ist das eine Wand, ein Hang
--- oder Wasser. Frueher stand hier die feste Krebach-Koordinate der Werkstatt
--- (98.65 / 119.08); die ist auf jeder anderen Karte sinnlos.
---
--- Zwei Stufen, in dieser Reihenfolge:
---   1. Naechstgelegene Werkstatt. Das reproduziert genau die alte Absicht
---      ("Blick zur Ausfahrt = Richtung Workshop"), nur eben auf jeder Karte -
---      auf Krebach findet die Suche exakt jene 98.65/119.08 wieder.
---      Verifiziert: PlaceableWorkshop legt spec_workshop an,
---      g_currentMission.placeableSystem.placeables ist die Liste aller
---      gesetzten Placeables (Placeable.lua:1275).
---   2. Ist keine Werkstatt vorhanden, die Senkrechte des Spawnplatzes selbst.
---      Genau danach richtet das Basisspiel gekaufte Fahrzeuge aus:
---      VehicleLoadingData.lua:539 rechnet
---      MathUtil.getYRotationFromDirection(place.dirPerpX, place.dirPerpZ).
---
--- Findet keine Stufe etwas, bleibt die Rotation unangetastet - lieber die
--- Vorgabe der Karte als ein geratener Winkel.
+-- Frisch gespawnte Fahrzeuge schauen sonst in die Richtung des Shop-Spawnplatzes,
+-- auf manchen Karten gegen eine Wand, einen Hang oder ins Wasser.
+--   1. Naechstgelegene Werkstatt (spec_workshop in placeableSystem.placeables).
+--   2. Sonst die Senkrechte des Spawnplatzes, wie das Basisspiel gekaufte
+--      Fahrzeuge ausrichtet (VehicleLoadingData: getYRotationFromDirection(dirPerpX, dirPerpZ)).
+-- Findet keine Stufe etwas, bleibt die Rotation der Karte unangetastet.
 -- ============================================================
 
---- Zielpunkt fuer die Blickrichtung. Wird einmal ermittelt und gecacht.
+--- Zielpunkt fuer die Blickrichtung, wird einmal ermittelt und gecacht.
 --- @return table|nil { x=, z=, quelle= }
 function NachbarFelderManager:getSpawnLookAt()
     if self.spawnLookAt ~= nil then
         return self.spawnLookAt
     end
 
-    -- getShopPosition() ist weiter unten in dieser Datei definiert; als
-    -- Methode wird sie erst zur Laufzeit aufgeloest, das ist unkritisch.
     local spX, spZ = self:getShopPosition()
 
     -- Stufe 1: naechstgelegene Werkstatt
@@ -3151,12 +2879,11 @@ function NachbarFelderManager:getSpawnLookAt()
         return self.spawnLookAt
     end
 
-    -- Stufe 2: Senkrechte des Spawnplatzes (Vorgabe des Karten-Bauers)
+    -- Stufe 2: Senkrechte des Spawnplatzes
     local place = self:getNfSpawnPlace()
     if place ~= nil and place.dirPerpX ~= nil and place.dirPerpZ ~= nil then
         local dx, dz = place.dirPerpX, place.dirPerpZ
         if math.abs(dx) > 0.0001 or math.abs(dz) > 0.0001 then
-            -- 50 m in Blickrichtung reichen als Zielpunkt voellig aus.
             self.spawnLookAt = { x = spX + dx * 50, z = spZ + dz * 50, quelle = "Spawnplatz" }
         end
     end
@@ -3177,9 +2904,9 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
     if vehicleLoadState == VehicleLoadingState.OK then
         for _, vehicle in ipairs(vehicles) do
             vehicle.isVehicleSaved = false
-            self:applyServerDriverFigure(vehicle)   -- Build 95
-            self:applyRueckwaertsPlanen(vehicle)    -- Build 108
-            self:applyFahrerBleibt(vehicle)         -- Build 168
+            self:applyServerDriverFigure(vehicle)
+            self:applyRueckwaertsPlanen(vehicle)
+            self:applyFahrerBleibt(vehicle)
             if vehicle.addWearAmount ~= nil then
                 vehicle:addWearAmount(math.random() * 0.3 + 0.1)
             end
@@ -3196,39 +2923,22 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                     vehicle:delete()
                     vehAdd = false
                 end
-                -- Anbaugerät/Anhänger SOFORT vom Shop-Spawn weg teleportieren.
-                -- Ohne dies steckt der Spawn-Platz (Nähe Boot) das Implement
-                -- in der Physik fest, bevor setAttachment es kuppeln kann.
-                -- Ziel: Traktor-Position → kein Offset, setAttachment richtet aus.
                 if vehAdd then
-                    -- Build 116/125: Geraet bis zum Kuppeln ohne Physik - fuer Feldhelfer
-                    -- UND Verkehr. Auf den Traktor-Mittelpunkt teleportiert stak es im
-                    -- Traktor und flog weg (Server 14.09.: Gespanne landeten im
-                    -- eingezaeunten Nachbargrundstueck). setAttachment setzt es spaeter
-                    -- genau an die Kupplung und nimmt es wieder in die Physik.
+                    -- Geraet bis zum Kuppeln ohne Physik: am Shop-Platz oder im Traktor
+                    -- verkeilt es sich sonst und fliegt weg. setAttachment setzt es
+                    -- spaeter an die Kupplung und nimmt es wieder in die Physik.
                     if vehicle.isAddedToPhysics then vehicle:removeFromPhysics() end
                 end
             else
-                -- Ausrichtung korrigieren: Manche Spawn-Plätze schauen gegen
-                -- eine Wand oder aufs Wasser. Ziel ist die Ausfahrt, also die
-                -- Richtung zur Werkstatt bzw. ersatzweise die Ausrichtung, die
-                -- der Karten-Bauer dem Spawnplatz mitgegeben hat.
-                -- Siehe getSpawnLookAt(); findet sie nichts, bleibt die vom
-                -- Spiel gesetzte Rotation stehen.
+                -- Traktor nicht am Shop-Platz stehen lassen: liegt der zu dicht an einer
+                -- Mauer, gibt es sofort NotReachable (kein Navmesh fuer lange Gespanne)
+                -- und Geraete schlagen beim Ausrichten gegen die Wand. Deshalb vor dem
+                -- Kuppeln auf den naechsten freien Punkt der KI-Strasse (40 m, ersatzweise
+                -- 80 m), Richtung erstes Fahrziel. Sonst Ausrichtung per getSpawnLookAt().
                 local x0, _, z0 = localToWorld(vehicle.rootNode, 0, 0, 0)
-                -- Build 117: Feldhelfer nicht am Shop-Platz stehen lassen. Auf der
-                -- Beuren steht der Platz (x=-157 z=-138) zu dicht an der Mauer:
-                -- lange Gespanne bekamen dort sofort NotReachable (kein Navmesh
-                -- fuer den Agent) und Geraete flogen beim Ausrichten gegen die Wand.
-                -- Der Traktor kommt deshalb vor dem Kuppeln auf den naechsten freien
-                -- Punkt der KI-Strasse (Build 118: mind. 40 m, ersatzweise 80 m -
-                -- 15 m reichten fuer Valtra N + Cultivator 980 nicht), Richtung Feld.
-                -- Build 118: auch der Verkehr (Trac 900 solo am Platz sofort
-                -- abgewiesen), dort Richtung erstes Fahrziel.
-                -- Findet sich keiner, bleibt es beim alten Ausrichten am Platz.
                 local nfWS = loadingInfo.NachbarFelderWorker.NachbarFelderWorker
                 local istVerkehrS = nfWS ~= nil and nfWS.isPatrol
-                -- Build 126: schon an der Strasse geladen -> nicht mehr versetzen
+                -- Schon an der Strasse geladen: nicht mehr versetzen
                 local aufStrasse = nfWS ~= nil and nfWS.spawnAufStrasse == true
                 if not aufStrasse and self.getNearestRoadPoint ~= nil then
                     local function schritt()
@@ -3236,7 +2946,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         if istVerkehrS then
                             zielX, zielZ = nfWS.patrolTargetX, nfWS.patrolTargetZ
                         end
-                        -- Build 136: Spur in Richtung Ziel statt 180-Grad-Drehung (Einbahn-Splines)
+                        -- Spur in Richtung Ziel waehlen, wichtig bei Einbahn-Splines
                         local wdx, wdz = nil, nil
                         if zielX ~= nil and zielZ ~= nil then wdx, wdz = zielX - x0, zielZ - z0 end
                         local rx, rz, rry, rdist = self:getRoadPointInRichtung(x0, z0, 160, 40, wdx, wdz)
@@ -3280,16 +2990,12 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
             if #loadingInfo.NachbarFelderWorker.vehiclesToLoad > 0 then
                 self:loadVehicles(loadingInfo.NachbarFelderWorker)
             else
-                -- Attachment auf nächsten Frame verschieben: InputAttacher-Joints
-                -- des letzten Fahrzeugs werden erst nach Rückkehr des Spawn-Callbacks
-                -- im vehicleSystem registriert. Sofortiger Aufruf findet das Implement
-                -- nicht in g_currentMission.vehicleSystem.inputAttacherJoints → nil-Return.
+                -- Kuppeln erst im naechsten Frame: die InputAttacherJoints des letzten
+                -- Fahrzeugs stehen erst nach dem Spawn-Callback in vehicleSystem.inputAttacherJoints.
                 loadingInfo.NachbarFelderWorker.NachbarFelderWorker.needAttachment = true
-                -- Patrol OHNE Anbaugerät: sofort zum Start-WP teleportieren.
-                -- Patrol MIT Anbaugerät: ERST am Shop kuppeln (setAttachment), DANN
-                -- als komplettes Gespann zum WP (update-Fallback). Kuppeln direkt
-                -- nach einem Weit-Teleport verdrahtet die Zapfwelle mit einem alten
-                -- Weltpunkt → kilometerlange "Stange" am Gerät.
+                -- Verkehr startet immer am Shop: ohne Geraet faehrt er direkt los, mit Geraet
+                -- wird erst dort gekuppelt. Kuppeln direkt nach einem weiten Teleport
+                -- verdrahtet die Zapfwelle mit einem alten Weltpunkt (meterlange "Stange").
                 local nfW = loadingInfo.NachbarFelderWorker.NachbarFelderWorker
                 if nfW ~= nil and nfW.isPatrol and nfW.firstStart then
                     local wps     = nfW.waypoints
@@ -3297,23 +3003,17 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                     local hasImplement = #loadingInfo.NachbarFelderWorker.vehicleType >= 2
                     if wps ~= nil and #wps >= 1 and tractor ~= nil then
                         local nearestIdx = 1
-                        -- Vorgegebener Startpunkt (overrideSpawnWpIdx) hat Vorrang
+                        -- Vorgegebener Startpunkt hat Vorrang
                         if nfW.overrideSpawnWpIdx ~= nil and wps[nfW.overrideSpawnWpIdx] ~= nil then
                             nearestIdx = nfW.overrideSpawnWpIdx
                         else
                             nearestIdx = self:pickPatrolWaypoint(wps, nil) or math.random(#wps)
                         end
-                        -- Belegte Plaetze meiden (Build 73): kein Teleport auf
-                        -- einen WP, an dem schon ein Fahrzeug steht (Explosion).
+                        -- Belegte WPs meiden
                         local freeIdx = self:findFreeSpawnWp(wps, nearestIdx, tractor)
                         if freeIdx ~= nil then nearestIdx = freeIdx end
-                        -- Build 86: WPs, von denen aus nachweislich kein GOTO
-                        -- startet, nicht als Startplatz verwenden. Lieber am
-                        -- Shop-Spawn stehen bleiben - von dort faehrt es sicher los.
-                        -- Build 91: gar kein Spawn-Teleport mehr - siehe die
-                        -- ausfuehrliche Begruendung beim Gespann-Spawn. Kurz:
-                        -- keine verlaessliche Ausrichtung fuer einen Wegpunkt,
-                        -- also startet alles am Shop und faehrt selbst los.
+                        -- Kein Teleport auf den Wegpunkt: dort fehlt eine verlaessliche
+                        -- Ausrichtung, das Fahrzeug stuende quer. Der WP dient nur als Index.
                         nfW.waypointIdx = nearestIdx
                         if nfW.patrolDestIdx == nearestIdx and #wps >= 2 then
                             local nd = self:pickPatrolWaypoint(wps, nearestIdx) or nearestIdx
@@ -3321,19 +3021,12 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                             nfW.patrolTargetX = wps[nd][1]
                             nfW.patrolTargetZ = wps[nd][2]
                         end
-                        -- Build 96: Die Zeile "freeIdx = nil" aus Build 91 war beim
-                        -- Aufraeumen verloren gegangen - Einzeltraktoren wurden
-                        -- dadurch weiter auf Wegpunkte teleportiert (mit der
-                        -- gespeicherten Blickrichtung = quer). Der Teleport-Zweig
-                        -- ist jetzt ganz entfernt, damit er nicht wiederkommt.
                         if not hasImplement then
-                            -- Einzeltraktor: am Shop stehen lassen, GOTO faehrt von dort
                             nfW.firstStart = nil
                             print("NachbarFelder: [TRAFFIC] Einzelfahrzeug faehrt vom Ladeplatz los, Ziel WP" ..
                                 tostring(nfW.patrolDestIdx))
                         else
-                            -- Gespann: am Shop kuppeln, danach faehrt es von dort
-                            -- (firstStart bleibt fuer den Kuppel-Ablauf gesetzt).
+                            -- firstStart bleibt fuer den Kuppel-Ablauf gesetzt
                             nfW.spawnWpIdx = nearestIdx
                             print("NachbarFelder: [TRAFFIC] Gespann wird am Ladeplatz gekuppelt")
                         end
@@ -3344,17 +3037,12 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
     end
 end
 
---- Geraet mit seinem Eingangs-Kupplungspunkt auf den Kupplungspunkt des
---- Traktors setzen und wieder in die Physik nehmen (Build 116).
---- Build 156: auch die DREHUNG passend setzen - wie SupportVehicle:enableSupportVehicle:
---- Position = localToWorld(jointTransform, jointOrigOffsetComponent), Drehung =
---- localRotationToWorld(jointTransform, jointOrigRotOffsetComponent) (Attachable.lua:1957/1958).
---- Bis Build 155 nur die Gierrichtung (wie AttacherJoints:additionalAttachmentLoaded); stand der
---- Eingangspunkt des Geraets anders geneigt als die Kupplung, riss das sofortige Kuppeln den
---- Traktor zur Seite (Test 01.10.: Lintrac 130 / Vario 500 kippten beim Ankuppeln).
+--- Geraet mit seinem Eingangs-Kupplungspunkt auf die Kupplung des Traktors setzen
+--- und wieder in die Physik nehmen. Position und Drehung wie
+--- SupportVehicle:enableSupportVehicle (Attachable.lua:1957/1958). Nur die Gierrichtung
+--- reicht nicht: ist der Eingangspunkt anders geneigt, reisst das Kuppeln den Traktor um.
 --- Mindestens 5 cm ueber dem Boden.
 function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex, implement, inputJointIndex)
-    -- Build 160: jede Spielfunktion vorher auf Existenz pruefen
     if attacher == nil or implement == nil or attacher.getAttacherJoints == nil
        or implement.getInputAttacherJoints == nil then
         return
@@ -3385,11 +3073,10 @@ function NachbarFelderManager:setzeGeraetAnKupplung(attacher, attacherJointIndex
     if not implement.isAddedToPhysics and implement.addToPhysics ~= nil then implement:addToPhysics() end
 end
 
---- Geraet ankuppeln (Build 156): an die Kupplung setzen, dann WEICH kuppeln wie ein Spieler
---- (VehicleAttachEvent: noSmoothAttach = nil). Mit noSmoothAttach = true (bis Build 155,
---- Spielstand-Laden) sind die Gelenkgrenzen sofort 0 (AttacherJoints:createAttachmentJoint) -
---- jede Restabweichung wird in einem Physik-Schritt erzwungen, der Ruck kippte leichte Traktoren.
---- Gesenkt wird nicht (startLowered = false).
+--- Geraet ankuppeln: an die Kupplung setzen, dann weich kuppeln wie ein Spieler
+--- (VehicleAttachEvent, noSmoothAttach = nil). Mit noSmoothAttach = true sind die
+--- Gelenkgrenzen sofort 0 (AttacherJoints:createAttachmentJoint); der Ruck kippt leichte
+--- Traktoren. Nicht absenken (startLowered = false).
 function NachbarFelderManager:kuppleGeraet(info)
     if info == nil then return end
     self:setzeGeraetAnKupplung(info.attacherVehicle, info.attacherVehicleJointDescIndex,
@@ -3442,9 +3129,9 @@ function NachbarFelderManager:attachObjects(vehicle, attachedVehicle, isBackSett
     return nil
 end
 
---- Build 174: Schleife aus Stufe 1 erkennen. Merkt die Zeit jeder anstehenden Stufe 1;
---- true, wenn es binnen STUFE1_SCHLEIFE_MS die STUFE1_SCHLEIFE_ANZAHL-te ist (Liste wird
---- dann geleert, damit nach der Rettung neu gezaehlt wird).
+--- Erkennt eine Schleife aus Stufe 1: true, wenn binnen STUFE1_SCHLEIFE_MS die
+--- STUFE1_SCHLEIFE_ANZAHL-te Stufe 1 ansteht. Die Liste wird dann geleert, damit nach
+--- der Rettung neu gezaehlt wird.
 NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL = 3
 NachbarFelderManager.STUFE1_SCHLEIFE_MS     = 5 * 60 * 1000
 function NachbarFelderManager:merkeStufe1Schleife(w)
@@ -3462,9 +3149,9 @@ function NachbarFelderManager:merkeStufe1Schleife(w)
     return false
 end
 
---- Ladeplatz als ungeeignet merken, wenn ein Fahrzeug dort scheitert (Build 129).
---- Nur wenn es noch innerhalb von maxDist (Standard 10 m) um seinen Ladeplatz steht;
---- je Fahrzeug einmal. diag = true: Ergebnis einmal je Fahrzeug ins Debug-Log (Build 173).
+--- Ladeplatz als ungeeignet merken, wenn ein Fahrzeug dort scheitert. Nur wenn es noch
+--- innerhalb von maxDist (Standard 10 m) um seinen Ladeplatz steht, je Fahrzeug einmal.
+--- diag = true: Ergebnis einmal je Fahrzeug ins Debug-Log.
 function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag)
     if w == nil or x == nil or z == nil or w.spawnPlatzGemeldet then return end
     local sp = w.spawnStrasse
@@ -3479,8 +3166,7 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
         return
     end
     local dist = MathUtil.vector2Length(x - sp.x, z - sp.z)
-    -- Build 174: weit weg vom Ladeplatz ist der Platz keine Frage mehr - keine Diagnose
-    -- (Log 07.10.: "steht 444 m vom Ladeplatz" war nur Rauschen)
+    -- weit weg vom Ladeplatz liegt es nicht am Platz, Diagnose waere nur Rauschen
     if diag and dist > NachbarFelderManager.LADEPLATZ_DIAG_MAX then return end
     if dist > (maxDist or 10) then
         diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - weiter als %.0f m, nicht gesperrt",
@@ -3490,8 +3176,8 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
     diagnose(string.format("steht %.0f m vom Ladeplatz x=%d z=%d - Platz gilt als untauglich",
         dist, math.floor(sp.x), math.floor(sp.z)))
     w.spawnPlatzGemeldet = true
-    -- Build 132: Admin-Spawnpunkte nie automatisch sperren (mit nur einem Punkt
-    -- ginge es sonst zurueck ins Dorf) - stattdessen einmal einen Hinweis geben.
+    -- Admin-Spawnpunkte nie automatisch sperren (bei nur einem Punkt ginge es sonst
+    -- zurueck zum Shop), stattdessen einmal einen Hinweis geben.
     if sp.spawnpunktIdx ~= nil then
         self.spawnpunktGemeldet = self.spawnpunktGemeldet or {}
         if not self.spawnpunktGemeldet[sp.spawnpunktIdx] then
@@ -3505,16 +3191,15 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
     self:ladeLadeplatzSperre()
     table.insert(self.spawnPlatzSperre, { sp.x, sp.z, tostring(grund) })
     self:speichereLadeplatzSperre()
-    self:hinweisSpawnpunkt(grund)   -- Build 148
+    self:hinweisSpawnpunkt(grund)
     print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
         " (%d Plaetze gesperrt, Datei %s)", math.floor(sp.x), math.floor(sp.z), tostring(grund),
         #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
 end
 
---- Einmaliger Hinweis "Spawnpunkt setzen" (Build 148), wenn ein automatischer Ladeplatz
---- scheitert und auf der Karte noch kein Spawnpunkt gesetzt ist. Ein Spawnpunkt hat immer
---- Vorrang vor der automatischen Suche. Meldung nur, wo ein lokaler Spieler ist (SP / Host);
---- auf dem Dedi steht der Hinweis im Log.
+--- Einmaliger Hinweis "Spawnpunkt setzen", wenn ein automatischer Ladeplatz scheitert und
+--- die Karte noch keinen Spawnpunkt hat. Ingame-Meldung nur mit lokalem Spieler (SP/Host),
+--- auf dem Dedi nur im Log.
 function NachbarFelderManager:hinweisSpawnpunkt(grund)
     if self.spawnHinweisGegeben or self:getHatSpawnpunkte() then return end
     self.spawnHinweisGegeben = true
@@ -3526,14 +3211,14 @@ function NachbarFelderManager:hinweisSpawnpunkt(grund)
     end
 end
 
---- Datei der gesperrten Ladeplaetze fuer die geladene Karte (Build 142), nil ohne Kartenkennung.
+--- Datei der gesperrten Ladeplaetze fuer die geladene Karte, nil ohne Kartenkennung.
 function NachbarFelderManager:getLadeplatzDatei()
     local kennung = nfGetKartenKennung()
     if kennung == nil then return nil end
     return modSettingDirectory .. "NachbarFelderLadeplaetze_" .. kennung .. ".xml"
 end
 
---- Gesperrte Ladeplaetze einmal je Sitzung aus der Kartendatei lesen (Build 142).
+--- Gesperrte Ladeplaetze einmal je Spielsitzung aus der Kartendatei lesen.
 --- Wieder freigeben: Datei loeschen (oder Eintrag entfernen) und neu laden.
 function NachbarFelderManager:ladeLadeplatzSperre()
     if self.spawnPlatzSperre ~= nil then return end
@@ -3549,8 +3234,7 @@ function NachbarFelderManager:ladeLadeplatzSperre()
             local x = xmlFile:getValue(key .. "#x")
             local z = xmlFile:getValue(key .. "#z")
             local grund = xmlFile:getValue(key .. "#grund") or "?"
-            -- Build 145: "umgekippt" lag am Gespann, nicht am Platz (Builds 142-144 sperrten
-            -- trotzdem den Platz) -> solche Eintraege verwerfen
+            -- "umgekippt" liegt am Gespann, nicht am Platz: alte Eintraege verwerfen
             if grund == "umgekippt" then
                 verworfen = verworfen + 1
             elseif x ~= nil and z ~= nil then
@@ -3596,7 +3280,7 @@ function NachbarFelderManager:getIstSpawnPlatzGesperrt(x, z)
     return false
 end
 
---- Stuetzpunkte der KI-Strasse im Ring minD..maxD um (x, z), nach Entfernung sortiert (Build 128).
+--- Stuetzpunkte der KI-Strasse im Ring minD..maxD um (x, z), nach Entfernung sortiert.
 --- @return table { {sample, dist}, ... }, sample = { x, z, dirX, dirZ, hoehe }
 function NachbarFelderManager:getSpawnKandidaten(x, z, minD, maxD)
     local liste = {}
@@ -3621,16 +3305,13 @@ function NachbarFelderManager:getSpawnKandidaten(x, z, minD, maxD)
     return liste
 end
 
---- Echte Fahrbahnhoehe per Strahl von oben (Build 128).
---- Build 127 nahm die Hoehe der KI-Spline - liegt die ueber der Fahrbahn, fiel das Fahrzeug
---- herunter und sprang in die Mauer (Server 14.09. 12:20). Strahl wie
---- GuiTopDownCamera.lua:269 (RaycastUtil.raycastClosest liefert hit, x, y, z sofort).
---- Build 148: Der Strahl trifft auch Baumkronen, Daecher und Schilder UEBER der Strasse.
---- Mit Spline-Hoehe (Ladeplatz an der KI-Strasse): Treffer mehr als HOEHE_UEBERKOPF ueber
---- der Bezugshoehe = Hindernis ueber der Fahrbahn -> Bezugshoehe zurueck, zweiter Wert true.
---- Log 01.10.: Gespanne kippten immer wieder auf denselben Plaetzen nahe dem Shop, auch
---- leichte (Vario 500 + Juwel 6) - abgesetzt in einer Baumkrone, dann heruntergefallen.
---- Ohne Spline-Hoehe (Admin-Spawnpunkt, evtl. auf einer Bruecke) wie bisher.
+--- Echte Fahrbahnhoehe per Strahl von oben. Die Hoehe der KI-Spline liegt oft ueber der
+--- Fahrbahn, das Fahrzeug faellt dann herunter. Strahl wie GuiTopDownCamera.lua:269
+--- (RaycastUtil.raycastClosest liefert hit, x, y, z sofort).
+--- Der Strahl trifft auch Baumkronen, Daecher und Schilder ueber der Strasse. Mit Spline-Hoehe
+--- gilt ein Treffer mehr als HOEHE_UEBERKOPF ueber der Bezugshoehe als Hindernis: Rueckgabe
+--- ist dann die Bezugshoehe und ueberkopf = true. Ohne Spline-Hoehe (Admin-Spawnpunkt,
+--- evtl. auf einer Bruecke) zaehlt der Treffer.
 --- @return number Hoehe, boolean ueberkopf
 function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
     local gelaende = splineH or 0
@@ -3639,11 +3320,9 @@ function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
     end
     local h = nil
     local oben = math.max(gelaende, splineH or gelaende) + 3
-    -- Build 154: TERRAIN_DELTA dazu (wie VehicleSystem.lua beim Paletten-Spawn). Ohne sie traf der
-    -- Strahl auf Strassen aus Gelaende-Deltas das tiefere Grundgelaende - das Fahrzeug wurde IN
-    -- der Fahrbahn geladen, von der Physik herausgedrueckt und huepfte.
-    -- Build 162: jede Flagge und den Strahl vorher pruefen (ohne Absicherung waere ein
-    -- fehlender Wert ein Spielfehler); ohne Strahl gilt die Gelaendehoehe
+    -- TERRAIN_DELTA wie VehicleSystem.lua beim Paletten-Spawn: ohne sie trifft der Strahl bei
+    -- Strassen aus Gelaende-Deltas das Grundgelaende, das Fahrzeug steckt in der Fahrbahn.
+    -- Fehlt eine Flagge oder der Strahl, gilt die Gelaendehoehe.
     if CollisionFlag ~= nil and RaycastUtil ~= nil and RaycastUtil.raycastClosest ~= nil then
         local maske = 0
         for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "ROAD", "STATIC_OBJECT", "BUILDING" }) do
@@ -3664,7 +3343,7 @@ function NachbarFelderManager:getFahrbahnHoehe(x, z, splineH)
     return h or gelaende, false
 end
 
---- Ist die Flaeche fuer ein Gespann frei? (Build 128)
+--- Ist die Flaeche fuer ein Gespann frei?
 --- Kasten laenge x breite, der Traktor steht vorn am Punkt (x, z), das Gespann reicht
 --- nach hinten (gegen ry). Unterkante 0,3 m ueber der Fahrbahnhoehe h, 2 m hoch.
 --- Maske wie AISystem.lua:1216; Strassen und Kollisionen ohne Filter ignoriert wie
@@ -3684,7 +3363,7 @@ function NachbarFelderManager:getIstSpawnFlaecheFrei(x, h, z, ry, laenge, breite
             target.treffer = nodeId
             return false
         end
-        -- Build 162: Masken-Werte vorher pruefen; fehlt einer, gilt die Flaeche als belegt
+        -- fehlt ein Masken-Wert, gilt die Flaeche als belegt
         if CollisionMask == nil or type(CollisionMask.ALL) ~= "number" or CollisionFlag == nil then return end
         local maske = CollisionMask.ALL
         for _, name in ipairs({ "TERRAIN", "TERRAIN_DELTA", "TERRAIN_DISPLACEMENT", "TRIGGER", "FILLABLE" }) do
@@ -3701,17 +3380,13 @@ function NachbarFelderManager:getIstSpawnFlaecheFrei(x, h, z, ry, laenge, breite
 end
 
 -- ============================================================
--- Admin-Spawnpunkte (Build 132)
+-- Admin-Spawnpunkte
 --
--- Die automatische Platzsuche beginnt am Shop-Spawn - der liegt auf vielen
--- Karten mitten im Ort. Dort wurden Fahrzeuge abgewiesen und per Rettungs-
--- Teleport versetzt; Clients sehen jede Positionsaenderung interpoliert
--- (Vehicle.lua:1768 setTargetPosition) - also als Flug durch die Luft.
--- Log 17.09.: "Ladeplatz taugt nicht (Verkehr sofort abgewiesen)" gefolgt von
--- "GOTO kommt nicht weg ... weiter vorn gesetzt".
--- Kartenunabhaengige Loesung: Der Admin setzt Wegpunkte vom Typ Spawnpunkt an
--- Stellen mit Platz. Richtung = Blickrichtung beim Setzen (aus dem Fahrzeug:
--- Fahrtrichtung). Gibt es Spawnpunkte, wird nur dort geladen.
+-- Der Shop-Spawn liegt auf vielen Karten mitten im Ort; Teleports zur Rettung
+-- sehen Clients interpoliert (Vehicle.lua:1768 setTargetPosition) als Flug.
+-- Der Admin setzt daher Wegpunkte vom Typ Spawnpunkt an Stellen mit Platz.
+-- Richtung = Blickrichtung beim Setzen (im Fahrzeug: Fahrtrichtung).
+-- Gibt es Spawnpunkte, wird nur dort geladen.
 -- ============================================================
 
 function NachbarFelderManager:getHatSpawnpunkte()
@@ -3742,17 +3417,16 @@ function NachbarFelderManager:waehleSpawnpunkt(nurPruefen)
     self.spawnpunktReserviert = self.spawnpunktReserviert or {}
     local jetzt = g_time or 0
     for _, i in ipairs(kandidaten) do
-        -- Reservierung: zwischen Auswahl und fertig geladenem Fahrzeug steht dort
-        -- noch nichts Physisches - ohne Sperre naehmen zwei Spawns denselben Platz.
+        -- Reservierung: bis das Fahrzeug fertig geladen ist, steht dort nichts
+        -- Physisches, sonst naehmen zwei Spawns denselben Platz.
         if (self.spawnpunktReserviert[i] or 0) <= jetzt then
             local wp = wps[i]
             local ry = wp.ry or 0
             -- Liegt eine KI-Strasse direkt am Punkt (8 m) und zeigt die gespeicherte
             -- Richtung ungefaehr an ihr entlang (< 45 Grad), exakt laengs ausrichten.
             -- Bewusst quer gesetzte Punkte (Hofausfahrt) bleiben unveraendert.
-            -- Build 136: die Spur mit passender Richtung nehmen (Zwillings-Spline), nie
-            -- eine Spur um 180 Grad drehen. Laeuft die Strasse dort nur in Gegenrichtung
-            -- (Einbahn), wird mit der Spur ausgerichtet - sonst lehnt die KI jeden Start ab.
+            -- Nie eine Spur um 180 Grad drehen (Zwillings-Spline). Ist dort nur die
+            -- Gegenrichtung befahrbar, mit der Spur ausrichten, sonst lehnt die KI ab.
             local _, _, rry, _, _, passt = self:getRoadPointInRichtung(wp.x, wp.z, 8, 0,
                 math.sin(ry), math.cos(ry))
             if rry ~= nil then
@@ -3781,16 +3455,11 @@ function NachbarFelderManager:waehleSpawnpunkt(nurPruefen)
     return nil
 end
 
---- Ladeposition an der KI-Strasse (Build 126).
----
---- Bis Build 125 wurde am Shop-Platz geladen und der Traktor danach 40 m auf die
---- Strasse versetzt, das Geraet an die Kupplung gesetzt. Auf dem Dedicated Server
---- sahen die Clients das als Flug durch die Luft (14.09.: "Feldhelfer kommen aus der
---- Luft gespawnt", vorher "landen im eingezaeunten Nachbargrundstueck").
---- Jetzt wird der Strassenpunkt EINMAL je Gespann bestimmt (mind. 40 m vom Shop-Platz,
---- ersatzweise 80 m, frei von Fahrzeugen, Richtung Feld bzw. erstes Fahrziel) und jedes
---- Fahrzeug dort geladen: der Traktor auf dem Punkt, Geraete 9/16 m dahinter. Die
---- Geraete bleiben bis zum Kuppeln ohne Physik (Build 116/125).
+--- Ladeposition an der KI-Strasse. Direkt dort laden statt nachtraeglich versetzen,
+--- weil Clients auf dem Dedicated Server jedes Versetzen als Flug sehen.
+--- Der Strassenpunkt wird einmal je Gespann bestimmt (Admin-Spawnpunkt, sonst Suche ab
+--- 40 m vom Shop-Platz, frei, Richtung erstes Fahrziel). Traktor auf dem Punkt, Geraete
+--- 9/16 m dahinter; sie bleiben bis zum Kuppeln ohne Physik.
 --- @return boolean true, wenn die Position gesetzt wurde
 function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     local w = entry ~= nil and entry.NachbarFelderWorker or nil
@@ -3798,7 +3467,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     if w.spawnStrasse == nil then
         w.spawnStrasse = false
         local function schritt()
-            -- Build 132: Admin-Spawnpunkt hat Vorrang vor der Suche am Shop
+            -- Admin-Spawnpunkt hat Vorrang vor der Suche am Shop
             local spp = self:waehleSpawnpunkt(false)
             if spp ~= nil then
                 w.spawnStrasse = spp
@@ -3810,16 +3479,11 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
             local sx, sz = self:getShopPosition()
             if sx == nil then return end
             local zielX, zielZ = w.patrolTargetX, w.patrolTargetZ
-            -- Build 128: Stuetzpunkte nach Entfernung pruefen, erster freier Platz gewinnt
-            -- Build 136: KEINE 180-Grad-Drehung mehr - KI-Strassen sind Einbahn-Splines
-            -- (siehe getRoadPointInRichtung). Durchgang 1 nur Punkte, deren Spur Richtung
-            -- Ziel zeigt, Durchgang 2 die uebrigen mit ihrer eigenen Richtung. Dazu muss es
-            -- voraus frei sein (6-26 m): Log 19.09. standen neue Fahrzeuge 7-9 m hinter
-            -- einem schlafenden Pool-Gespann und kamen nie weg.
-            -- Build 143: Stufen. Auch Hoefe haben KI-Splines - an einer Hofecke passte der
-            -- 17x4-m-Kasten gerade noch, das Gespann kam nicht weg und kippte (Bergisch Land,
-            -- Shop-Hof x=-478 z=11). Zuerst nur "echte Strassenstuecke" (gerade, eben, 30x5 m
-            -- frei), erst nah, dann weiter draussen; erst danach die alte lockere Pruefung.
+            -- Stuetzpunkte nach Entfernung pruefen, der erste gute Platz gewinnt.
+            -- KI-Strassen sind Einbahn-Splines (siehe getRoadPointInRichtung), daher nie
+            -- drehen: Durchgang 1 nur Spuren Richtung Ziel, Durchgang 2 die uebrigen.
+            -- Stufen, weil auch Hoefe KI-Splines haben: zuerst echte Strassenstuecke
+            -- (gerade, eben, 30x5 m frei), nah, dann weiter draussen; zuletzt locker.
             local geprueft = 0
             local mitZiel = zielX ~= nil and zielZ ~= nil
             local stufen = NachbarFelderManager.LADEPLATZ_STUFEN
@@ -3861,17 +3525,13 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     local z = sp.z - math.cos(sp.ry) * hinten
     local function schritt()
         local modellDrehung = (data.rotation ~= nil and data.rotation[2]) or 0
-        -- Build 127: Fahrbahnhoehe statt Gelaendehoehe - Strassen liegen als Objekte
-        -- ueber dem Gelaende; darin geladen rutschte das Fahrzeug seitlich heraus.
-        -- Build 128: an der Ladestelle (Traktor bzw. Geraet dahinter) gemessene Fahrbahnhoehe
+        -- Fahrbahnhoehe statt Gelaendehoehe: Strassen liegen als Objekte ueber dem Gelaende.
+        -- Gemessen an der eigenen Ladestelle (Traktor bzw. Geraet dahinter).
         local y = self:getFahrbahnHoehe(x, z, sp.h) + NachbarFelderManager.SPAWN_HOEHE
-        -- Build 155: waagerecht laden, aber so hoch, dass keine Ecke in der Fahrbahn steckt.
-        -- Build 154 lud mit der Laengsneigung der Strasse; das Spiel addiert beim Laden aber
-        -- die Shop-Drehung des Modells (storeData.shopRotationOffset, VehicleLoadingData) auf
-        -- unsere Winkel - aus der Neigung wurde eine Schraeglage zur Seite (Test 01.10.: Vario
-        -- 500 lag mit einer Seite am Boden und kippte auf die Raeder). Jetzt: Fahrbahnhoehe
-        -- vorn/hinten/links/rechts messen, hoechsten Punkt nehmen (gedeckelt, falls der Strahl
-        -- ein Objekt am Rand trifft) - das Fahrzeug faellt hoechstens ein paar cm auf die Raeder.
+        -- Waagerecht laden: das Spiel addiert beim Laden die Shop-Drehung des Modells
+        -- (storeData.shopRotationOffset) auf unsere Winkel, aus einer Laengsneigung wuerde
+        -- Schraeglage. Damit keine Ecke in der Fahrbahn steckt, vorn/hinten/links/rechts messen
+        -- und den hoechsten Punkt nehmen (gedeckelt, falls der Strahl ein Objekt trifft).
         local dx, dz = math.sin(sp.ry), math.cos(sp.ry)
         local px, pz = dz, -dx
         local hMitte = y - NachbarFelderManager.SPAWN_HOEHE
@@ -3886,8 +3546,8 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
         y = hMax + NachbarFelderManager.SPAWN_HOEHE
         data:setPosition(x, y, z)
         data:setRotation(0, sp.ry + modellDrehung, 0)
-        -- Build 154: Anbaugeraete gar nicht erst in die Physik - setAttachment setzt sie an die
-        -- Kupplung und nimmt sie dann auf (vorher: geladen, einen Takt Physik, erst dann entfernt)
+        -- Anbaugeraete gar nicht erst in die Physik, setAttachment setzt sie an die Kupplung
+        -- und nimmt sie dann auf
         if index >= 2 and data.setAddToPhysics ~= nil then
             data:setAddToPhysics(false)
         end
@@ -3907,49 +3567,48 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
     return true
 end
 
--- Build 154/155: Ladehoehe ueber der hoechsten Fahrbahnstelle unter dem Fahrzeug
-NachbarFelderManager.SPAWN_HOEHE        = 0.10   -- m ueber der Fahrbahn (bis Build 153: 0,15)
+-- Ladehoehe ueber der hoechsten Fahrbahnstelle unter dem Fahrzeug
+NachbarFelderManager.SPAWN_HOEHE        = 0.10   -- m ueber der Fahrbahn
 NachbarFelderManager.SPAWN_MESS_LAENGS  = 2.5    -- m vor und hinter dem Ladepunkt messen
 NachbarFelderManager.SPAWN_MESS_SEITE   = 1.2    -- m links und rechts messen
 NachbarFelderManager.SPAWN_MAX_ANHEBEN  = 0.5    -- m hoechstens anheben (mehr = Strahl traf ein Objekt)
 
--- Build 143: Ladeplatz-Suche in Stufen (setzeLadepositionStrasse)
+-- Ladeplatz-Suche in Stufen (setzeLadepositionStrasse)
 -- streng = echtes Strassenstueck: gerade, eben, grosser freier Kasten
 NachbarFelderManager.LADEPLATZ_STUFEN = {
     { minD = 40,  maxD = 250, streng = true  },
     { minD = 250, maxD = 800, streng = true  },
-    { minD = 40,  maxD = 250, streng = false },   -- bisherige Pruefung (bis Build 142)
+    { minD = 40,  maxD = 250, streng = false },   -- lockere Rueckfall-Pruefung
 }
 NachbarFelderManager.LADEPLATZ_MAX_PRUEFUNGEN = 150   -- je Stufe
 NachbarFelderManager.LADEPLATZ_GERADE_ABST    = { -20, -10, 10, 20 }   -- m entlang der Spur
 NachbarFelderManager.LADEPLATZ_GERADE_COS     = 0.9   -- Richtungsabweichung hoechstens ~25 Grad
 NachbarFelderManager.LADEPLATZ_MAX_HOEHE      = 1.2   -- m Hoehenunterschied auf der Gespannlaenge
--- Build 167: Sperrradius um einen gescheiterten Ladeplatz (vorher 15 m). Log 04.10.: nach der
--- Sperre von x=-363 z=29 wurde der naechste Platz wenige Meter daneben gewaehlt - dasselbe
--- Strassenstueck, das die KI nicht erreicht (NotReachable), die Fahrzeuge kamen wieder nicht weg.
+-- Sperrradius (m) um einen gescheiterten Ladeplatz. Kleiner waehlt die Suche oft einen Platz
+-- daneben auf demselben Strassenstueck, das die KI nicht erreicht (NotReachable).
 NachbarFelderManager.LADEPLATZ_SPERR_RADIUS   = 40
--- Build 173: Stillstand nach dem Start zaehlt als Fehlschlag des Ladeplatzes, wenn das
--- Fahrzeug nach 30 s noch hoechstens so weit davon entfernt steht (vorher 10 m).
+-- Stillstand nach dem Start zaehlt als Fehlschlag des Ladeplatzes, wenn das Fahrzeug
+-- nach 30 s noch hoechstens so weit (m) davon entfernt steht
 NachbarFelderManager.LADEPLATZ_STILLSTAND_RADIUS = 25
--- Build 174: Ladeplatz-Diagnose im Debug-Log nur bis zu diesem Abstand vom Ladeplatz
+-- Ladeplatz-Diagnose im Debug-Log nur bis zu diesem Abstand (m) vom Ladeplatz
 NachbarFelderManager.LADEPLATZ_DIAG_MAX = 100
--- Build 175: Aufraeumen beim Monatswechsel erst nach so vielen Spieltagen (Server-Konfig
+-- Aufraeumen beim Monatswechsel erst nach so vielen Spieltagen (Server-Konfig
 -- aufraeumenMinTage ueberschreibt, 0 = nie)
 NachbarFelderManager.AUFRAEUMEN_MIN_TAGE = 7
--- Build 176: so lange (Echtzeit) darf ein nicht parkendes Nachbar-Fahrzeug unbewegt stehen,
--- bevor es in den Pool geht bzw. entfernt wird (vorher 4 Spielminuten)
+-- so lange (Echtzeit) darf ein nicht parkendes Nachbar-Fahrzeug unbewegt stehen,
+-- bevor es in den Pool geht bzw. entfernt wird
 NachbarFelderManager.BLOCK_ECHTZEIT_MS = 4 * 60 * 1000
-NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- Build 148: Treffer so weit ueber der Strasse = Hindernis darueber
+NachbarFelderManager.HOEHE_UEBERKOPF          = 1.0   -- m; Treffer hoeher ueber der Strasse = Hindernis darueber
 
---- Taugt der Strassenpunkt als Ladeplatz? (Build 143, kartenunabhaengig)
+--- Taugt der Strassenpunkt als Ladeplatz? (kartenunabhaengig)
 --- Immer: nicht gesperrt, hinten noch Strasse, voraus kein Fahrzeug, Kasten 17 x 4 m frei.
 --- streng zusaetzlich: Strasse laeuft 20 m vor und hinter dem Punkt gerade weiter
 --- (keine Hofecke, keine Kurve), Fahrbahn eben, Kasten 30 x 5 m frei (Platz zum Losfahren).
 function NachbarFelderManager:getIstLadeplatzGut(sp, rx, rz, ry, h, streng)
-    if self:getIstSpawnPlatzGesperrt(rx, rz) then return false end   -- Build 129/142
+    if self:getIstSpawnPlatzGesperrt(rx, rz) then return false end
     local dx, dz = sp[3], sp[4]
-    -- Build 148: nichts ueber der Fahrbahn (Baumkrone, Dach) auf der Gespannlaenge -
-    -- dort landete das Fahrzeug beim Laden oben und stuerzte
+    -- nichts ueber der Fahrbahn (Baumkrone, Dach) auf der Gespannlaenge, sonst wird
+    -- das Fahrzeug oben abgesetzt und stuerzt
     for _, d in ipairs({ 3, 0, -5, -10, -15 }) do
         local _, ueberkopf = self:getFahrbahnHoehe(rx + dx * d, rz + dz * d, sp[5])
         if ueberkopf then return false end
@@ -3982,7 +3641,7 @@ function NachbarFelderManager:getIstLadeplatzGut(sp, rx, rz, ry, h, streng)
     end
     if hMax - hMin > NachbarFelderManager.LADEPLATZ_MAX_HOEHE then return false end
 
-    -- Platz: Gespann (17 m) plus Raum zum Losfahren, Kasten reicht 3 m vor den Punkt -> 13 m davor frei
+    -- Gespann (17 m) plus Raum zum Losfahren; der Kasten reicht 3 m vor den Punkt, also 13 m versetzt
     if not self:getIstSpawnFlaecheFrei(rx + dx * 13, h, rz + dz * 13, ry, 30, 5.0) then return false end
     return true
 end
@@ -4001,18 +3660,10 @@ function NachbarFelderManager:loadVehicles(NachbarFelderWorker)
             data:setConfigurations(info.configurations)
         end
         local mission = g_currentMission
-        -- Spawn exakt wie gekaufte Fahrzeuge: Die Engine wählt einen FREIEN
-        -- Shop-Platz inkl. korrekter Ausrichtung (Richtung Ausfahrt/Schranke)
-        -- und Kollisionsprüfung. Jedes Fahrzeug (Traktor + Anbaugeräte) bekommt
-        -- so seinen eigenen Platz - kein Physik-Clash; setAttachment teleportiert
-        -- die Geräte anschliessend hinter den Traktor.
-        -- Verifiziert in der Referenz-Mod FarmerWorkingAssistant
-        -- (MissionInfo:loadVehicles). Die manuelle Position+Rotation
-        -- (Workshop-Mathe) stellte die Helfer verkehrt herum an den falschen
-        -- Platz (am Boot) und ist deshalb entfernt.
-        -- Build 94: Original-Shop statt Filiallieferungen-Lieferort, die
-        -- uebrigen Kartenplaetze als Ausweich (getNfSpawnPlaces).
-        -- Build 126: direkt an der KI-Strasse laden (sonst Shop-Platz wie bisher)
+        -- Bevorzugt direkt an der KI-Strasse laden. Rueckfall: wie gekaufte Fahrzeuge,
+        -- die Engine waehlt einen freien Shop-Platz mit Ausrichtung und Kollisionspruefung
+        -- (vgl. FarmerWorkingAssistant, MissionInfo:loadVehicles); setAttachment setzt die
+        -- Geraete danach hinter den Traktor. getNfSpawnPlaces: Original-Shop zuerst.
         if not self:setzeLadepositionStrasse(data, NachbarFelderWorker) then
             data:setLoadingPlace(self:getNfSpawnPlaces(), mission.usedStorePlaces)
         end
@@ -4031,26 +3682,17 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
     self.vehicleType[NachbarFelderWorker.fieldId].NachbarFelderWorker.needTimer = true
 
     do
-        -- Anbaugeräte kuppeln – fehlgeschlagene Kupplungen sind kein Abbruchgrund
-        -- (Implement 3 hängt z.B. am Implement 2, nicht direkt am Traktor → fail ist normal)
+        -- Anbaugeräte kuppeln. Eine fehlgeschlagene Kupplung ist kein Abbruchgrund,
+        -- Implement 3 hängt z. B. oft an Implement 2 statt am Traktor.
         for v = 2, #NachbarFelderWorker.vehicleType do
             local implement = NachbarFelderWorker.vehicleType[v]
             local isPatrolRig = NachbarFelderWorker.NachbarFelderWorker ~= nil
                 and NachbarFelderWorker.NachbarFelderWorker.isPatrol
-            -- Implement direkt hinter den Traktor teleportieren bevor Kupplung.
-            -- Verhindert Physik-Explosion wenn Traktor und Implement weit auseinander spawnen.
-            -- Build 116: nur noch beim Verkehr (kurze Dreipunkt-Geraete); Feldhelfer
-            -- werden unten genau an der Kupplung positioniert.
-            -- Build 125: kein Teleport auf den Traktor-Mittelpunkt mehr, auch nicht fuer
-            -- den Verkehr - das Geraet wird unten an die Kupplung gesetzt.
             local attacherRef = (v == 2) and vehicle or NachbarFelderWorker.vehicleType[v - 1]
-            -- Kupplung: erst am richtigen Kettenglied (attacherRef) probieren, beide Richtungen;
-            -- bei v≥3 als Fallback auch direkt am Traktor (vehicle) – FS25 hängt Implement 3
-            -- oft direkt an den Traktor, nicht an Implement 2.
-            -- v==2 Feldarbeit: nur Heckkupplung (Front-Fallback würde Feldarbeit blockieren)
-            -- v==2 Patrol: auch Frontkupplung – Front-Mähwerke (Kategorie MOWERS) gehören
-            --              nach VORNE, nicht ans Heck
-            -- v>=3: Zusatzgewicht o.ä. → auch Frontkupplung erlaubt
+            -- Erst am Vorgänger in der Kette kuppeln, ab v >= 3 als Fallback direkt am Traktor.
+            -- v == 2 Feldarbeit: nur Heck, eine Frontkupplung würde die Feldarbeit blockieren.
+            -- v == 2 Verkehr: auch Front, Frontmähwerke (MOWERS) gehören nach vorne.
+            -- v >= 3 (Zusatzgewicht o. ä.): Front ebenfalls erlaubt.
             local pendingInfo = self:attachObjects(attacherRef, implement, true)
             if pendingInfo == nil and (v >= 3 or isPatrolRig) then
                 pendingInfo = self:attachObjects(attacherRef, implement, false)
@@ -4062,7 +3704,7 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
                 end
             end
             if pendingInfo ~= nil then
-                self:kuppleGeraet(pendingInfo)   -- Build 156: drehrichtig setzen, weich kuppeln
+                self:kuppleGeraet(pendingInfo)   -- drehrichtig setzen, weich kuppeln
             elseif implement ~= nil then
                 if not implement.isAddedToPhysics then implement:addToPhysics() end
                 if not isPatrolRig then
@@ -4073,9 +3715,8 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
         end
     end
 
-    -- Patrol: nicht kuppelbare Geraete löschen statt als Waisen stehen lassen
-    -- (z.B. Geraet ohne passende Kupplung am gewaehlten Traktor).
-    -- Das Fahrzeug patrouilliert dann solo.
+    -- Verkehr: nicht kuppelbare Geraete loeschen statt sie verwaist stehen zu lassen,
+    -- das Fahrzeug faehrt dann solo.
     if NachbarFelderWorker.NachbarFelderWorker ~= nil
        and NachbarFelderWorker.NachbarFelderWorker.isPatrol then
         local worker = NachbarFelderWorker.NachbarFelderWorker
@@ -4102,31 +3743,21 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
         end
     end
 
-    -- Gespann NACH dem Kuppeln geradeziehen: grosse Anbaugeraete ziehen den
-    -- Traktor beim Kuppeln schief ("verkehrt herum"). teleportVehicle bewegt
-    -- angehaengte Implements mit.
-    -- Feldarbeit (spawnt am Shop): Richtung Ausfahrt/Workshop.
-    -- Patrol (steht am Start-WP): Richtung Ziel-WP - NICHT Workshop, sonst
-    -- dreht sich das Gespann irgendwo auf der Map in Felder/Hindernisse!
+    -- Verkehrsgespann nach dem Kuppeln Richtung Ziel-WP ausrichten; grosse Geraete
+    -- ziehen den Traktor beim Kuppeln schief. teleportVehicle nimmt die Anbaugeraete mit.
     if #NachbarFelderWorker.vehicleType >= 2 then
         local worker = NachbarFelderWorker.NachbarFelderWorker
         local function schritt()
             if vehicle ~= nil and vehicle.rootNode ~= nil then
                 local vx, _, vz = getWorldTranslation(vehicle.rootNode)
 
-                -- Build 116: Feldhelfer sitzen jetzt genau an der Kupplung, nichts
-                -- ist schief gezogen. Das Drehen des ganzen Gespanns schwenkte ein
-                -- langes Geraet am engen Shop in Mauern - der Traktor wurde schon
-                -- beim Spawn Richtung Ausfahrt gedreht.
+                -- Feldhelfer nicht drehen: sie sitzen schon an der Kupplung, und am
+                -- engen Shop wuerde ein langes Geraet in die Mauern schwenken.
                 if not (worker ~= nil and worker.isPatrol) then
                     return
                 end
 
-                -- Feldarbeit: Richtung Ausfahrt. Frueher stand hier die feste
-                -- Krebach-Koordinate der Werkstatt; jetzt liefert
-                -- getSpawnLookAt() den Zielpunkt fuer die geladene Karte.
-                -- Ohne Zielpunkt bleibt die Ausrichtung, wie das Kuppeln sie
-                -- hinterlassen hat.
+                -- Ohne Zielpunkt bleibt die Ausrichtung so, wie das Kuppeln sie hinterlassen hat.
                 local lookAt = self:getSpawnLookAt()
                 if lookAt == nil and not (worker ~= nil and worker.isPatrol) then
                     return
@@ -4139,12 +3770,11 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
 
                 if worker ~= nil and worker.isPatrol then
                     if worker.firstStart then
-                        -- Gespann wird gleich komplett zum Start-WP teleportiert
-                        -- (inkl. Ausrichtung) → hier nichts drehen.
+                        -- wird gleich samt Ausrichtung zum Start-WP teleportiert
                         return
                     end
                     if worker.patrolTargetX == nil or worker.patrolTargetZ == nil then
-                        return  -- kein Ziel bekannt → Ausrichtung nicht anfassen
+                        return  -- kein Ziel bekannt
                     end
                     tXd = worker.patrolTargetX - vx
                     tZd = worker.patrolTargetZ - vz
@@ -4159,10 +3789,9 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
     end
 end
 
--- Klassennamen einer AIMessage ermitteln. Das Vehicle-Event onAIJobFinished
--- bekommt die AIMessage NICHT übergeben - nur job:stop. Der Klassenname steuert
--- die Fehlerbehandlung im Worker (NotReachable → neues Ziel, OutOfMoney →
--- Konto auffüllen + Retry, SuccessFinishedJob → angekommen).
+-- Klassenname einer AIMessage. onAIJobFinished bekommt die Message nicht,
+-- nur job:stop. Der Worker entscheidet danach, wie er reagiert
+-- (NotReachable: neues Ziel, OutOfMoney: Konto auffüllen und erneut versuchen).
 local NF_AI_MSG_CLASSES = {
     "AIMessageSuccessFinishedJob", "AIMessageSuccessStoppedByUser",
     "AIMessageErrorNoPathFound", "AIMessageErrorOutOfMoney",
@@ -4172,7 +3801,7 @@ local NF_AI_MSG_CLASSES = {
     "AIMessageErrorNoFieldFound", "AIMessageErrorNotReachable",
     "AIMessageErrorOutOfFill", "AIMessageErrorOutOfFuel",
     "AIMessageErrorIsFull", "AIMessageErrorWrongFillType",
-    -- Build 147: aus AIDriveStrategyFieldCourse (LUADOC)
+    -- aus AIDriveStrategyFieldCourse
     "AIMessageErrorFieldNotReady", "AIMessageErrorVineyardNotSupported",
 }
 
@@ -4188,16 +3817,12 @@ local function nfAIMessageName(msg)
 end
 
 -- ============================================================
--- Spielverkehr (Build 152)
--- Die Autos des Spielverkehrs (Engine, g_currentMission.trafficSystem) bremsen
--- nur fuer angemeldete Objekte. Das Spiel meldet einen Spieler zu Fuss an
--- (Player.lua: addTrafficSystemPlayer mit graphicsRootNode) und ein Fahrzeug,
--- in das ein Spieler einsteigt (Enterable.lua:1724, components[1].node; beim
--- Aussteigen removeTrafficSystemPlayer, Zeile 1808). Fahrzeuge ohne Fahrer -
--- also auch unsere - kennt der Spielverkehr nicht und faehrt in sie hinein.
--- Deshalb melden wir Traktor und Geraete beim Losfahren genauso an und beim
--- Einschlafen im Pool, Loeschen und Spielende wieder ab.
--- Abschaltbar: <spielverkehrAnmelden>false</...> in der Server-Konfig.
+-- Spielverkehr
+-- Die Autos des Spielverkehrs (g_currentMission.trafficSystem) bremsen nur fuer
+-- angemeldete Objekte. Das Spiel meldet Spieler zu Fuss und besetzte Fahrzeuge an
+-- (Enterable: addTrafficSystemPlayer mit components[1].node), fahrerlose nicht.
+-- Deshalb melden wir Traktor und Geraete beim Losfahren an und beim Parken im Pool,
+-- Loeschen und Spielende wieder ab. Abschaltbar ueber <spielverkehrAnmelden>.
 -- ============================================================
 function NachbarFelderManager:getSpielverkehrId()
     local ts = g_currentMission ~= nil and g_currentMission.trafficSystem or nil
@@ -4244,23 +3869,20 @@ function NachbarFelderManager:meldeBeimSpielverkehrAb(vehicle)
 end
 
 -- ============================================================
--- driveToField: GOTO-Job zum naechsten Ziel oder zurück zum Ladeplatz
--- (Name historisch - seit Build 150 nur noch Verkehr)
--- WICHTIG: farmId darf NICHT 0 (Spectator) sein – der Engine
--- lehnt solche Jobs sofort ab → onAIJobFinished nach 5ms!
+-- driveToField: GOTO-Job zum naechsten Ziel des Verkehrs
+-- farmId darf nicht 0 (Spectator) sein, sonst lehnt die Engine den Job
+-- sofort ab und onAIJobFinished kommt nach wenigen ms.
 -- ============================================================
 function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     if x == nil or z == nil then return end
 
-    -- Build 150: nur noch Verkehr (fieldId < 0 = Patrol-Schluessel). Kein createAgent:
-    -- Vanilla "Freie Fahrt" macht das auch nicht. AIJobGoTo ruft createAgent intern
-    -- auf - ein vorheriger Aufruf korrumpiert den Agent-State.
-    -- prepareForAIDriving, aber OHNE createAgent.
+    -- Kein eigenes createAgent: AIJobGoTo ruft es intern auf, ein zusaetzlicher
+    -- Aufruf vorher bringt den Agent-State durcheinander.
     if vehicle.prepareForAIDriving ~= nil then
         vehicle:prepareForAIDriving()
     end
 
-    -- Anbaugeräte für Straßenfahrt falten (auch für Patrol sinnvoll).
+    -- Anbaugeräte für die Straßenfahrt einklappen
     if vehicle.getAttachedImplements ~= nil then
         for _, att in ipairs(vehicle:getAttachedImplements()) do
             local impl = att.object
@@ -4268,12 +3890,8 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
                 if impl.prepareForAIDriving ~= nil then
                     impl:prepareForAIDriving()
                 end
-                -- Build 112: Einklapp-Richtung haengt vom Geraet ab. Ausgeklappt
-                -- ist ein Geraet in Richtung turnOnFoldDirection (Foldable.lua:941-949),
-                -- eingeklappt wird mit -turnOnFoldDirection (so macht es das Spiel,
-                -- FillUnit.lua:1746, und die Mod beim Ankuppeln). Das feste -1 klappte
-                -- Geraete mit turnOnFoldDirection = -1 vor JEDER Fahrt wieder aus -
-                -- Verkehr fuhr mit ausgeklapptem Wender/Grubber und blieb ueberall haengen.
+                -- Einklappen mit -turnOnFoldDirection wie im Spiel (FillUnit), nicht mit
+                -- festem -1: Geraete mit turnOnFoldDirection = -1 wuerden sonst ausklappen.
                 if impl.setFoldDirection ~= nil then
                     local wd = 1
                     if impl.spec_foldable ~= nil and impl.spec_foldable.turnOnFoldDirection ~= nil then
@@ -4285,7 +3903,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
         end
     end
 
-    -- Build 122: nicht eingeklappte Geraete loggen und in 10 s nachpruefen
+    -- nicht eingeklappte Geraete loggen und nach 10 s nachpruefen
     local function schritt()
         if vehicle.getAttachedImplements == nil then return end
         for _, att in ipairs(vehicle:getAttachedImplements()) do
@@ -4299,19 +3917,16 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     end
     schritt()
 
-    -- Motor sicherstellen (nach fehlgeschlagener Feldarbeit kann Motor aus sein)
+    -- Motor kann nach einem abgebrochenen Job aus sein
     if vehicle.startMotor ~= nil and vehicle.getIsMotorStarted ~= nil
        and not vehicle:getIsMotorStarted() then
         vehicle:startMotor(true)
     end
 
     local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
-    -- Kostenneutral (Build 91): NF-Jobs laufen auf der NPC-Farm 2 und sollen
-    -- dort nichts kosten. AIJob:updateCost() bucht pro Millisekunde
-    -- getPricePerMs() ab (Basis 0.0004, AIJob.lua:203) und stoppt den Job mit
-    -- AIMessageErrorOutOfMoney, sobald getBalance() nicht mehr reicht
-    -- (AIJob.lua:177). Preis 0 heisst: keine Buchung, keine Geldpruefung, kein
-    -- Eingriff in den Kontostand der NPC-Farm.
+    -- Kostenneutral: AIJob:updateCost() bucht getPricePerMs() je ms ab und stoppt
+    -- mit AIMessageErrorOutOfMoney, wenn das Konto nicht reicht. Mit Preis 0 gibt es
+    -- weder Buchung noch Geldpruefung auf der NPC-Farm.
     if job ~= nil then
         job.getPricePerMs = function() return 0 end
     end
@@ -4324,26 +3939,24 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     job.vehicleParameter:setVehicle(vehicle)
     job:setValues()
 
-    -- Dauerschreiber (jeder Hop): nur im Debug-Log (logLevel=2)
+    -- kommt bei jedem Hop, daher nur auf logLevel 2
     self:log(2, "NachbarFelder: GOTO Start -> x=" .. tostring(math.floor(x or 0)) ..
         " z=" .. tostring(math.floor(z or 0)) ..
         " farmId=" .. tostring(self.farmId) ..
         " Feld=" .. tostring(fieldId))
 
-    -- Fahrzeuge ohne createAgent können keinen GOTO-Job ausführen
-    -- (AIJobGoTo.lua ruft createAgent intern auf → Engine-Crash)
+    -- Ohne createAgent kein GOTO-Job: AIJobGoTo ruft es intern auf und die Engine stürzt ab.
     if vehicle.createAgent == nil then
         local fname = vehicle.configFileName
         local baseName = fname ~= nil and (string.match(fname, "[^/\\]+$") or fname) or tostring(vehicle.typeName)
         print("NachbarFelder: kein createAgent auf " .. baseName .. " - Fahrzeug wird gesperrt")
-        -- Session-Blacklist: nie wieder spawnen
+        -- für den Rest der Sitzung nicht mehr spawnen
         if fname ~= nil then
             self.trafficVehicleBlacklist = self.trafficVehicleBlacklist or {}
             if not self.trafficVehicleBlacklist[fname] then
                 self.trafficVehicleBlacklist[fname] = true
                 print("NachbarFelder: [TRAFFIC] Blacklist: " .. baseName .. " (kein createAgent)")
                 self.trafficVehicleList = nil
-                -- Aus Stammfahrzeug-Slots entfernen
                 for i = #self.regularVehicleXMLs, 1, -1 do
                     if self.regularVehicleXMLs[i] == fname then
                         table.remove(self.regularVehicleXMLs, i)
@@ -4366,9 +3979,8 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
         return
     end
 
-    -- Berechtigungen VOR startJob setzen (Job prüft Erlaubnis beim Start).
-    -- setOwnerFarmId ist zwingend: aiSystem:startJob prüft vehicle.ownerFarmId == farmId;
-    -- MISSION-Vehicles können ownerFarmId=0 haben obwohl beim Laden farmId=2 gesetzt wurde.
+    -- Vor startJob: aiSystem:startJob prüft vehicle.ownerFarmId == farmId, und
+    -- MISSION-Fahrzeuge können trotz farmId beim Laden ownerFarmId 0 haben.
     if vehicle ~= nil and vehicle.setOwnerFarmId ~= nil then vehicle:setOwnerFarmId(self.farmId) end
     self:markVehiclesAsHelper(vehicle)
 
@@ -4385,18 +3997,17 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
 
     g_currentMission.aiSystem:startJob(job, self.farmId)
 
-    -- Build 152: Gespann beim Spielverkehr anmelden, damit die Autos bremsen
     self:meldeGespannBeimSpielverkehrAn(vehicle)
 
-    -- Build 100: Zustand direkt NACH dem Start. Nur so ist zu sehen, warum ein
-    -- Auftrag ohne Fehlermeldung anlaeuft und das Fahrzeug trotzdem steht.
+    -- Zustand direkt nach dem Start, fuer Jobs, die ohne Fehler anlaufen und trotzdem stehen
     if nfW ~= nil and nfW.isPatrol then
         print("NachbarFelder: [TRAFFIC][DIAG] nach Start: " .. self:getVehicleAiDiag(vehicle))
     end
 end
 
---- Ist ein Geraet eingeklappt? (Build 122) nil = hat keine Klappteile.
---- Eingeklappt = Animationsende gegenueber turnOnFoldDirection (Foldable.lua:378-381).
+--- Ist das Geraet eingeklappt? Eingeklappt ist das Animationsende entgegen
+--- turnOnFoldDirection (wie in Foldable).
+--- @return boolean|nil nil, wenn das Geraet keine Klappteile hat
 function NachbarFelderManager:getIstEingeklappt(impl)
     local sf = impl ~= nil and impl.spec_foldable or nil
     if sf == nil or not sf.hasFoldingParts or sf.foldAnimTime == nil then return nil end
@@ -4425,7 +4036,7 @@ function NachbarFelderManager:setFillCapacity(vehicle, cap, forceFillTypeName)
                 local fillTypeIndex = fillUnitData.fillType
                 local fillTypeName = g_fillTypeManager:getFillTypeNameByIndex(fillTypeIndex)
 
-                -- Wenn forceFillTypeName angegeben: diesen Fülltyp erzwingen (z.B. HERBICIDE für herbicideMission)
+                -- optional vorgegebenen Fülltyp erzwingen (z. B. HERBICIDE)
                 if forceFillTypeName ~= nil and fillUnitData.supportedFillTypes ~= nil then
                     local forcedIndex = g_fillTypeManager:getFillTypeIndexByName(forceFillTypeName)
                     if forcedIndex ~= nil and fillUnitData.supportedFillTypes[forcedIndex] then
@@ -4454,7 +4065,6 @@ function NachbarFelderManager:setFillCapacity(vehicle, cap, forceFillTypeName)
                         targetCapacity = tonumber(cap) or 100000
                         fillUnitData.capacity = targetCapacity
                     end
-                    -- Tank vollständig füllen (kein künstliches Limit mehr)
                     local targetFillLevel = targetCapacity
                     if vehicle.setFillUnitFillLevel ~= nil then
                         vehicle:setFillUnitFillLevel(fillUnitIndex, targetFillLevel, fillTypeIndex, nil)
@@ -4468,20 +4078,16 @@ function NachbarFelderManager:setFillCapacity(vehicle, cap, forceFillTypeName)
     end
 end
 
--- Build 142: Hochachse des Traktors zeigt weniger als so weit nach oben (cos ~72 Grad) = umgekippt
+-- Umgekippt, wenn die Hochachse des Traktors weniger nach oben zeigt (cos ~72 Grad)
 NachbarFelderManager.KIPP_GRENZE = 0.3
 
 -- ============================================================
--- generateTraffic: Fahrzeug fährt zu einem Feld-Zielpunkt, parkt
--- eine Weile und kehrt zum Shop zurück (kein Feldarbeit-Job).
--- Liefert einen Punkt nahe dem Rand eines zufälligen Feldes.
--- Felder werden von Straßen umgeben → Feldrand ≈ Straßenrand.
--- Radius wird aus areaHa geschätzt (Kreisannäherung + 10m Puffer).
+-- Verkehr: Zielpunkte
 -- ============================================================
+--- Liefert ein Ziel fuer den Verkehr: einen gesetzten Wegpunkt oder, falls keine
+--- existieren, eine zufaellige Kartenposition ausserhalb aller Felder.
 function NachbarFelderManager:getTrafficWaypoint()
-    -- User-Wegpunkte: wenn gesetzt, werden NUR diese verwendet (kein Zufall).
-    -- Macht die Mod karten-unabhängig und verhindert Stopps mitten auf dem Feld.
-    -- Fallback auf Zufalls-Suche nur wenn noch gar keine Wegpunkte gesetzt wurden.
+    -- Gesetzte Wegpunkte haben Vorrang, damit kein Fahrzeug mitten auf dem Feld haelt.
     if self.userTrafficWaypoints ~= nil and #self.userTrafficWaypoints > 0 then
         local wp = self.userTrafficWaypoints[math.random(#self.userTrafficWaypoints)]
         return wp.x, wp.z
@@ -4489,7 +4095,7 @@ function NachbarFelderManager:getTrafficWaypoint()
 
     local fields = g_fieldManager:getFields()
 
-    -- Feldmittelpunkte + Sicherheitsradien vorberechnen (Kreisannäherung + 60m Puffer)
+    -- Felder als Kreise aus areaHa annähern, plus 60 m Puffer
     local fieldCircles = {}
     for _, f in pairs(fields) do
         if f ~= nil and f.posX ~= nil then
@@ -4501,13 +4107,11 @@ function NachbarFelderManager:getTrafficWaypoint()
         end
     end
 
-    -- Map-Ausdehnung ermitteln
     local halfSize = 1400
     if g_currentMission.terrainSize ~= nil then
         halfSize = g_currentMission.terrainSize * 0.34
     end
 
-    -- Zufällige Map-Positionen testen bis eine außerhalb aller Felder liegt
     for _ = 1, 60 do
         local x = (math.random() * 2 - 1) * halfSize
         local z = (math.random() * 2 - 1) * halfSize
@@ -4525,7 +4129,7 @@ function NachbarFelderManager:getTrafficWaypoint()
     return nil
 end
 
--- Hilfsfunktionen für Traffic-Listen (Modul-Scope, wiederverwendbar)
+-- Hilfsfunktionen für die Verkehrslisten
 local function nfIsWaterVehicle(filename)
     local f = filename:lower()
     return f:find("boat")        ~= nil or f:find("ship")      ~= nil
@@ -4535,11 +4139,9 @@ local function nfIsWaterVehicle(filename)
         or f:find("highlandsfishing") ~= nil
 end
 
--- Build 105: Shop-Werte nachladen. Das Spiel setzt storeItem.specs beim Laden
--- auf nil (StoreManager.lua:943) und fuellt sie erst bei Bedarf aus der
--- Fahrzeug-XML (StoreItemUtil.loadSpecsFromXML, StoreItemUtil.lua:215). Auf
--- dem Dedicated Server oeffnet niemand den Shop - specs blieb nil. Nur fuer
--- Kandidaten aufrufen: es liest pro Artikel eine XML-Datei.
+-- Shop-Werte nachladen. storeItem.specs ist nach dem Laden nil und wird erst beim
+-- Oeffnen des Shops gefuellt, auf dem Dedicated Server also nie. Nur fuer
+-- Kandidaten aufrufen, es liest pro Artikel eine XML-Datei.
 local function nfLoadSpecs(item)
     if item ~= nil and item.specs == nil and StoreItemUtil ~= nil
        and StoreItemUtil.loadSpecsFromXML ~= nil then
@@ -4549,14 +4151,9 @@ local function nfLoadSpecs(item)
     end
 end
 
--- Leergewicht aus StoreItem-Specs (in kg, nil wenn nicht verfügbar).
---
--- Build 105: specs.weight ist KEINE Zahl, sondern eine Tabelle (componentMass
--- in Tonnen, Konfigurationen, Raeder ... - Vehicle.loadSpecValueWeight,
--- Vehicle.lua:4658). tonumber() darauf ergab immer nil, und der Filter
--- "w == nil or w <= max" liess jedes Fahrzeug durch - deshalb fuhren TK4, 7S
--- und 6R trotz "bis 12 t". Das Spiel rechnet die Masse selbst mit
--- Vehicle.getSpecValueWeight aus (Tonnen, Vehicle.lua:4728).
+-- Leergewicht laut Shop in kg, nil wenn unbekannt.
+-- specs.weight ist keine Zahl, sondern eine Tabelle (Vehicle.loadSpecValueWeight);
+-- die Masse in Tonnen liefert erst Vehicle.getSpecValueWeight.
 local function nfGetItemWeight(item)
     nfLoadSpecs(item)
     local t = nil
@@ -4568,7 +4165,7 @@ local function nfGetItemWeight(item)
     return (t ~= nil and t > 0) and (t * 1000) or nil
 end
 
--- Motorleistung laut Shop (specs.power, Motorized.lua:97/3747), nil wenn unbekannt.
+-- Motorleistung laut Shop (specs.power), nil wenn unbekannt.
 local function nfGetItemPower(item)
     nfLoadSpecs(item)
     local p = nil
@@ -4576,8 +4173,7 @@ local function nfGetItemPower(item)
     return (type(p) == "number" and p > 0) and p or nil
 end
 
--- Leistungsbedarf eines Geraets (specs.neededPower.base, PowerConsumer.lua:502/538).
--- Gleiche Einheit wie specs.power - beides steht so in den Store-Daten.
+-- Leistungsbedarf eines Geraets (specs.neededPower.base), gleiche Einheit wie specs.power.
 local function nfGetItemNeededPower(item)
     nfLoadSpecs(item)
     local p = nil
@@ -4586,12 +4182,10 @@ local function nfGetItemNeededPower(item)
     return (type(p) == "number" and p > 0) and p or nil
 end
 
--- Build 159: Arbeitsbreite laut Shop in Metern, nil wenn unbekannt.
--- specs.workingWidth = { width, minWidth } (Vehicle.loadSpecValueWorkingWidth),
--- bei Geraeten mit Breiten-Konfiguration specs.workingWidthConfig =
--- { [configName] = { [index] = { width, isSelectable } } } - dann zaehlt die
--- groesste Breite, weil das Geraet mit Standard-Konfiguration geladen wird und
--- wir die nicht sicher kennen (lieber zu vorsichtig).
+-- Arbeitsbreite laut Shop in m, nil wenn unbekannt.
+-- specs.workingWidth = { width, minWidth }; bei Breiten-Konfigurationen steht sie in
+-- specs.workingWidthConfig[configName][index].width. Dann zaehlt die groesste,
+-- weil die geladene Standard-Konfiguration nicht sicher bekannt ist.
 local function nfGetItemWorkingWidth(item)
     nfLoadSpecs(item)
     local specs = item ~= nil and item.specs or nil
@@ -4618,9 +4212,7 @@ local function nfGetItemWorkingWidth(item)
     return (type(w) == "number" and w > 0) and w or nil
 end
 
--- Build 164: Hoechstgeschwindigkeit laut Shop in km/h, nil wenn unbekannt.
--- specs.maxSpeed (Motorized.loadSpecValueMaxSpeed: storeData-Wert, Motor-Konfiguration
--- oder aus den Gaengen berechnet).
+-- Hoechstgeschwindigkeit laut Shop (specs.maxSpeed) in km/h, nil wenn unbekannt.
 local function nfGetItemMaxSpeed(item)
     nfLoadSpecs(item)
     local specs = item ~= nil and item.specs or nil
@@ -4631,7 +4223,7 @@ local function nfGetItemMaxSpeed(item)
     return (type(v) == "number" and v > 0) and v or nil
 end
 
--- Nutzlast aus StoreItem-Specs (in Litern, nil wenn nicht verfügbar).
+-- Nutzlast laut Shop in Litern, nil wenn unbekannt.
 local function nfGetItemCapacity(item)
     local cap = nil
     if item.specs ~= nil then
@@ -4640,61 +4232,49 @@ local function nfGetItemCapacity(item)
     return (type(cap) == "number" and cap > 0) and cap or nil
 end
 
--- Fahrzeugkategorien für KI-Traffic:
--- NUR Traktoren haben in FS25 einen AIFieldWorker-Navigation-Agent (GOTO-fähig).
--- CARS / TRUCKS / MOTORCYCLES haben KEINEN Navigation-Agent → scheitern bei 0ms.
--- TRACTORSL eingeschlossen: Großtraktoren können navigieren, sind nur breiter.
-local NF_MAX_VEH_WEIGHT_KG       = 18000  -- 18 t: schließt Sattelzugmaschinen aus, Traktoren bleiben
-local NF_MAX_TRAILER_WEIGHT_KG   =  6000  -- 6 t Leergewicht-Grenze (gilt für alle Größen-Stufen)
--- Kapazitätsgrenzen nach trafficTrailerSize (0=keine, 1=klein, 2=mittel, 3=alle)
+-- Grenzwerte fuer den Verkehr. Einen Navigations-Agent fuer GOTO haben in FS25
+-- nur Traktoren; Autos, Lkw und Motorraeder scheitern sofort.
+local NF_MAX_VEH_WEIGHT_KG       = 18000  -- kg, schliesst Sattelzugmaschinen aus
+local NF_MAX_TRAILER_WEIGHT_KG   =  6000  -- kg Leergewicht, fuer alle Groessenstufen
+-- Kapazitaet in l je trafficTrailerSize (0 = keine, 1 = klein, 2 = mittel, 3 = alle)
 local NF_TRAILER_CAP_BY_SIZE = { [0]=0, [1]=4000, [2]=8000, [3]=15000 }
 
--- Enge Karte (engeMap): Kleintraktoren wiegen 3-6 t, ein Fendt 900 gut 11 t.
--- Die 8-t-Grenze laesst die Klasse TRACTORSS vollstaendig durch und faengt
--- falsch einsortierte Brocken ab, ohne dass eine zweite Liste noetig waere.
--- Klein- UND Mitteltraktoren sind zugelassen, nur die Grossklasse faellt raus.
--- 12 t laesst einen Fendt 700 (~9 t) oder JD 6R (~11 t) durch und faengt
--- Brocken ab, die faelschlich in TRACTORSM einsortiert sind.
+-- Enge Karte: Klein- und Mitteltraktoren. 12 t laesst Fendt 700 (~9 t) oder
+-- JD 6R (~11 t) durch und faengt falsch in TRACTORSM einsortierte Brocken ab.
 local NF_ENG_MAX_VEH_WEIGHT_KG  = 12000
--- Build 105: Kleintraktoren wiegen 3-6 t; 7 t faengt Ausreisser ab, die
--- faelschlich in TRACTORSS einsortiert sind.
+-- Kleintraktoren wiegen 3-6 t; 7 t faengt falsch in TRACTORSS einsortierte ab.
 local NF_KLEIN_MAX_VEH_WEIGHT_KG = 7000
--- Build 164: Mini- und Raupen-Kompakttraktoren fahren nur 10-20 km/h, halten den
--- Verkehr auf und blieben im Test ohne Hindernis stehen. Darunter kein Verkehr.
--- Unbekanntes Tempo zaehlt nicht als zu langsam.
+-- Mini- und Raupen-Kompakttraktoren (10-20 km/h) halten den Verkehr auf und
+-- bleiben gern stehen. Unbekanntes Tempo zaehlt nicht als zu langsam.
 local NF_MIN_VEH_SPEED_KMH = 30
--- Auch innerhalb der leichten Kategorien gibt es Brocken: ein 8-m-Schwader
--- zaehlt als RAKES, ist aber breiter als der halbe Feldweg. Die Arbeitsbreite
--- steht nicht in den StoreItem-Specs (nur item.specs.weight ist dort belegt),
--- deshalb dient das Leergewicht als Ersatzmass.
+-- Ersatzmass fuer Geraete ohne Breitenangabe: ein 8-m-Schwader zaehlt als RAKES,
+-- ist aber breiter als der halbe Feldweg.
 local NF_ENG_MAX_IMPL_WEIGHT_KG = 3000
--- Build 159: Groessenverhaeltnis Traktor/Geraet. Ein Rigitrac SKH 60 zog einen
--- 7,7-m-Zettwender (Claas Volto 80) - Gewicht und Leistung passten, die Optik
--- nicht. Erlaubte Arbeitsbreite je Tonne Traktorgewicht, mit Unter-/Obergrenze.
--- Bei unbekanntem Traktorgewicht gilt die Untergrenze.
+-- Groessenverhaeltnis Traktor/Geraet: erlaubte Arbeitsbreite je Tonne Traktorgewicht,
+-- mit Unter- und Obergrenze. Bei unbekanntem Traktorgewicht gilt die Untergrenze.
 local NF_IMPL_BREITE_JE_TONNE = 1.2   -- m Arbeitsbreite je t Traktor
 local NF_IMPL_BREITE_MIN      = 3.0   -- m, so breit darf es immer sein
 local NF_IMPL_BREITE_MAX      = 6.0   -- m, breiter nie (Kleintraktoren bis 7 t)
 -- Geraete ohne lesbare Arbeitsbreite nur, wenn sie hoechstens so viel wiegen.
 local NF_IMPL_OHNE_BREITE_MAX_KG = 1000
 
--- Kategorien, die bei engeMap gefahren werden duerfen. Radlader und
--- Teleskoplader bleiben draussen: kurz, aber breit, und sie rangieren staendig.
+-- Kategorien bei engeMap. Rad- und Teleskoplader bleiben draussen: kurz, aber
+-- breit, und sie rangieren staendig.
 local NF_ENG_CATS = { TRACTORSS = true, TRACTORSM = true }
 
+-- Fahrzeuge ohne Navigations-Agent werden beim ersten Spawn gesperrt.
 local nfMotorCats = {
     TRACTORSS=true,              -- Kleintraktoren  (bis ~100 PS)
-    TRACTORSM=true,              -- Mitteltraktoren (100–200 PS)
-    TRACTORSL=true,              -- Großtraktoren   (200+ PS) – breit, aber GOTO-fähig
-    WHEELLOADERVEHICLES=true,    -- Radlader – wird beim Spawn blacklistet falls kein Nav-Agent
-    TELELOADERVEHICLES=true,     -- Teleskoplader – wird beim Spawn blacklistet falls kein Nav-Agent
-    CARS=true,                   -- Autos – wird beim Spawn blacklistet falls kein Nav-Agent
-    MOTORCYCLES=true,            -- Motorraeder – wird beim Spawn blacklistet falls kein Nav-Agent
+    TRACTORSM=true,              -- Mitteltraktoren (100-200 PS)
+    TRACTORSL=true,              -- Grosstraktoren  (200+ PS)
+    WHEELLOADERVEHICLES=true,
+    TELELOADERVEHICLES=true,
+    CARS=true,
+    MOTORCYCLES=true,
 }
 
 -- ============================================================
--- Nutzt negative Pseudo-IDs als vehicleType-Key.
--- Fahrzeugtypen: alle motorisierten Store-Fahrzeuge.
+-- Fahrzeugliste fuer den Verkehr
 -- ============================================================
 function NachbarFelderManager:buildTrafficVehicleList()
     self.trafficVehicleList = {}
@@ -4705,7 +4285,7 @@ function NachbarFelderManager:buildTrafficVehicleList()
 
     local eng = (self.engeMap ~= false)
 
-    -- Aktive Kategorien: nfMotorCats als Basis, durch vehicleCatEnabled ueberschrieben
+    -- nfMotorCats als Basis, vehicleCatEnabled ueberschreibt
     local activeCats = {}
     for cat, _ in pairs(nfMotorCats) do
         if self.vehicleCatEnabled ~= nil and self.vehicleCatEnabled[cat] ~= nil then
@@ -4715,9 +4295,7 @@ function NachbarFelderManager:buildTrafficVehicleList()
         end
     end
 
-    -- Build 105: auf JEDER Karte nur Kleintraktoren. Mittel- und Grossmaschinen
-    -- samt Zugfahrzeug machen als Nachbar-Verkehr nirgends Sinn (Wunsch des
-    -- Users). Die Kategorie-Schalter bleiben wirksam: wer Kleintraktoren
+    -- Als Nachbarverkehr nur Kleintraktoren, auf jeder Karte. Wer TRACTORSS
     -- abschaltet, bekommt keinen Verkehr.
     for cat, _ in pairs(activeCats) do
         activeCats[cat] = (cat == "TRACTORSS") and activeCats[cat] == true
@@ -4734,12 +4312,11 @@ function NachbarFelderManager:buildTrafficVehicleList()
            and not (self.trafficVehicleBlacklist and self.trafficVehicleBlacklist[item.xmlFilename]) then
             local w = nfGetItemWeight(item)
             local tempo = nfGetItemMaxSpeed(item)
-            -- Build 164: zu langsame Fahrzeuge (Mini-/Raupentraktoren) aussortieren
             if tempo ~= nil and tempo < NF_MIN_VEH_SPEED_KMH then
                 zuLangsam = zuLangsam + 1
                 print(string.format("NachbarFelder: [TRAFFIC]   zu langsam (%.0f km/h): %s", tempo,
                     tostring(string.match(item.xmlFilename, "[^/\\]+$") or item.xmlFilename)))
-            -- Build 105: unbekanntes Gewicht wird nicht mehr durchgewunken.
+            -- unbekanntes Gewicht nur als Notfallliste, siehe unten
             elseif w ~= nil and w <= maxGewicht then
                 table.insert(self.trafficVehicleList, {
                     filename  = item.xmlFilename,
@@ -4758,8 +4335,8 @@ function NachbarFelderManager:buildTrafficVehicleList()
     end
 
     if #self.trafficVehicleList == 0 and #ohneGewicht > 0 then
-        -- Sicherheitsnetz: liefert das Spiel fuer keinen Kleintraktor ein
-        -- Gewicht, lieber nur nach Kategorie als gar kein Verkehr.
+        -- Ist fuer keinen Kleintraktor ein Gewicht lesbar, lieber nur nach
+        -- Kategorie filtern als gar kein Verkehr.
         for _, e in ipairs(ohneGewicht) do
             table.insert(self.trafficVehicleList, e)
         end
@@ -4771,12 +4348,12 @@ function NachbarFelderManager:buildTrafficVehicleList()
 end
 
 -- ============================================================
--- Anbaugeraete-Liste fuer Traffic-Convoy (gecacht)
+-- Anbaugeraete fuer den Verkehr
 -- Nur Feldgeraete ohne Transportfunktion (kein Fuellvolumen).
 -- ============================================================
---- Sofort-Abweisung eines Verkehrsgespanns dem Anbaugeraet anrechnen (Build 119).
---- Gesperrt (nur fuer diese Session) wird ein Geraet erst nach 3 Abweisungen an
---- mindestens 2 verschiedenen Stellen - ein schlechter Standort allein sperrt nichts.
+--- Sofortige Abweisung eines Verkehrsgespanns dem Anbaugeraet anrechnen.
+--- Gesperrt (fuer diese Sitzung) wird erst nach 3 Abweisungen an mindestens
+--- 2 Stellen, damit ein schlechter Standort allein nichts sperrt.
 function NachbarFelderManager:merkeVerkehrGeraetAbweisung(filename, x, z)
     if filename == nil or x == nil or z == nil then return end
     local key = string.lower(tostring(filename))
@@ -4810,10 +4387,9 @@ function NachbarFelderManager:getIstVerkehrGeraetGesperrt(filename)
     return e ~= nil and e.gesperrt == true
 end
 
---- Passt das Geraet zum Traktor? (Build 105)
---- Leistungsbedarf des Geraets hoechstens die Motorleistung des Traktors, und
---- das Geraet wiegt hoechstens halb so viel wie der Traktor. Fehlt ein Wert,
---- gilt die vorsichtige Variante (nur kleine, leichte Geraete).
+--- Passt das Geraet zum Traktor?
+--- Leistungsbedarf hoechstens die Motorleistung, Gewicht hoechstens die Haelfte
+--- des Traktors. Fehlt ein Wert, gilt die vorsichtige Variante (nur kleine, leichte Geraete).
 function NachbarFelderManager:getPasstGeraetZuTraktor(traktor, geraet)
     if traktor == nil or geraet == nil then return false end
     local ps, bedarf = traktor.leistung, geraet.bedarf
@@ -4828,14 +4404,14 @@ function NachbarFelderManager:getPasstGeraetZuTraktor(traktor, geraet)
        and geraet.gewichtKg > traktor.gewichtKg * 0.5 then
         return false
     end
-    -- Build 159: Arbeitsbreite passend zur Traktorgroesse
+    -- Arbeitsbreite muss zur Traktorgroesse passen
     if geraet.breiteM ~= nil and geraet.breiteM > self:getMaxGeraeteBreite(traktor) then
         return false
     end
     return true
 end
 
---- Groesste erlaubte Arbeitsbreite eines Geraets fuer diesen Traktor in m (Build 159).
+--- Groesste erlaubte Arbeitsbreite eines Geraets fuer diesen Traktor in m.
 function NachbarFelderManager:getMaxGeraeteBreite(traktor)
     local t = (traktor ~= nil and traktor.gewichtKg ~= nil) and (traktor.gewichtKg / 1000) or 0
     local maxB = t * NF_IMPL_BREITE_JE_TONNE
@@ -4845,23 +4421,20 @@ function NachbarFelderManager:getMaxGeraeteBreite(traktor)
 end
 
 function NachbarFelderManager:buildTrafficTrailerList()
-    self.trafficTrailerList   = {}  -- schwer: Pflug, Maehwerk → nur Großtraktoren (TRACTORSL)
-    self.trafficImplListLight = {}  -- leicht: Rechen, Zinkenrotor → Mittelklasse (TRACTORSM)
+    self.trafficTrailerList   = {}  -- schwer: Pflug, Maehwerk (nur Grosstraktoren)
+    self.trafficImplListLight = {}  -- leicht: Rechen, Zinkenrotor
     if (self.trafficTrailerSize or 2) == 0 then
         print("NachbarFelder: [TRAFFIC] Anbaugeraete: deaktiviert (Einstellung = 0)")
         return
     end
     if g_storeManager == nil then return end
 
-    -- Brücken-sichere Kategorien (Transport-Zustand niedrig genug).
-    -- CULTIVATORS/DRILLS ausgeschlossen: gefaltete Flügel ragen zu weit nach oben.
-    local heavyCats = { PLOWS=true, MOWERS=true }   -- Großtraktor
+    -- Nur Kategorien, die im Transportzustand unter Bruecken passen.
+    -- CULTIVATORS/DRILLS fehlen bewusst: die gefalteten Fluegel ragen zu hoch.
+    local heavyCats = { PLOWS=true, MOWERS=true }   -- Grosstraktor
     local lightCats = { TEDDERS=true, RAKES=true }  -- Mittelklasse
 
-    -- Enge Karte: die schwere Liste bleibt leer. Pflug und Maehwerk gehen nur
-    -- an Grosstraktoren (siehe Gespann-Auswahl weiter unten), und die faehrt
-    -- bei engeMap niemand mehr - die Liste waere also ohnehin nie benutzt.
-    -- Build 105: auf jeder Karte - es gibt keine Grosstraktoren mehr.
+    -- Schwere Geraete passen nur an Grosstraktoren, und die werden nicht gespawnt.
     heavyCats = {}
 
     local allItems = {}
@@ -4870,14 +4443,13 @@ function NachbarFelderManager:buildTrafficTrailerList()
     local eng = (self.engeMap ~= false)
 
     for _, item in pairs(allItems) do
-        -- Build 105: erst die Kategorie pruefen, dann Werte laden - das Laden
-        -- liest pro Artikel eine XML-Datei.
+        -- Kategorie zuerst pruefen: das Laden der Werte liest pro Artikel eine XML-Datei.
         if item ~= nil and item.xmlFilename ~= nil and lightCats[item.categoryName]
            and not nfIsWaterVehicle(item.xmlFilename) then
             local w   = nfGetItemWeight(item)
             local cap = nfGetItemCapacity(item)
             if (cap == nil or cap == 0) and w ~= nil and w <= NF_ENG_MAX_IMPL_WEIGHT_KG then
-                -- Build 159: Breite merken; unbekannte Breite nur bei leichten Geraeten
+                -- Unbekannte Arbeitsbreite nur bei leichten Geraeten zulassen
                 local breite = nfGetItemWorkingWidth(item)
                 if breite ~= nil or w <= NF_IMPL_OHNE_BREITE_MAX_KG then
                     table.insert(self.trafficImplListLight, {
@@ -4899,11 +4471,9 @@ function NachbarFelderManager:buildTrafficTrailerList()
 end
 
 -- ============================================================
--- Tagesrhythmus (Build 68)
--- Die Verkehrs-Obergrenze folgt der Uhrzeit: Hochbetrieb morgens
--- und nachmittags, weniger mittags/abends, nachts schlaeft alles
--- (der Pool haelt die Fahrzeuge - kein Loeschen/Spawnen noetig).
--- dayRhythm=false in der Server-Konfig schaltet das ab.
+-- Tagesrhythmus
+-- Das Verkehrslimit folgt der Uhrzeit, nachts schlaeft alles im Pool
+-- (kein Loeschen/Spawnen noetig). Abschaltbar mit dayRhythm=false.
 -- ============================================================
 function NachbarFelderManager:countActivePatrols()
     local n = 0
@@ -4916,14 +4486,9 @@ function NachbarFelderManager:countActivePatrols()
     return n
 end
 
---- Fahrzeug-Zustand fuer die Log-Diagnose (Build 100).
----
---- Offene Frage aus dem Log vom 12.09.: um 15:16:08 startet ein GOTO ohne
---- Fehlermeldung, das Fahrzeug bewegt sich danach keinen Meter (Stufe 1/2/3).
---- Weder Position noch Ziel erklaeren das. Diese Zeile zeigt, woran es liegt:
---- `getIsAIReadyToDrive`/`getIsAIPreparingToDrive` (AIDrivable.lua:620/636),
---- Agent, Motor, Sprit, Schaden. `agentInfo.isValid` ist die Bedingung, ohne
---- die `getCanStartAIVehicle()` grundsaetzlich false liefert (AIDrivable:1040).
+--- Fahrzeug-Zustand fuer die Log-Diagnose, wenn ein GOTO startet, das Fahrzeug
+--- aber nicht losfaehrt. Ohne gueltiges agentInfo liefert getCanStartAIVehicle()
+--- immer false (siehe AIDrivable.lua).
 --- @return string kompakte Zustandsbeschreibung
 function NachbarFelderManager:getVehicleAiDiag(veh)
     if veh == nil then return "kein Fahrzeug" end
@@ -4968,8 +4533,7 @@ function NachbarFelderManager:getVehicleAiDiag(veh)
     if veh.getDamageAmount ~= nil then
         add(string.format("Schaden %.0f%%", (veh:getDamageAmount() or 0) * 100))
     end
-    -- Build 162: ClassUtil.getClassNameByObject gibt es zur Laufzeit nicht (Log 01.10.
-    -- 19:15: "attempt to call a nil value" - bis Build 157 war das still abgefangen)
+    -- ClassUtil.getClassNameByObject existiert zur Laufzeit nicht immer, daher die Pruefung
     local job = veh.getJob ~= nil and veh:getJob() or nil
     local jobName = "keiner"
     if job ~= nil then
@@ -5011,15 +4575,11 @@ function NachbarFelderManager:getEffectiveTrafficLimit()
 end
 
 -- ============================================================
--- Fahrzeug-Pool (Build 65)
--- Spawnen ist der teure Moment (I3D-Laden, Physik-Erzeugung,
--- MP-Sync des neuen Objekts = der Server-Ruckler). Deshalb werden
--- Patrol-Fahrzeuge am Lebensende nicht mehr geloescht, sondern
--- "schlafen gelegt": AI-Job stoppen, an einem freien Wegpunkt
--- parken (laengs zur Strasse, Motor aus) und beim naechsten
--- Spawn-Tick wiederverwenden. Nach der Aufwaermphase entstehen
--- so keine Spawn-Ruckler mehr. poolSize=0 in der Server-Konfig
--- schaltet den Pool ab (Verhalten wie vor Build 65).
+-- Fahrzeug-Pool
+-- Spawnen ist teuer (I3D-Laden, Physik, MP-Sync) und verursacht
+-- Server-Ruckler. Patrol-Fahrzeuge werden deshalb am Ende nicht
+-- geloescht, sondern schlafen gelegt (Job stoppen, Motor aus) und
+-- spaeter wiederverwendet. poolSize=0 schaltet den Pool ab.
 -- ============================================================
 
 -- Liegt an Position (x,z) ein schlafendes Pool-Fahrzeug? (12m-Radius)
@@ -5033,11 +4593,7 @@ function NachbarFelderManager:isWpPosOccupied(x, z)
     return false
 end
 
--- Steht IRGENDEIN Fahrzeug (auch Spieler-Fahrzeuge!) im Umkreis um (x,z)?
--- Pflicht-Check vor jedem Teleport an einen WP (Build 73): Teleport auf
--- einen belegten Platz erzeugt eine Physik-Explosion (senkrecht stehende
--- Fahrzeuge). excludeVeh = eigenes Gespann wird ignoriert.
---- Festsitzendes Fahrzeug auf einen freien Punkt der KI-Strasse setzen (Build 107).
+--- Festsitzendes Fahrzeug auf einen freien Punkt der KI-Strasse setzen.
 --- Sucht zuerst ab 10 m Abstand (raus aus der Engstelle), bei belegtem Platz
 --- noch einmal ab 30 m. Nur fuer Fahrzeuge ohne laufenden Auftrag aufrufen.
 --- @return boolean true, wenn versetzt
@@ -5060,15 +4616,12 @@ function NachbarFelderManager:rettungAufStrasse(veh, x, z)
     return ok
 end
 
---- Steht ein anderes Nachbar-Fahrzeug in der Naehe ebenfalls still? (Build 166)
---- Log 04.10.: series6M und arion550 standen 14 m auseinander gleichzeitig 30 s fest,
---- bekamen beide neue Ziele und standen eine Minute spaeter 4 m auseinander wieder.
---- Zwei KI-Fahrzeuge warten aufeinander - das loest sich nicht von selbst.
+--- Steht ein anderes Nachbar-Fahrzeug in der Naehe ebenfalls still?
+--- Zwei KI-Fahrzeuge, die aufeinander warten, loesen das nicht von selbst auf.
 --- @return table|nil Eintrag aus vehicleType des stehenden Nachbarn
 function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius, fx, fz)
-    -- Build 166: Screenshot 04.10.: der Claas stand quer zum Wenden, der Gegenverkehr
-    -- wartete weit ueber 30 m entfernt. Darum bis 100 m - ab 20 m aber nur, wenn der
-    -- Nachbar grob vor dem Fahrzeug steht (innerhalb 60 Grad zur Fahrtrichtung fx/fz).
+    -- Gegenverkehr wartet beim Wenden oft weit entfernt, daher grosser Radius. Jenseits
+    -- von BEGEGNUNG_NAH zaehlt der Nachbar nur, wenn er grob voraus steht (60 Grad zu fx/fz).
     for _, k2 in pairs(self.vehicleType or {}) do
         local w2 = k2 ~= eigenerEintrag and k2.NachbarFelderWorker or nil
         if w2 ~= nil and w2.isPatrol and w2.status == 1 and w2.patrolWdLastX ~= nil
@@ -5092,11 +4645,10 @@ function NachbarFelderManager:getStehenderNachbar(eigenerEintrag, x, z, radius, 
     return nil
 end
 
---- Begegnung zweier stehender Nachbar-Fahrzeuge aufloesen (Build 166).
---- Dieses Fahrzeug (dessen Waechter zuerst ausloest) weicht aus: Auftrag stoppen, neues
---- Ziel, und in Richtung des neuen Ziels mind. 25 m weiter auf die KI-Strasse setzen.
---- Der Nachbar behaelt sein Ziel und bekommt neue 30 s, um durch die frei gewordene
---- Stelle zu fahren. Ohne freien Ausweichplatz passiert nichts (normaler Ablauf).
+--- Begegnung zweier stehender Nachbar-Fahrzeuge aufloesen.
+--- Das Fahrzeug, dessen Waechter zuerst ausloest, weicht aus: neues Ziel und mind. 25 m
+--- in dessen Richtung auf die KI-Strasse versetzt. Der Nachbar behaelt sein Ziel und
+--- bekommt neue Wartezeit. Ohne freien Ausweichplatz passiert nichts.
 --- @return boolean true, wenn ausgewichen
 function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
     local w = eintrag ~= nil and eintrag.NachbarFelderWorker or nil
@@ -5144,7 +4696,7 @@ function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
     return true
 end
 
---- Naechstes Fahrzeug zu (x, z), das nicht zum eigenen Gespann gehoert (Build 107).
+--- Naechstes Fahrzeug zu (x, z), das nicht zum eigenen Gespann gehoert.
 --- @return number|nil Abstand in m, string|nil Dateiname des Fahrzeugs
 function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
     local bestD, bestName = nil, nil
@@ -5177,6 +4729,9 @@ function NachbarFelderManager:getNaechstesFremdfahrzeug(x, z, eigenes)
     return bestD, bestName
 end
 
+-- Steht irgendein Fahrzeug (auch von Spielern) im Umkreis um (x,z)?
+-- Vor jedem Teleport pruefen: auf einem belegten Platz explodiert die Physik.
+-- excludeVeh: eigenes Gespann wird ignoriert.
 function NachbarFelderManager:isSpotBlockedByAnyVehicle(x, z, radius, excludeVeh)
     if x == nil or z == nil then return false end
     local blocked = false
@@ -5219,8 +4774,8 @@ function NachbarFelderManager:isSpotBlockedByAnyVehicle(x, z, radius, excludeVeh
 end
 
 -- Freien WP fuer einen Teleport finden: bevorzugt preferIdx, sonst bis zu
--- 6 Alternativen. Frei = kein Pool-Schlaefer UND kein anderes Fahrzeug.
--- nil = nichts frei (Aufrufer soll den Teleport weglassen).
+-- 6 Alternativen. Frei heisst: kein Pool-Schlaefer und kein anderes Fahrzeug.
+-- nil, wenn nichts frei ist (dann nicht teleportieren).
 function NachbarFelderManager:findFreeSpawnWp(wps, preferIdx, excludeVeh)
     if wps == nil or #wps == 0 then return nil end
     local function isFree(i)
@@ -5239,12 +4794,9 @@ function NachbarFelderManager:findFreeSpawnWp(wps, preferIdx, excludeVeh)
     return nil
 end
 
--- Patrol-Eintrag schlafen legen: AI-Jobs stoppen, parken, in den Pool
--- aufnehmen und den aktiven Eintrag entfernen. Liefert true wenn das
--- Fahrzeug gepoolt wurde; false = Aufrufer soll normal loeschen.
--- Der frueher unterschiedene Parameter inPlace ist seit Build 93 wirkungslos:
--- Fahrzeuge bleiben immer dort stehen, wo sie sind (siehe unten). Er wird nur
--- noch fuer den Text der Log-Meldung ausgewertet.
+-- Patrol-Eintrag schlafen legen: AI-Jobs stoppen, in den Pool aufnehmen,
+-- aktiven Eintrag entfernen. false heisst: Aufrufer loescht normal.
+-- inPlace beeinflusst nur noch den Log-Text, geschlafen wird immer am Standort.
 function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     if entry == nil or entry.NachbarFelderWorker == nil then return false end
     local w = entry.NachbarFelderWorker
@@ -5253,10 +4805,9 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     if (self.poolSize or 0) <= 0 then return false end
     if w.noPool then return false end
     self.trafficPool = self.trafficPool or {}
-    -- Effektiver Pool-Deckel = mindestens trafficLimit (Build 74): sonst
-    -- werden bei trafficLimit > poolSize jede Nacht Fahrzeuge geloescht
-    -- und morgens neu gespawnt - genau die Ruckler, die der Pool
-    -- verhindern soll.
+    -- Pool-Deckel mindestens trafficLimit, sonst wird bei trafficLimit > poolSize
+    -- jede Nacht geloescht und morgens neu gespawnt (genau die Ruckler, die der
+    -- Pool verhindern soll).
     local cap = math.max(self.poolSize or 0, self.trafficLimit or 0)
     if #self.trafficPool >= cap then return false end
 
@@ -5268,24 +4819,20 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     local tractor = vehs[1]
     if tractor == nil then return false end
 
-    -- Status VOR dem Job-Stopp auf 9999 setzen: stopAIJobSafely feuert
-    -- synchron onAIJobFinished, dessen Status-1/60-Logik sonst waehrend
-    -- des Einschlafens neu zielt oder teleportiert (gleiches Muster wie
-    -- in deleteAllVehicles).
+    -- Status vor dem Job-Stopp setzen: stopAIJobSafely ruft synchron
+    -- onAIJobFinished auf, dessen Status-1/60-Logik sonst neu zielt oder
+    -- teleportiert (wie in deleteAllVehicles).
     w.status = 9999
 
-    -- AI-Jobs stoppen: ein schlafendes Fahrzeug darf keinen Job im
-    -- aiSystem behalten (sonst Frame-Fehler wie bei geloeschten Vehicles)
+    -- Ein schlafendes Fahrzeug darf keinen Job im aiSystem behalten
+    -- (sonst Frame-Fehler wie bei geloeschten Fahrzeugen)
     for _, veh in ipairs(vehs) do
         self:stopAIJobSafely(veh)
-        self:meldeBeimSpielverkehrAb(veh)   -- Build 152: schlafend wie ein abgestelltes Fahrzeug
+        self:meldeBeimSpielverkehrAb(veh)   -- schlafend wie ein abgestelltes Fahrzeug
     end
 
-    -- Build 103: nicht zu mehreren am selben Fleck einschlafen. Am 12.09.
-    -- standen vier Fahrzeuge in Reihe an derselben Sackgasse: jedes strandete
-    -- dort, schlief an Ort und Stelle ein (Build 93) und wurde beim Aufwecken
-    -- sofort wieder abgewiesen. Ist der Platz belegt, kommt das Fahrzeug
-    -- vorher auf einen freien Strassenpunkt 25-150 m weiter.
+    -- Nicht zu mehreren am selben Fleck einschlafen, sonst stauen sich Schlaefer
+    -- z. B. in Sackgassen. Bei belegtem Platz 25-150 m weiter auf die Strasse setzen.
     local function schritt()
         if tractor.rootNode == nil or self.getNearestRoadPoint == nil then return end
         local vx, _, vz = getWorldTranslation(tractor.rootNode)
@@ -5302,20 +4849,9 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
     end
     schritt()
 
-    -- Build 93: Fahrzeuge schlafen IMMER an Ort und Stelle.
-    --
-    -- Frueher wurde fuer inPlace=false ein freier Wegpunkt gesucht und das
-    -- Fahrzeug dorthin teleportiert - mit wp.ry, also der Blickrichtung des
-    -- Admins beim Setzen des Punktes. Das war die letzte Stelle, die ein
-    -- Fahrzeug quer zur Fahrbahn abstellte. Schlimmer noch: Fand sich kein
-    -- freier WP, lieferte die Funktion false, das Fahrzeug wurde geloescht
-    -- und spaeter neu geladen - und jedes Laden eines Fahrzeugmodells kostet
-    -- den Server auf HDD mehrere hundert Millisekunden Stillstand, was alle
-    -- Spieler zurueckzieht (belegt: arion400.i3d 690 ms).
-    --
-    -- Dort stehen zu bleiben, wo die KI angehalten hat, ist in beidem besser:
-    -- die Ausrichtung stimmt, und das Fahrzeug bleibt im Pool statt neu
-    -- geladen zu werden.
+    -- Geschlafen wird dort, wo die KI angehalten hat: die Ausrichtung zur Fahrbahn
+    -- stimmt, und das Fahrzeug muss nie neu geladen werden (ein Modell zu laden
+    -- kostet den Server auf HDD mehrere hundert ms Stillstand).
     local restX, restZ
     local x, _, z = getWorldTranslation(tractor.rootNode)
     restX, restZ = x, z
@@ -5347,14 +4883,12 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
 end
 
 -- Schlafendes Pool-Fahrzeug aufwecken: neue Route/Hops zuweisen und vom
--- aktuellen Standort losfahren lassen. Kein Spawn, kein I3D-Laden ->
--- kein Ruckler. Liefert true wenn ein Fahrzeug geweckt wurde.
+-- aktuellen Standort losfahren lassen, ohne I3D-Laden.
+-- Liefert true, wenn ein Fahrzeug geweckt wurde.
 function NachbarFelderManager:wakePooledVehicle()
     if self.trafficPool == nil or #self.trafficPool == 0 then return false end
-    -- Build 136: alle Fahrziele zaehlen, nicht nur eigene Wegpunkte. Mit zielQuelle=strassen
-    -- gibt es auch ohne einen einzigen eigenen Punkt genug Ziele - Bergisch Land 19.09.:
-    -- 0 eigene + 53 Strassenziele, der Pool wurde nie geweckt, die Schlaefer blockierten
-    -- die Strasse am Shop, und jedes weitere Fahrzeug wurde frisch geladen.
+    -- Alle Fahrziele zaehlen, nicht nur eigene Wegpunkte: mit zielQuelle=strassen
+    -- gibt es auch ganz ohne eigene Punkte genug Ziele.
     if #(self:getPatrolWaypointList() or {}) < 3 then return false end
 
     -- Aeltesten Eintrag zuerst (gleichmaessige Nutzung); tote Eintraege
@@ -5394,9 +4928,8 @@ function NachbarFelderManager:wakePooledVehicle()
     local worker = NachbarFelderWorker.new(vehs, proxyMission, 1, patrolId)
     worker.isPatrol      = true
     worker.waypoints     = waypoints
-    -- Build 107: Parkpunkt-Anzahl dieser Liste merken. Die Liste ist eine
-    -- Kopie vom Spawn; werden danach Parkpunkte gesetzt, verschieben sich die
-    -- Nummern nur in NEUEN Listen - #userTrafficWaypoints passt dann nicht mehr.
+    -- Parkpunkt-Anzahl dieser Kopie merken: spaeter gesetzte Parkpunkte verschieben
+    -- die Nummern nur in neuen Listen, #userTrafficWaypoints passt dann nicht mehr.
     worker.anzahlParkpunkte = math.min(#(self.userTrafficWaypoints or {}), #waypoints)
     worker.patrolDestIdx = destIdx
     worker.patrolTargetX = waypoints[destIdx][1]
@@ -5404,7 +4937,7 @@ function NachbarFelderManager:wakePooledVehicle()
     worker.parkSecs      = nfCatParkSecs((waypoints[destIdx] or {})[4] or 0)
     worker.hopsLeft      = math.random(self.patrolHopsMin or 10,
                                        self.patrolHopsMax or 20)
-    -- Standort-WP bestimmen (fuer Fehler-Bookkeeping + Ziel!=Standort)
+    -- Standort-WP bestimmen (Fehlerbuchhaltung, Ziel darf nicht der Standort sein)
     local sx, sz = poolEntry.restX, poolEntry.restZ
     local x, _, z = getWorldTranslation(tractor.rootNode)
     sx, sz = x, z
@@ -5474,12 +5007,11 @@ function NachbarFelderManager:clearTrafficPool()
     end
 end
 
--- Admin-Vollreinigung: aktive Eintraege UND Pool entfernen.
--- deleteAllVehicles legt Patrols zunaechst in den Pool (Build 65),
--- deshalb wird der Pool DANACH geleert.
+-- Admin-Vollreinigung: aktive Eintraege und Pool entfernen.
+-- deleteAllVehicles legt Patrols erst in den Pool, deshalb wird er danach geleert.
 function NachbarFelderManager:deleteAllVehiclesAndPool(quit)
-    -- Als Tasten-/Client-Aktion nur fuer Admins (Build 75). Auf dem Server
-    -- selbst (Konsole, Events nach Admin-Pruefung) laeuft es immer durch.
+    -- Als Tasten-/Client-Aktion nur fuer Admins. Auf dem Server selbst
+    -- (Konsole, Events nach Admin-Pruefung) laeuft es immer durch.
     if not self:getIsLocalAdmin() then
         self:notifyAdminRequired()
         return
@@ -5492,9 +5024,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     if not g_currentMission:getIsServer() then return false end
     if self.trafficPaused then return false end
 
-    -- Traffic-Limit: max. gleichzeitig aktive Patrol-Fahrzeuge.
-    -- Seit Build 68 uhrzeitabhaengig (Tagesrhythmus): nachts 0,
-    -- mittags/abends reduziert, vor-/nachmittags volles Limit.
+    -- Max. gleichzeitig aktive Patrol-Fahrzeuge, abhaengig von der Uhrzeit
     local activePatrol = self:countActivePatrols()
     local effLimit     = self:getEffectiveTrafficLimit()
     if activePatrol >= effLimit then return false end
@@ -5502,22 +5032,16 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     -- Farm-ID sicherstellen (muss vor loadVehicles und startJob gesetzt sein)
     self:getEffectiveFarmId()
 
-    -- Fahrzeug-Pool (Build 65): schlafendes Fahrzeug aufwecken statt neu
-    -- spawnen - kein I3D-Laden, kein Ruckler. Der Shop-Spawn-Blocker ist
-    -- dafuer irrelevant (das Fahrzeug startet von seinem Schlafplatz).
-    --
-    -- Build 100: aber erst, wenn die Flotte gross genug ist. Vorher wurde bei
-    -- JEDEM Spawn-Takt ein Pool-Fahrzeug geweckt, nie ein weiteres gebaut - mit
-    -- zwei Fahrzeugen, die immer wieder im Pool landeten, blieb es dauerhaft bei
-    -- zwei, obwohl das Limit mehr erlaubte (Log 12.09., "es fahren nur 2").
+    -- Schlafendes Fahrzeug wecken statt neu spawnen (Shop-Blocker gilt dafuer nicht).
+    -- Aber erst, wenn die Flotte das Limit erreicht, sonst waechst sie nie ueber
+    -- die Zahl der Pool-Fahrzeuge hinaus.
     local flotte = activePatrol + #(self.trafficPool or {})
     if forcedVehicleXML == nil and flotte >= effLimit and self:wakePooledVehicle() then
         return true
     end
 
-    -- Build 132: Mit Admin-Spawnpunkten nur spawnen, wenn einer frei ist - lieber
-    -- einen Takt warten als im Ort laden. Der Shop-Blocker entfaellt dann (der
-    -- Shop ist gar nicht mehr der Ladeplatz).
+    -- Mit Admin-Spawnpunkten nur spawnen, wenn einer frei ist (lieber einen Takt
+    -- warten als im Ort laden). Der Shop-Blocker entfaellt dann.
     local mitSpawnpunkten = self:getHatSpawnpunkte()
     if mitSpawnpunkten and self:waehleSpawnpunkt(true) == nil then
         return false
@@ -5541,14 +5065,13 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
         end
     end
 
-    -- Fahrzeug aus Store-Liste (einmalig gecacht, enthält alle motorisierten Fahrzeuge).
+    -- Fahrzeug aus der Store-Liste (einmalig gecacht, alle motorisierten Fahrzeuge)
     if self.trafficVehicleList == nil then self:buildTrafficVehicleList() end
     if #self.trafficVehicleList == 0 then return false end
     local vehInfo
     if forcedVehicleXML ~= nil then
-        -- Stammfahrzeug: erzwungenes XML (Wiederkehrender Nachbar)
-        -- Build 164: steht das Stammfahrzeug nicht mehr in der Liste (z. B. zu langsam),
-        -- kommt ein anderes Fahrzeug aus der Liste
+        -- Stammfahrzeug (wiederkehrender Nachbar); fehlt es in der Liste
+        -- (z. B. zu langsam), kommt ein zufaelliges
         vehInfo = nil
         for _, v in ipairs(self.trafficVehicleList) do
             if v.filename == forcedVehicleXML then vehInfo = v; break end
@@ -5560,12 +5083,9 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
         vehInfo = self.trafficVehicleList[math.random(1, #self.trafficVehicleList)]
     end
 
-    -- Gespann-Quote (Build 69): trailerChance (Server-Konfig, 0-100%)
-    -- wird als LAUFENDE QUOTE erzwungen statt nur gewuerfelt. Liegt der
-    -- bisherige Gespann-Anteil unter dem Ziel, bekommt dieser Traktor ein
-    -- Geraet (sofern seine Groessenklasse eines darf). So stimmt der
-    -- Anteil auch bei wenigen Spawns - wichtig, weil der Pool (Build 65)
-    -- die Mischung der Aufwaermphase dauerhaft einfriert.
+    -- Gespann-Quote: trailerChance (0-100 %) wird als laufende Quote erzwungen
+    -- statt gewuerfelt. So stimmt der Anteil auch bei wenigen Spawns, wichtig,
+    -- weil der Pool die Mischung der Aufwaermphase dauerhaft einfriert.
     local cat = vehInfo.category or ""
     local isTractor = cat:find("TRACTORS") ~= nil
     local vehList = { vehInfo }
@@ -5582,18 +5102,12 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     end
     if wantImplement then
         if self.trafficTrailerList == nil then self:buildTrafficTrailerList() end
-        -- Geraet nach Traktorgroesse waehlen (verhindert Kleintrak + Riesen-Geraet):
-        -- TRACTORSS → kein Geraet
-        -- TRACTORSM → leicht (Rechen, Zinkenrotor)
-        -- TRACTORSL/andere Großklassen → schwer (Pflug, Maehwerk)
-        -- Build 105: Es gibt nur noch Kleintraktoren. Ein Geraet kommt nur dran,
-        -- wenn es zum Traktor passt (getPasstGeraetZuTraktor). Passt nichts,
-        -- faehrt der Traktor solo.
+        -- Nur leichte Geraete, die zum Traktor passen; passt keins, faehrt er solo
         local implList = nil
         local passend = {}
         for _, impl in ipairs(self.trafficImplListLight or {}) do
             if self:getPasstGeraetZuTraktor(vehInfo, impl)
-               and not self:getIstVerkehrGeraetGesperrt(impl.filename) then   -- Build 119
+               and not self:getIstVerkehrGeraetGesperrt(impl.filename) then
                 passend[#passend + 1] = impl
             end
         end
@@ -5607,8 +5121,8 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
 
     local proxyMission = { type = { name = "trafficDrive" } }
 
-    -- Route aufbauen: User-Wegpunkte (in Reihenfolge) oder zufällige Positionen als Fallback.
-    -- Der Navmesh sorgt in beiden Fällen für straßenbasierte Navigation.
+    -- Route: Admin-Wegpunkte oder ersatzweise zufaellige Positionen.
+    -- Die Navigation laeuft in beiden Faellen ueber das Strassennetz.
     local waypoints = {}
     local zielListe = self:getPatrolWaypointList()
     if #zielListe > 0 then
@@ -5621,9 +5135,8 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
             if wx ~= nil then table.insert(waypoints, { wx, wz, 0, 0 }) end
         end
     end
-    -- Mindestens 3 WPs, sonst gibt es keine sinnvollen Routen (Fahrzeuge
-    -- stauen sich / Ziele sofort gesperrt) - z.B. während der User gerade
-    -- ein neues WP-Netz aufnimmt.
+    -- Unter 3 WPs gibt es keine sinnvollen Routen (Stau, Ziele sofort gesperrt),
+    -- etwa waehrend ein neues WP-Netz aufgenommen wird.
     if #waypoints < 3 then
         if not self.wpFewWarned then
             self.wpFewWarned = true
@@ -5634,10 +5147,10 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     end
     self.wpFewWarned = nil
 
-    -- Startpunkt: wird in Status 1 dynamisch als nächster WP zum Shop berechnet.
-    -- Ziel: zufällig aus allen WPs (gesperrte vermieden). Nach Hops Heimfahrt.
+    -- Startpunkt bestimmt Status 1 (naechster WP zum Shop). Ziel zufaellig,
+    -- gesperrte WPs werden gemieden. Nach den Hops geht es heim.
     local nWps    = #waypoints
-    -- Build 106: erstes Ziel in Hop-Reichweite des Shops
+    -- Erstes Ziel in Hop-Reichweite des Shops
     local shopRefX, shopRefZ = self:getShopPosition()
     local destIdx = self:pickPatrolWaypoint(waypoints, nil, shopRefX, shopRefZ) or math.random(nWps)
 
@@ -5648,18 +5161,16 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     local worker = NachbarFelderWorker.new({}, proxyMission, 0, patrolId)
     worker.isPatrol      = true
     worker.waypoints     = waypoints
-    -- Build 107: Parkpunkt-Anzahl dieser Liste merken. Die Liste ist eine
-    -- Kopie vom Spawn; werden danach Parkpunkte gesetzt, verschieben sich die
-    -- Nummern nur in NEUEN Listen - #userTrafficWaypoints passt dann nicht mehr.
+    -- Parkpunkt-Anzahl dieser Kopie merken (siehe wakePooledVehicle)
     worker.anzahlParkpunkte = math.min(#(self.userTrafficWaypoints or {}), #waypoints)
     local firstDestCat   = (waypoints[destIdx] or {})[4] or 0
-    worker.waypointIdx   = 1                        -- Platzhalter; wird in onSpawnedVehicle überschrieben
-    worker.patrolDestIdx = destIdx                  -- erstes Fahrziel (zufällig)
+    worker.waypointIdx   = 1                        -- Platzhalter, setzt onSpawnedVehicle
+    worker.patrolDestIdx = destIdx
     worker.patrolTargetX = waypoints[destIdx][1]
     worker.patrolTargetZ = waypoints[destIdx][2]
     worker.parkSecs      = nfCatParkSecs(firstDestCat)
-    worker.firstStart         = true               -- Trigger: Sofort-Teleport in onSpawnedVehicle
-    worker.overrideSpawnWpIdx = overrideSpawnWpIdx -- Batch-Spawn: vorgegebener Startpunkt (nil = zufaelliger WP)
+    worker.firstStart         = true               -- Sofort-Teleport in onSpawnedVehicle
+    worker.overrideSpawnWpIdx = overrideSpawnWpIdx -- Batch-Spawn: fester Startpunkt, nil = zufaellig
     worker.hopsLeft           = math.random(self.patrolHopsMin or 10,
                                             self.patrolHopsMax or 20) -- Stops vor Heimfahrt
 
@@ -5678,7 +5189,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
         worker.regularXML = xml
     end
 
-    -- Gespann-Quote fortschreiben (nur Traktor-Spawns zaehlen, Build 69)
+    -- Gespann-Quote fortschreiben (nur Traktor-Spawns zaehlen)
     if isTractor then
         if trailerAdded then
             self.gespannSpawns = (self.gespannSpawns or 0) + 1
@@ -5702,7 +5213,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
     print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
         (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")
-            .. string.format(" (%s m, Traktor %.1f t, max %.1f m)",          -- Build 159
+            .. string.format(" (%s m, Traktor %.1f t, max %.1f m)",
                 vehList[2].breiteM ~= nil and string.format("%.1f", vehList[2].breiteM) or "?",
                 (vehInfo.gewichtKg or 0) / 1000, self:getMaxGeraeteBreite(vehInfo))) or "") ..
         " | Ziel: WP" .. tostring(destIdx) ..
@@ -5717,7 +5228,8 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     return true
 end
 
---- Position und Name des Zugfahrzeugs eines Workers (Build 109).
+--- Position des Zugfahrzeugs eines Workers.
+--- @return x, z oder nil, nil
 function NachbarFelderManager:getWorkerPos(w)
     local veh = w ~= nil and w.vehiclesToLoad ~= nil and w.vehiclesToLoad[1] or nil
     if veh == nil or veh.rootNode == nil then return nil, nil end
@@ -5736,23 +5248,19 @@ end
 -- ============================================================
 -- Fahrzeuge löschen
 -- ============================================================
---- Laufender Spieltag (Build 175): environment.currentMonotonicDay, zaehlt ueber Monats- und
---- Jahresgrenzen weiter (verifiziert: AbstractMission:setDefaultEndDate nutzt es mit
---- environment.daysPerPeriod). nil, wenn die Umgebung (noch) fehlt.
+--- Laufender Spieltag (environment.currentMonotonicDay), zaehlt ueber Monats- und
+--- Jahresgrenzen hinweg weiter (so nutzt es auch AbstractMission:setDefaultEndDate).
+--- @return Spieltag oder nil, solange die Umgebung fehlt
 function NachbarFelderManager:getSpieltag()
     local env = g_currentMission ~= nil and g_currentMission.environment or nil
     if env == nil or type(env.currentMonotonicDay) ~= "number" then return nil end
     return env.currentMonotonicDay
 end
 
---- Monatswechsel (Build 175). Bis Build 174 war hier deleteAllVehicles direkt abonniert: bei
---- jedem Monatswechsel schliefen alle fahrenden Nachbarn auf einen Schlag ein (Pool) bzw.
---- verschwanden, wenn der Pool voll war. Die Monatslaenge stellen Spieler auf 1 bis 28 Tage -
---- bei 1 Tag/Monat geschah das jeden Spieltag. Jetzt nur, wenn seit dem letzten Aufraeumen
---- mindestens aufraeumenMinTage Spieltage vergangen sind (Server-Konfig, Standard 7, 0 = nie).
---- 28 Tage/Monat: wie bisher jeden Monat; 1 Tag/Monat: jeden 7. Monatswechsel.
---- Der Zaehler steht nicht im Spielstand: Nachbar-Fahrzeuge und Pool werden nicht gespeichert,
---- ein Neustart raeumt also ohnehin alles ab; danach zaehlt es ab dem Ladetag neu.
+--- Monatswechsel: Aufraeumen erst, wenn seit dem letzten Mal mindestens aufraeumenMinTage
+--- Spieltage vergangen sind (Server-Konfig, Standard 7, 0 = nie). Die Monatslaenge ist 1 bis
+--- 28 Tage einstellbar; ohne diese Sperre wuerde bei 1 Tag/Monat jeden Tag aufgeraeumt.
+--- Der Zaehler wird nicht gespeichert, Fahrzeuge und Pool ueberleben einen Neustart ohnehin nicht.
 function NachbarFelderManager:onPeriodChanged()
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
     local minTage = self.aufraeumenMinTage or NachbarFelderManager.AUFRAEUMEN_MIN_TAGE
@@ -5761,7 +5269,7 @@ function NachbarFelderManager:onPeriodChanged()
     local env = g_currentMission.environment
     local tageProMonat = env ~= nil and env.daysPerPeriod or nil
     if tag == nil then
-        -- Ohne Tageszaehler wie bis Build 174 bei jedem Monatswechsel
+        -- Ohne Tageszaehler bei jedem Monatswechsel aufraeumen
         print("NachbarFelder: WARNUNG - Spieltag nicht verfuegbar, Aufraeumen beim Monatswechsel wie bisher")
         self:deleteAllVehicles()
         return
@@ -5783,14 +5291,12 @@ function NachbarFelderManager:onPeriodChanged()
 end
 
 function NachbarFelderManager:deleteAllVehicles(quit)
-    -- Beim Spiel-Shutdown nichts mehr löschen - prepareForShutdown hat die
-    -- AI-Jobs gestoppt, die Fahrzeuge löscht die Engine selbst. Eigene
-    -- Löschungen hier ergäben "delete twice"-Callstacks.
+    -- Beim Shutdown nichts löschen: prepareForShutdown hat die AI-Jobs gestoppt,
+    -- die Fahrzeuge löscht die Engine selbst (sonst "delete twice"-Callstacks).
     if self.isShuttingDown then return end
 
-    -- Im Dedicated-MP: nur Server löscht
+    -- Nur der Server löscht, Clients schicken ein Event
     if not g_currentMission:getIsServer() then
-        -- Client: Event an Server schicken
         if g_client ~= nil then
             g_client:getServerConnection():sendEvent(NachbarFelderDeleteEvent.new())
         end
@@ -5800,9 +5306,8 @@ function NachbarFelderManager:deleteAllVehicles(quit)
     if self.vehicleType == nil then return end
 
     for v, k in pairs(self.vehicleType) do
-        -- Patrol-Fahrzeuge in den Pool statt loeschen (Build 65): beim
-        -- naechsten Bedarf werden sie ohne Spawn-Ruckler geweckt. Der
-        -- Admin-Vollweg (deleteAllVehiclesAndPool) leert den Pool danach.
+        -- Patrol-Fahrzeuge kommen in den Pool statt geloescht zu werden und lassen
+        -- sich spaeter ohne Spawn-Ruckler wecken. deleteAllVehiclesAndPool leert ihn.
         if k.NachbarFelderWorker ~= nil and k.NachbarFelderWorker.isPatrol
            and self:sleepPatrolEntry(k, false) then
             -- gepoolt; Eintrag wurde bereits entfernt
@@ -5810,8 +5315,8 @@ function NachbarFelderManager:deleteAllVehicles(quit)
             local status = k.NachbarFelderWorker.status
             k.NachbarFelderWorker.status = 9999
             for _, veh in ipairs(k.vehicleType) do
-                -- AI-Job sauber stoppen (toggleAIVehicle reicht nicht - Job bleibt
-                -- sonst im aiSystem und crasht nach delete jeden Frame)
+                -- toggleAIVehicle reicht nicht: der Job bliebe im aiSystem und
+                -- wirft nach delete jeden Frame Fehler
                 if self:getIsVehicleAlive(veh) then
                     self:stopAIJobSafely(veh)
                     local dynamicVeh = string.sub(veh.typeName, 1, string.len("dynamic")) == "dynamic"
@@ -5827,7 +5332,6 @@ function NachbarFelderManager:deleteAllVehicles(quit)
 end
 
 function NachbarFelderManager:deleteMission(fieldId, status)
-    -- Build 150: nur noch Verkehr - Eintrag entfernen, keine Feldarbeit nachzutragen
     if self.vehicleType[fieldId] == nil then return end
     self.vehicleType[fieldId] = nil
     self.counter = self.counter - 1
@@ -5837,7 +5341,7 @@ end
 -- Shop-Position für Rückfahrt (Navmesh-Spawnpunkt, Straße)
 -- ============================================================
 function NachbarFelderManager:getShopPosition()
-    -- Build 96: Shop-Spawnplatz des Spiels (mit Filiallieferungen = Lieferort).
+    -- Shop-Spawnplatz des Spiels (bei Filiallieferungen der Lieferort)
     local place = self:getNfSpawnPlace()
     if place ~= nil then
         return place.startX or 0, place.startZ or 0
@@ -5847,11 +5351,11 @@ end
 
 -- ============================================================
 -- Shop-Gebäudeposition (Hofplatz, nicht Straßen-Spawnpunkt).
--- Liefert nil,nil wenn nicht gefunden → Fallback auf Straße.
+-- nil, nil wenn nicht gefunden; der Aufrufer nimmt dann die Straße.
 -- ============================================================
 function NachbarFelderManager:getShopBuildingPosition()
     local bx, bz = nil, nil
-    -- Versuch 1: PlaceableVehicleShop im PlaceableSystem (Kauf-Shops)
+    -- Zuerst PlaceableVehicleShop im PlaceableSystem
     local function schritt()
         local ps = g_currentMission and g_currentMission.placeableSystem
         if ps == nil then return end
@@ -5864,7 +5368,7 @@ function NachbarFelderManager:getShopBuildingPosition()
         end
     end
     schritt()
-    -- Versuch 2: g_currentMission.vehicleShops (einige Maps/FS25-Versionen)
+    -- Fallback: g_currentMission.vehicleShops (einige Maps)
     if bx == nil then
         local function schritt()
             for _, s in pairs(g_currentMission.vehicleShops or {}) do
@@ -5887,19 +5391,16 @@ end
 -- ============================================================
 -- Hilfsfunktionen
 -- ============================================================
--- Prüft ob ein Fahrzeug-Objekt noch existiert (nicht gelöscht).
--- Nach veh:delete() bleiben Referenzen in unseren Tabellen zurück -
--- jeder Zugriff auf rootNode wirft dann Lua-Fehler. Auf dem Dedicated
--- Server läuft dadurch das Log voll und Joins schlagen fehl bis zum
--- Neustart. Deshalb VOR jedem Zugriff/delete prüfen.
+-- Prüft, ob ein Fahrzeug noch existiert. Nach veh:delete() bleiben Referenzen
+-- in unseren Tabellen, ein Zugriff auf rootNode wirft dann Fehler (auf dem
+-- Dedicated Server laeuft das Log voll, Joins schlagen fehl). Vor jedem Zugriff prüfen.
 function NachbarFelderManager:getIsVehicleAlive(veh)
     return veh ~= nil and veh.isDeleted ~= true and veh.rootNode ~= nil
 end
 
--- Markiert Traktor UND alle Anbaugeräte als Helfer-Fahrzeug.
--- getIsMissionWorkAllowed wird pro Arbeitsbereich mit dem jeweiligen GERÄT
--- aufgerufen - hatte nur der Traktor das Flag, durfte das Gerät (Spritze/
--- Pflug) nicht arbeiten → Helfer fuhr ohne zu sprühen/pflügen.
+-- Markiert Traktor und alle Anbaugeräte als Helfer-Fahrzeug.
+-- getIsMissionWorkAllowed wird pro Arbeitsbereich mit dem jeweiligen Gerät
+-- aufgerufen, das Flag am Traktor allein genügt daher nicht.
 function NachbarFelderManager:markVehiclesAsHelper(vehicle)
     if vehicle == nil then return end
     vehicle.nf_isHelper = true
@@ -5925,8 +5426,7 @@ function NachbarFelderManager:getCorrectobject(vehicle)
     return nil
 end
 
---- Ist mindestens ein Nachbar-Fahrzeug unterwegs (geladen oder am Laden)? Build 172:
---- frueher hasActiveWorkers() - der Name stammte aus der Helfer-Zeit.
+--- Ist mindestens ein Nachbar-Fahrzeug unterwegs (geladen oder am Laden)?
 function NachbarFelderManager:getHatFahrzeugeUnterwegs()
     if self.vehicleType == nil then return false end
     for _, entry in pairs(self.vehicleType) do
@@ -5948,18 +5448,17 @@ end
 -- Speichern / Laden
 -- ============================================================
 function NachbarFelderManager:saveToXMLFile()
-    -- Build 160: laeuft vor ItemSystem.save mit - ein Fehler hier wuerde ohne
-    -- Absicherung das Speichern des Spielstands abbrechen. Darum alles vorher pruefen.
+    -- Laeuft vor ItemSystem.save mit: ein Fehler hier bricht das Speichern des
+    -- Spielstands ab, daher alles vorher pruefen.
     local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
     local path = mi ~= nil and mi.savegameDirectory or nil
     if path == nil or g_NachbarFelderManager == nil or g_NachbarFelderManager.getSettingsState == nil then return end
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.create("NachbarFelder", modSaveDir, baseXmlKey, xmlSchema)
     if xmlFile == nil then return end
-    -- Build 150: keine Feldauftraege mehr - nur noch die Einstellungen speichern
+    -- Gespeichert werden nur die Einstellungen
     if g_NachbarFelderManager.vehicleType ~= nil then
-        -- Settings-Block (Build 67): kompletter Einstellungs-Stand ins
-        -- Savegame - server-autoritativ, ueberlebt Neustarts.
+        -- Kompletter Einstellungs-Stand, server-autoritativ
         local st = g_NachbarFelderManager:getSettingsState() or {}
         xmlFile:setBool(baseXmlKey .. ".settings#active",             st.active ~= false)
         xmlFile:setInt( baseXmlKey .. ".settings#maxWorkers",         math.floor(tonumber(st.maxWorkers) or 0))
@@ -5985,10 +5484,9 @@ function NachbarFelderManager:loadFromXML()
     local modSaveDir = path .. "/NachbarFelder.xml"
     local xmlFile = XMLFile.loadIfExists("NachbarFelder", modSaveDir, xmlSchema)
     if xmlFile == nil then return end
-    -- Build 150: gespeicherte Feldauftraege (".worker") aelterer Builds werden ignoriert
-    -- Settings-Block lesen (Build 67). NICHT sofort anwenden - erst
-    -- nach loadServerConfig() (in loadMap), damit die Savegame-Werte
-    -- die Konfig-Datei-Werte ueberschreiben und nicht umgekehrt.
+    -- Alte ".worker"-Eintraege werden ignoriert. Die Einstellungen erst nach
+    -- loadServerConfig() (in loadMap) anwenden, damit Savegame-Werte die
+    -- Konfig-Datei ueberschreiben und nicht umgekehrt.
     local sgActive = xmlFile:getValue(baseXmlKey .. ".settings#active")
     if sgActive ~= nil then
         local st = {
@@ -5997,7 +5495,7 @@ function NachbarFelderManager:loadFromXML()
             trafficLimit       = xmlFile:getValue(baseXmlKey .. ".settings#trafficLimit"),
             trafficTrailerSize = xmlFile:getValue(baseXmlKey .. ".settings#trafficTrailerSize"),
             engeMap            = xmlFile:getValue(baseXmlKey .. ".settings#engeMap"),
-            debugLog           = xmlFile:getValue(baseXmlKey .. ".settings#debugLog"),   -- Build 165
+            debugLog           = xmlFile:getValue(baseXmlKey .. ".settings#debugLog"),
             missions           = {},
         }
         xmlFile:iterate(baseXmlKey .. ".settings.mission", function(_, mKey)
@@ -6013,19 +5511,12 @@ function NachbarFelderManager:loadFromXML()
 end
 
 -- ============================================================
--- Traffic-Wegpunkte: eigene Datei im Mod-Settings-Ordner
--- Wird auf Server UND Client geladen/gespeichert.
--- Pfad: modSettingDirectory .. "NachbarFelderWaypoints.xml"
--- ============================================================
--- ============================================================
--- ============================================================
--- Wegpunkte auf der Ingame-Karte (MapHotspot-System)
--- MapHotspot wird vom Spiel selbst mit korrekter Zoom/Pan-Unterstützung
--- gerendert — kein manuelles Koordinaten-Rechnen nötig.
--- Referenz: FS25_EasyDevControls EasyDevControlsHotspotsManager.lua
+-- Wegpunkte auf der Ingame-Karte (MapHotspot)
+-- Das Spiel rendert MapHotspots selbst inkl. Zoom/Pan.
+-- Vorbild: FS25_EasyDevControls, EasyDevControlsHotspotsManager.lua
 -- ============================================================
 
--- NFWaypointHotspot-Klasse (lazy definiert beim ersten Aufruf von updateWpHotspots)
+-- Hotspot-Klasse wird erst beim ersten Bedarf definiert (MapHotspot muss existieren)
 local NFWaypointHotspot_cls = nil
 local function ensureWpHotspotClass()
     if NFWaypointHotspot_cls ~= nil then return true end
@@ -6037,7 +5528,7 @@ local function ensureWpHotspotClass()
         function cls.new(worldX, worldZ)
             local self     = MapHotspot.new(cls_mt)
             self.width, self.height = getNormalizedScreenValues(32, 32)
-            -- "mapHotspots.other" = generisches Karten-Icon aus dem Spiel-Atlas
+            -- generisches Karten-Icon aus dem Spiel-Atlas
             self.icon = g_overlayManager:createOverlay(
                 "mapHotspots.other", 0, 0, self.width, self.height)
             self:setColor(1.0, 0.55, 0.0)   -- Orange = NF-Wegpunkt
@@ -6059,17 +5550,15 @@ end
 function NachbarFelderManager:setupMapDrawHook()
     if self._mapDrawHookSetup then return end
     self._mapDrawHookSetup = true
-    -- Initial-Hotspots anlegen (Wegpunkte aus gespeicherter Datei)
     self:updateWpHotspots()
 
-    -- Nummern-Hook: renderText NACH dem Hotspot-Rendering des Spiels.
-    -- getLastScreenPosition() liefert zoom/pan-korrigierte Bildschirmkoords.
-    -- Referenz: FS25_EasyDevControls EasyDevControlsTeleportScreen:onDrawPostIngameMapHotspots
+    -- Nummern nach dem Hotspot-Rendering zeichnen; getLastScreenPosition() liefert
+    -- bereits zoom/pan-korrigierte Bildschirmkoordinaten.
+    -- Vorbild: EasyDevControlsTeleportScreen:onDrawPostIngameMapHotspots
     if InGameMenuMapFrame ~= nil then
         local mgr = self
-        -- Allokationsfrei (Build 76): Zeichenfunktion EINMAL definieren und per
-        -- benannte Funktion aufrufen - kein Closure-/String-Müll pro Frame (GC-Ruckler).
-        -- Nummern-Strings werden in updateWpHotspots vorberechnet (hs._nfLabel).
+        -- Allokationsfrei: keine Closures oder Strings pro Frame (GC-Ruckler).
+        -- Die Labels berechnet updateWpHotspots vor (hs._nfLabel).
         local function nfDrawWpNumbers()
             local hss = mgr._wpMapHotspots
             for i = 1, #hss do
@@ -6105,17 +5594,15 @@ function NachbarFelderManager:setupMapDrawHook()
 end
 
 -- ============================================================
--- Client-lokale Anzeige-Einstellungen (Build 71): Dinge, die nur
--- diesen Rechner betreffen (Karten-Hotspots an/aus), landen in
--- modSettings/FS25_LivingRoads/NachbarFelderClient.xml -
--- NICHT im Savegame und nicht auf dem Server.
+-- Client-lokale Anzeige-Einstellungen (z. B. Karten-Hotspots an/aus)
+-- in modSettings/FS25_LivingRoads/NachbarFelderClient.xml,
+-- nicht im Savegame und nicht auf dem Server.
 -- ============================================================
 function NachbarFelderManager:loadClientPrefs()
     local function schritt()
         local path = NachbarFelderLesePfad(modSettingDirectory .. "NachbarFelderClient.xml")
         if not fileExists(path) then
-            -- Datei mit Defaults anlegen (Build 73): so ist sofort sichtbar,
-            -- dass der Mechanismus laeuft; gespeichert wird bei jedem Umschalten.
+            -- Mit Defaults anlegen; gespeichert wird danach bei jedem Umschalten
             self:saveClientPrefs()
             print("NachbarFelder: [MAP] Client-Einstellungsdatei angelegt: " .. path)
             return
@@ -6150,13 +5637,12 @@ end
 function NachbarFelderManager:setWpHotspotsVisible(visible)
     self._wpHotspotsEnabled = visible
     self:updateWpHotspots()
-    -- Client-lokal merken (Build 71): ueberlebt den Neustart
+    -- client-lokal merken, ueberlebt den Neustart
     self:saveClientPrefs()
 end
 
--- Hotspots neu aufbauen — wird nach jeder WP-Änderung und beim Init aufgerufen
+-- Hotspots neu aufbauen, nach jeder WP-Änderung und beim Init
 function NachbarFelderManager:updateWpHotspots()
-    -- Bestehende Hotspots entfernen
     if self._wpMapHotspots ~= nil then
         for _, hs in ipairs(self._wpMapHotspots) do
             if g_currentMission ~= nil then
@@ -6189,17 +5675,15 @@ function NachbarFelderManager:updateWpHotspots()
 end
 
 function NachbarFelderManager:saveWaypoints()
-    -- Reiner Client (Dedi-MP): Die Datei gehört dem SERVER - hier nie schreiben.
-    -- Client-Änderungen laufen als NachbarFelderWaypointEditEvent zum Server,
-    -- der speichert und die Liste zurück-synct.
+    -- Die Datei gehört dem Server. Clients schicken Änderungen per
+    -- NachbarFelderWaypointEditEvent, der Server speichert und synct zurück.
     if g_currentMission ~= nil and not g_currentMission:getIsServer() then
         return
     end
-    -- WP-Liste wurde geändert (hinzugefügt/gelöscht) → Indizes verschieben sich,
-    -- gemerkte Erreichbarkeits-Sperren passen nicht mehr → zurücksetzen.
+    -- Indizes haben sich verschoben, gemerkte Erreichbarkeits-Sperren verwerfen
     self.wpFails = {}
-    self.patrolWpList = nil   -- Build 104: Ziel-Liste neu aufbauen
-    local pfad = nfGetWpFilePath()   -- Build 132: Datei der geladenen Karte
+    self.patrolWpList = nil   -- Ziel-Liste neu aufbauen
+    local pfad = nfGetWpFilePath()   -- Datei der geladenen Karte
     local xmlFile = XMLFile.create("NachbarFelderWaypoints", pfad, wpXmlKey, wpXmlSchema)
     if xmlFile == nil then
         print("NachbarFelder: [TRAFFIC] Konnte Waypoint-Datei nicht schreiben: " .. pfad)
@@ -6226,20 +5710,19 @@ function NachbarFelderManager:saveWaypoints()
     xmlFile:delete()
     print("NachbarFelder: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
         " Wegpunkte gespeichert -> " .. pfad)
-    -- Im Dedicated-MP: Änderung sofort an alle Clients broadcasten
+    -- Änderung sofort an alle Clients verteilen
     if g_currentMission:getIsServer() and g_server ~= nil then
         g_server:broadcastEvent(NachbarFelderWaypointSyncEvent.new(self.userTrafficWaypoints))
     end
 end
 
 function NachbarFelderManager:loadWaypoints()
-    local pfad = nfGetWpFilePath()   -- Build 132: Datei der geladenen Karte
+    local pfad = nfGetWpFilePath()   -- Datei der geladenen Karte
     local xmlFile = XMLFile.loadIfExists("NachbarFelderWaypoints", NachbarFelderLesePfad(pfad), wpXmlSchema)
 
-    -- Build 132: Gibt es fuer diese Karte noch keine Datei, wird die alte
-    -- gemeinsame Datei EINMAL uebernommen - fuer die erste Karte, die der Server
-    -- damit laedt. Die alte Datei bleibt liegen und bekommt eine Markierung, damit
-    -- eine spaeter geladene andere Karte die Punkte nicht noch einmal erbt.
+    -- Ohne kartenspezifische Datei wird die alte gemeinsame Datei einmalig
+    -- uebernommen. Sie bleibt liegen, wird aber markiert, damit eine andere
+    -- Karte die Punkte nicht noch einmal erbt.
     local ausAlterDatei = false
     if xmlFile == nil and pfad ~= wpFilePathAlt and g_currentMission:getIsServer() then
         local alt = XMLFile.loadIfExists("NachbarFelderWaypoints", NachbarFelderLesePfad(wpFilePathAlt), wpXmlSchema)
@@ -6258,14 +5741,11 @@ function NachbarFelderManager:loadWaypoints()
         print("NachbarFelder: [TRAFFIC] Keine Wegpunkt-Datei fuer diese Karte: " .. pfad)
         return
     end
-    self.wpFails = {}  -- neue WP-Liste → alte Erreichbarkeits-Sperren verwerfen
-    self.patrolWpList = nil   -- Build 104: Ziel-Liste neu aufbauen
+    self.wpFails = {}  -- alte Erreichbarkeits-Sperren verwerfen
+    self.patrolWpList = nil   -- Ziel-Liste neu aufbauen
     self.userTrafficWaypoints = {}
-    -- Fahrzeugkategorien nur uebernehmen, wenn die Datei sie enthaelt.
-    -- Sind Werte da, wurden sie IN-GAME gesetzt -> autoritativ:
-    -- loadServerConfig darf sie dann nicht mehr ueberschreiben (Build 71,
-    -- vorher gewann die Konfig-Datei und die GUI-Einstellung ging beim
-    -- Neustart verloren).
+    -- Fahrzeugkategorien aus der Datei wurden ingame gesetzt und haben Vorrang:
+    -- loadServerConfig ueberschreibt sie dann nicht (vehicleCatsFromFile).
     if xmlFile:getInt(wpXmlKey .. "#catTractorS") ~= nil then
         self.vehicleCatEnabled = {
             TRACTORSS           = xmlFile:getInt(wpXmlKey .. "#catTractorS",   1) ~= 0,
@@ -6287,8 +5767,7 @@ function NachbarFelderManager:loadWaypoints()
         end
     end)
     if ausAlterDatei then
-        -- alte Datei markieren (bleibt als Sicherung liegen), danach die neue
-        -- Kartendatei schreiben
+        -- alte Datei markieren (bleibt als Sicherung), danach Kartendatei schreiben
         xmlFile:setString(wpXmlKey .. "#uebernommenFuer", nfGetKartenKennung() or "?")
         xmlFile:save(false, false)
     end
@@ -6338,7 +5817,7 @@ function NachbarFelderManager:consoleCommandNachbarFelderTrafficStop()
         return
     end
     self.trafficPaused = true
-    -- Auch schlafende Pool-Fahrzeuge entfernen (Kommando = "alle weg")
+    -- auch schlafende Pool-Fahrzeuge entfernen
     self:clearTrafficPool()
     local count = 0
     for _, k in pairs(self.vehicleType) do
@@ -6373,13 +5852,12 @@ function NachbarFelderManager:initializeSettingsPage()
     self.settingsPage = misssionSettingsPage
 end
 
--- Legacy-Kompatibilität: initialize() wurde früher von OWN_PLAYER_ENTERED aufgerufen
+-- Kompatibilitäts-Einstieg; die Server-Initialisierung läuft regulär über loadMap/serverSideInit
 function NachbarFelderManager:initialize()
     self:initializeSettingsPage()
     if not self.consoleCommandsAdded then
         self:addConsoleCommands()
     end
-    -- Server-Init läuft jetzt in loadMap / serverSideInit
     if g_currentMission:getIsServer() and not self.serverInitialized then
         self:serverSideInit()
     end

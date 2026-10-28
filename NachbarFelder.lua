@@ -2,13 +2,12 @@ local modDirectory = g_currentModDirectory
 local modName = g_currentModName
 
 -- ============================================================
--- Debug-Log (Build 165)
--- Alle Log-Zeilen der Mod laufen ueber NachbarFelderLog.print. Ist das
--- Debug-Log aus (Standard), landen nur Warnungen, Fehler und die Startzeile
--- mit der Build-Nummer im Log. Schalter: ESC > Einstellungen > Lebendige
--- Strassen > "Debug-Log" (Admin, wird an alle Clients synchronisiert) oder
--- logLevel=2 in der Server-Konfig.
+-- Debug-Log
 -- ============================================================
+-- Alle Log-Ausgaben laufen ueber NachbarFelderLog.print. Ohne Debug-Log
+-- kommen nur Zeilen durch, die einen der Begriffe aus NF_LOG_IMMER enthalten
+-- (Warnungen, Fehler, Startzeile). Umschaltbar in den Einstellungen (Admin,
+-- wird synchronisiert) oder per logLevel=2 in der Server-Konfig.
 NachbarFelderLog = { debug = false }
 local NF_LOG_IMMER = { "WARNUNG", "Warnung", "Fehler", "FEHLER", "fehlgeschlagen",
                        "nicht verfuegbar", "loadMap auf", "Debug-Log" }
@@ -27,9 +26,8 @@ function NachbarFelderLog.print(msg)
 end
 local print = NachbarFelderLog.print
 
--- Bis zur Umbenennung hiess die Mod FS25_NachbarFelder, ihre Dateien lagen in
--- modSettings/FS25_NachbarFelder/. Fehlt eine Datei im eigenen Ordner, wird sie
--- dort gelesen; gespeichert wird immer im eigenen Ordner.
+-- Alter Mod-Name FS25_NachbarFelder: fehlt eine Datei im eigenen modSettings-Ordner,
+-- wird sie aus dem alten gelesen. Gespeichert wird immer im eigenen Ordner.
 local NF_EIGENER_ORDNER = g_currentModSettingsDirectory
 local NF_ALTER_ORDNERNAME = "FS25_NachbarFelder"
 function NachbarFelderLesePfad(pfad)
@@ -46,7 +44,7 @@ function NachbarFelderLesePfad(pfad)
 end
 
 -- ============================================================
--- Network-Events: Client → Server
+-- Network-Events: Client an Server
 -- ============================================================
 NachbarFelderDeleteEvent = {}
 NachbarFelderDeleteEvent_mt = Class(NachbarFelderDeleteEvent, Event)
@@ -60,13 +58,13 @@ function NachbarFelderDeleteEvent.new()
 end
 function NachbarFelderDeleteEvent:readStream(streamId, connection)
     if g_currentMission:getIsServer() then
-        -- nur Admin-Verbindungen (Build 75)
+        -- nur von Admin-Verbindungen annehmen
         if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
             print("NachbarFelder: [ADMIN] Delete-Event abgelehnt - Absender ist kein Admin")
             return
         end
-        -- Admin-Aktion: aktive Fahrzeuge UND Pool-Fahrzeuge entfernen
+        -- aktive Fahrzeuge und Pool-Fahrzeuge entfernen
         if g_NachbarFelderManager.deleteAllVehiclesAndPool ~= nil then
             g_NachbarFelderManager:deleteAllVehiclesAndPool()
         else
@@ -78,10 +76,9 @@ end
 function NachbarFelderDeleteEvent:writeStream(streamId, connection)
 end
 
--- Client → Server: Wegpunkt-Änderung (Setzen/Löschen/Typ/Fahrzeugkategorien).
--- WICHTIG: Auf dem Dedi ist der SERVER Besitzer der Wegpunkt-Datei. Clientseitige
--- Änderungen liefen früher nur lokal und wurden vom nächsten Sync überschrieben
--- ("Wegpunkte werden nicht gespeichert").
+-- Client an Server: Wegpunkt-Änderung (Setzen/Löschen/Typ/Fahrzeugkategorien).
+-- Auf dem Dedi gehört die Wegpunkt-Datei dem Server; rein lokale Änderungen am
+-- Client würden beim nächsten Sync überschrieben.
 NachbarFelderWaypointEditEvent = {}
 NachbarFelderWaypointEditEvent_mt = Class(NachbarFelderWaypointEditEvent, Event)
 InitEventClass(NachbarFelderWaypointEditEvent, "NachbarFelderWaypointEditEvent")
@@ -91,8 +88,8 @@ NachbarFelderWaypointEditEvent.OP_REMOVELAST = 2
 NachbarFelderWaypointEditEvent.OP_DELETE     = 3
 NachbarFelderWaypointEditEvent.OP_SETCAT     = 4
 NachbarFelderWaypointEditEvent.OP_VEHCAT     = 5
--- Build 134: wie OP_ADD, der neue Punkt ist aber gleich ein Spawnpunkt (Button
--- "Spawnpunkt hier setzen") - kein zweites SETCAT-Event mit geratenem Index
+-- wie OP_ADD, setzt den Punkt aber direkt als Spawnpunkt; spart ein zweites
+-- SETCAT-Event, dessen Index der Client nicht sicher kennt
 NachbarFelderWaypointEditEvent.OP_ADD_SPAWN  = 6
 
 function NachbarFelderWaypointEditEvent.emptyNew()
@@ -118,8 +115,8 @@ function NachbarFelderWaypointEditEvent:readStream(streamId, connection)
     self.b  = streamReadFloat32(streamId)
     self.c  = streamReadFloat32(streamId)
     if g_currentMission:getIsServer() and g_NachbarFelderManager ~= nil then
-        -- nur Admin-Verbindungen (Build 75); Stream ist zu diesem Zeitpunkt
-        -- bereits vollstaendig gelesen (Pflicht vor dem Abbruch!)
+        -- nur Admin-Verbindungen; der Stream muss vor dem Abbruch
+        -- vollstaendig gelesen sein
         if g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
             print("NachbarFelder: [ADMIN] Wegpunkt-Edit abgelehnt - Absender ist kein Admin")
@@ -130,14 +127,13 @@ function NachbarFelderWaypointEditEvent:readStream(streamId, connection)
 end
 
 -- ============================================================
--- Network-Events: Settings-Sync (Build 67)
--- Gleiche Architektur wie das Wegpunkt-Editing: Client schickt
--- eine Aenderung, der SERVER ist autoritativ (wendet an, merkt
--- fuers Savegame vor) und broadcastet den kompletten Stand an
--- alle Clients zurueck.
+-- Network-Events: Settings-Sync
 -- ============================================================
+-- Wie beim Wegpunkt-Editing: der Client schickt die Aenderung, der Server
+-- wendet sie an, merkt sie fuers Savegame vor und verteilt den kompletten
+-- Stand an alle Clients.
 
--- Client → Server: eine Einstellung aendern (name + Zahlwert; bool = 0/1)
+-- Client an Server: eine Einstellung aendern (Name + Zahlwert, bool als 0/1)
 NachbarFelderSettingsEditEvent = {}
 NachbarFelderSettingsEditEvent_mt = Class(NachbarFelderSettingsEditEvent, Event)
 InitEventClass(NachbarFelderSettingsEditEvent, "NachbarFelderSettingsEditEvent")
@@ -159,7 +155,7 @@ function NachbarFelderSettingsEditEvent:readStream(streamId, connection)
     self.settingName = streamReadString( streamId)
     self.value       = streamReadFloat32(streamId)
     if g_currentMission:getIsServer() and g_NachbarFelderManager ~= nil then
-        -- nur Admin-Verbindungen (Build 75); Stream vorher komplett lesen!
+        -- nur Admin-Verbindungen; Stream ist bereits komplett gelesen
         if g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
             print("NachbarFelder: [ADMIN] Settings-Edit abgelehnt - Absender ist kein Admin")
@@ -169,7 +165,7 @@ function NachbarFelderSettingsEditEvent:readStream(streamId, connection)
     end
 end
 
--- Server → Client: kompletter Einstellungs-Stand
+-- Server an Client: kompletter Einstellungs-Stand
 NachbarFelderSettingsSyncEvent = {}
 NachbarFelderSettingsSyncEvent_mt = Class(NachbarFelderSettingsSyncEvent, Event)
 InitEventClass(NachbarFelderSettingsSyncEvent, "NachbarFelderSettingsSyncEvent")
@@ -184,7 +180,7 @@ function NachbarFelderSettingsSyncEvent.new(state)
 end
 function NachbarFelderSettingsSyncEvent:writeStream(streamId, connection)
     local st = self.state or {}
-    -- bools als UInt8 0/1 (robust, gleiche Technik wie Waypoint-Sync)
+    -- bools als UInt8 0/1; Reihenfolge muss zu readStream passen
     streamWriteUInt8(streamId, (st.active ~= false) and 1 or 0)
     streamWriteUInt8(streamId, math.max(0, math.min(30, st.maxWorkers or 12)))
     streamWriteUInt8(streamId, math.max(0, math.min(12, st.trafficLimit or 4)))
@@ -198,9 +194,8 @@ function NachbarFelderSettingsSyncEvent:writeStream(streamId, connection)
         streamWriteString(streamId, mName)
         streamWriteUInt8( streamId, (mActive == true) and 1 or 0)
     end
-    -- Build 157: Helfer-Farm (Karten-Symbole der Nachbarn ausblenden), 0 = unbekannt
+    -- Helfer-Farm, damit Clients die Kartensymbole der Nachbarn ausblenden; 0 = unbekannt
     streamWriteUInt8(streamId, math.max(0, math.min(255, st.helferFarmId or 0)))
-    -- Build 165: Debug-Log an/aus
     streamWriteUInt8(streamId, (st.debugLog == true) and 1 or 0)
 end
 function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
@@ -217,8 +212,8 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
         local mActive = streamReadUInt8(streamId) == 1
         state.missions[mName] = mActive
     end
-    state.helferFarmId = streamReadUInt8(streamId)   -- Build 157
-    state.debugLog     = streamReadUInt8(streamId) == 1   -- Build 165
+    state.helferFarmId = streamReadUInt8(streamId)
+    state.debugLog     = streamReadUInt8(streamId) == 1
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
         g_NachbarFelderManager:applySettingsState(state)
@@ -228,10 +223,10 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
 end
 
 -- ============================================================
--- Network-Events: Server → Client (Waypoint-Sync)
+-- Network-Events: Wegpunkt-Sync
 -- ============================================================
 
--- Client → Server: "Schick mir deine Wegpunkte"
+-- Client an Server: Wegpunkte anfordern
 NachbarFelderWaypointRequestEvent = {}
 NachbarFelderWaypointRequestEvent_mt = Class(NachbarFelderWaypointRequestEvent, Event)
 InitEventClass(NachbarFelderWaypointRequestEvent, "NachbarFelderWaypointRequestEvent")
@@ -249,8 +244,7 @@ function NachbarFelderWaypointRequestEvent:readStream(streamId, connection)
     local wps = (g_NachbarFelderManager ~= nil) and g_NachbarFelderManager.userTrafficWaypoints or {}
     connection:sendEvent(NachbarFelderWaypointSyncEvent.new(wps))
     print("NachbarFelder: [SYNC] " .. tostring(#wps) .. " Wegpunkte an Client gesendet")
-    -- Settings gleich mitschicken (Build 67): der joinende Client bekommt
-    -- den aktuellen server-autoritativen Einstellungs-Stand.
+    -- beim Join gleich auch die Einstellungen des Servers mitschicken
     if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getSettingsState ~= nil then
         connection:sendEvent(NachbarFelderSettingsSyncEvent.new(
             g_NachbarFelderManager:getSettingsState()))
@@ -258,7 +252,7 @@ function NachbarFelderWaypointRequestEvent:readStream(streamId, connection)
     end
 end
 
--- Server → Client: Wegpunkt-Liste
+-- Server an Client: Wegpunkt-Liste und Fahrzeugkategorien
 NachbarFelderWaypointSyncEvent = {}
 NachbarFelderWaypointSyncEvent_mt = Class(NachbarFelderWaypointSyncEvent, Event)
 InitEventClass(NachbarFelderWaypointSyncEvent, "NachbarFelderWaypointSyncEvent")
@@ -281,8 +275,8 @@ function NachbarFelderWaypointSyncEvent:writeStream(streamId, connection)
         streamWriteUInt8(  streamId, wp.cat or 0)
         streamWriteString( streamId, wp.label or "")
     end
-    -- Fahrzeugkategorien mitsyncen (Build 71): sonst zeigt die Client-GUI
-    -- nach einem Rejoin wieder die Defaults statt der Server-Werte
+    -- Fahrzeugkategorien mitsenden, sonst zeigt die Client-GUI nach einem
+    -- Rejoin die Standardwerte statt der Server-Werte
     local c = (g_NachbarFelderManager ~= nil and g_NachbarFelderManager.vehicleCatEnabled) or {}
     streamWriteUInt8(streamId, (c.TRACTORSS           ~= false) and 1 or 0)
     streamWriteUInt8(streamId, (c.TRACTORSM           ~= false) and 1 or 0)
@@ -302,7 +296,6 @@ function NachbarFelderWaypointSyncEvent:readStream(streamId, connection)
         local label = streamReadString( streamId)
         table.insert(wps, { x=x, z=z, ry=ry, cat=cat, label=label })
     end
-    -- Fahrzeugkategorien (Build 71)
     local cats = {
         TRACTORSS           = streamReadUInt8(streamId) == 1,
         TRACTORSM           = streamReadUInt8(streamId) == 1,
@@ -322,15 +315,14 @@ function NachbarFelderWaypointSyncEvent:readStream(streamId, connection)
 end
 
 -- ============================================================
--- Input-Events: Nur Admin darf steuern
+-- Input-Events
 -- ============================================================
 local function addPlayerActionEvents(self, superFunc, ...)
     superFunc(self, ...)
 
-    -- Die Engine ruft das bei JEDEM Input-Kontextwechsel auf (Fahrzeug rein/
-    -- raus, Menüs) - teils im Sekundentakt. Registrieren müssen wir jedes Mal
-    -- (der Kontext wird vorher geleert), aber LOGGEN nur beim ersten Mal,
-    -- sonst flutet es log.txt (Build 76).
+    -- Die Engine ruft das bei jedem Input-Kontextwechsel auf (Fahrzeug, Menüs),
+    -- teils im Sekundentakt. Registriert wird jedes Mal, da der Kontext vorher
+    -- geleert wird; geloggt nur beim ersten Aufruf.
     local logOnce = g_NachbarFelderManager ~= nil
         and g_NachbarFelderManager._inputLoggedOnce ~= true
 
@@ -349,8 +341,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
         return
     end
 
-    -- Auf dem reinen Dedicated-Server-Prozess gibt es kein lokales Input-System.
-    -- g_client == nil bedeutet: dieser Prozess ist kein Client (nur Server).
+    -- reiner Dedicated-Server-Prozess: kein lokales Input-System
     if g_client == nil then
         if logOnce then
             print("NachbarFelder: [INPUT] Abbruch – kein Client (Dedicated Server)")
@@ -358,7 +349,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
         return
     end
 
-    -- InputActions müssen geladen sein (werden auf Dedicated Server nicht geladen)
+    -- InputActions fehlen, wenn die modDesc-Actions nicht geladen wurden (Dedi)
     if InputAction.NF_DELETE_HELPER == nil then
         if logOnce then
             print("NachbarFelder: [INPUT] Abbruch – InputActions nicht geladen")
@@ -366,18 +357,16 @@ local function addPlayerActionEvents(self, superFunc, ...)
         return
     end
 
-    -- Kein isAdmin-Check: In Dedicated-MP ist isMasterUser auf dem Client-Prozess
-    -- nicht gesetzt, obwohl der Nutzer der Server-Besitzer ist.
-    -- isOwner=true (Zeile 128) reicht als Schutz – nur der lokale Spieler triggert Events.
+    -- Bewusst kein isAdmin-Check: im Dedicated-MP ist isMasterUser auf dem Client
+    -- hier noch nicht gesetzt. Die Rechte prüft der Server beim Empfang der Events.
 
-    -- Lokalen Spieler speichern – g_currentMission.player ist in FS25 nil,
-    -- aber hier haben wir ihn direkt über den PlayerInputComponent.
+    -- g_currentMission.player ist in FS25 nil, daher den Spieler hier merken
     g_NachbarFelderManager.localPlayer = self.player
     if logOnce then
         print("NachbarFelder: [INPUT] Registriere Action-Events...")
     end
 
-    -- NF_DELETE_HELPER = Admin-Vollreinigung: aktive Fahrzeuge + Pool
+    -- entfernt aktive Fahrzeuge und Pool
     local _, idDel = g_inputBinding:registerActionEvent(
         InputAction.NF_DELETE_HELPER, g_NachbarFelderManager,
         g_NachbarFelderManager.deleteAllVehiclesAndPool, false, true, false, true)
@@ -393,7 +382,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
             if idAdd ~= nil then
                 g_inputBinding:setActionEventTextVisibility(idAdd, false)
                 if logOnce then
-                    -- Build 134: keine Taste nennen - die Belegung steht im Spielerprofil
+                    -- keine Taste nennen: die Belegung steht im Spielerprofil
                     -- und weicht oft vom modDesc-Standard ab
                     print("NachbarFelder: [INPUT] NF_ADD_WAYPOINT registriert")
                 end
@@ -433,10 +422,10 @@ local function addPlayerActionEvents(self, superFunc, ...)
 end
 
 -- ============================================================
--- initialize(): Wird auf Client via OWN_PLAYER_ENTERED gerufen.
--- Im Dedicated-MP übernimmt der Server (loadMap) die Logik.
--- Hier nur: Settings-Seite für den Spieler anzeigen.
+-- Client-Initialisierung
 -- ============================================================
+-- Läuft über OWN_PLAYER_ENTERED und baut nur die UI auf; die Spiellogik
+-- startet serverseitig in loadMap.
 local function initialize(nachbarFelder)
     local isAdmin = g_currentMission ~= nil and
         (g_currentMission:getIsServer() or g_currentMission.isMasterUser)
@@ -447,36 +436,36 @@ local function initialize(nachbarFelder)
         print("NachbarFelder: Kein Admin, nur UI wird geladen")
     end
 
-    -- Settings-Seite immer initialisieren (auch für Nicht-Admin)
+    -- auch für Nicht-Admins (Controls sind dann gesperrt)
     if g_NachbarFelderManager.initializeSettingsPage ~= nil then
         g_NachbarFelderManager:initializeSettingsPage()
     end
 
-    -- Wegpunkt-Seite als eigenen Settings-Tab einbetten
+    -- Wegpunkt-Seite als eigener Tab im Ingame-Menü
     if NachbarFelderWaypointPage ~= nil then
         local wpPage = NachbarFelderWaypointPage.new(g_NachbarFelderManager)
         g_NachbarFelderWaypointPage = wpPage
         wpPage:registerAndInject()
     end
 
-    -- Karten Draw-Hook installieren: InGameMenuMapFrame erst nach OWN_PLAYER_ENTERED verfügbar
+    -- InGameMenuMapFrame existiert erst nach OWN_PLAYER_ENTERED
     if g_NachbarFelderManager.setupMapDrawHook ~= nil then
         g_NachbarFelderManager:setupMapDrawHook()
     end
 
-    -- Im Dedicated-MP: Wegpunkte vom Server anfordern (Server ist autoritativ).
-    -- In SP / Local-Host: getIsServer()=true → loadWaypoints() lief schon in loadMap().
+    -- Reiner Client: Wegpunkte beim Server anfordern. In SP und beim Host
+    -- wurden sie bereits in loadMap geladen.
     if not g_currentMission:getIsServer() then
         g_client:getServerConnection():sendEvent(NachbarFelderWaypointRequestEvent.new())
     end
 end
 
 -- ============================================================
--- init(): Modul-Einstieg
+-- Modul-Einstieg
 -- ============================================================
 local function init()
     source(modDirectory .. "NachbarFelderManager.lua")
-    NachbarFelderManager.modDirectory = modDirectory   -- Build 153: fuer help/helpLine.xml
+    NachbarFelderManager.modDirectory = modDirectory   -- fuer help/helpLine.xml
     source(modDirectory .. "NachbarFelderWorker.lua")
     source(modDirectory .. "NachbarFelderSettingsPage.lua")
     source(modDirectory .. "NachbarFelderUIHelper.lua")
@@ -487,8 +476,8 @@ local function init()
     local nachbarFelder = NachbarFelderManager.new()
     g_NachbarFelderManager = nachbarFelder
 
-    -- Mod-Event-Listener JETZT registrieren (nicht erst in initialize),
-    -- damit loadMap/update/deleteMap auch auf dem Dedicated-Server feuern!
+    -- hier registrieren, nicht erst in initialize: OWN_PLAYER_ENTERED kommt auf
+    -- dem Dedicated Server nie, loadMap/update/deleteMap muessen dort aber laufen
     addModEventListener(nachbarFelder)
 
     PlayerInputComponent.registerGlobalPlayerActionEvents = Utils.overwrittenFunction(
@@ -515,7 +504,7 @@ local function init()
         end
     end
 
-    -- OWN_PLAYER_ENTERED: für Client-seitige UI (Settings-Seite)
+    -- clientseitige UI erst, wenn der eigene Spieler da ist
     g_messageCenter:subscribeOneshot(MessageType.OWN_PLAYER_ENTERED, initialize, g_NachbarFelderManager)
 end
 

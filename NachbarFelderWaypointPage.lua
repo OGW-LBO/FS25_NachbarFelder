@@ -1,10 +1,10 @@
 -- ============================================================
 -- NachbarFelderWaypointPage
--- Eigener Sub-Kategorie-Tab in ESC → Allgemeine Einstellungen
--- für den Wegpunkt-Manager.
--- Muster: FS25_additionalGameSettings (Rockstar)
+-- Eigener Reiter für den Wegpunkt-Manager unter ESC > Allgemeine Einstellungen.
+-- Aufbau angelehnt an FS25_additionalGameSettings.
 -- ============================================================
--- Build 158: sichtbare Texte aus l10n (ModHub verlangt DE und EN).
+
+--- Text aus der l10n holen, optional mit string.format-Argumenten; fehlt der Schlüssel, kommt er selbst zurück.
 local function nfPageText(key, ...)
     local s = key
     if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
@@ -16,9 +16,7 @@ local function nfPageText(key, ...)
     return s
 end
 
--- Build 178: Titel des Wegpunkt-Reiters aus der Uebersetzung (modDesc, de/en/fr). Vorher fest
--- "Wegpunkte"/"Waypoints" - auf Franzoesisch stand "Waypoints". Fallback nur, falls der
--- Schluessel fehlt.
+-- Fallback nur, falls der Schlüssel in der modDesc fehlt.
 local function nfTabTitel()
     if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText("NF_wpPage_tabTitle") then
         return g_i18n:getText("NF_wpPage_tabTitle")
@@ -27,24 +25,23 @@ local function nfTabTitel()
 end
 
 
--- Build 161: Kategorie eines Wegpunkts als l10n-Schluessel (0 Normal, 1 Kurz,
--- 2 Lang, 3 Durchfahrt, 4 Spawnpunkt). Unbekanntes gilt als Normal.
+-- Wegpunkt-Kategorie -> l10n-Schlüssel (0 Normal, 1 Kurz, 2 Lang, 3 Durchfahrt, 4 Spawnpunkt).
+-- Unbekannte Werte gelten als Normal.
 local NF_CAT_KEYS = { [0]="NF_wpCat_normal", [1]="NF_wpCat_kurz", [2]="NF_wpCat_lang",
                       [3]="NF_wpCat_durchfahrt", [4]="NF_wpArt_spawn" }
 local function nfCatKey(cat)
     return NF_CAT_KEYS[cat or 0] or "NF_wpCat_normal"
 end
 
--- Build 160: Element sperren/freigeben, nur wenn das Element es kann (ersetzt die
--- frueheren Fehlerfaenger; ein Fehler im Menue-Update reisst sonst den ganzen
--- Spiel-Frame mit).
+-- Nur aufrufen, wenn das Element es unterstützt: ein Fehler im Menü-Update
+-- reißt sonst den ganzen Frame mit.
 local function nfSetDisabled(elem, disabled)
     if elem ~= nil and elem.setDisabled ~= nil then
         elem:setDisabled(disabled)
     end
 end
 
--- Build 160: Zustand einer BinaryOption setzen, nur wenn es eine ist.
+-- Setzt den Zustand nur, wenn das Element eine BinaryOption ist.
 local function nfSetOptionState(elem, state)
     if elem ~= nil and elem.setState ~= nil then
         elem.texts = { nfPageText("NF_ui_nein"), nfPageText("NF_ui_ja") }
@@ -54,15 +51,15 @@ end
 
 NachbarFelderWaypointPage = {}
 
--- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+-- Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
 local print = NachbarFelderLog.print
 local NachbarFelderWaypointPage_mt = Class(NachbarFelderWaypointPage, FrameElement)
 local modDirectory = g_currentModDirectory
 
--- Globale Referenz für Callbacks (Sicherheit, analog additionalGameSettings)
+-- Globale Referenz für die GUI-Callbacks
 g_NachbarFelderWaypointPage = nil
 
--- Build 135: Beschriftung der Aktions-Buttons (l10n-Keys). Der Typ-Button zeigt
+-- Beschriftung der Aktions-Buttons (l10n-Schlüssel). Der Typ-Button zeigt
 -- stattdessen die aktuelle Kategorie (refreshWpInfo).
 NachbarFelderWaypointPage.BUTTON_TEXT = {
     nfWpPrev         = "NF_wpBtn_prev",
@@ -84,13 +81,8 @@ end
 -- Laden + Einbetten in InGameMenuSettingsFrame
 -- ============================================================
 function NachbarFelderWaypointPage:registerAndInject()
-    -- Build 178: Der fruehere Wrapper um g_i18n.getText (lieferte fuer NF_wpPage_tabTitle fest
-    -- "Wegpunkte"/"Waypoints", fuer alle Mods) ist entfernt - die Texte stehen seit Build 169 in
-    -- der modDesc, HEADER_TITLES nutzt den Schluessel seit Build 177 nicht mehr.
-
-    -- Build 135: eigene GUI-Profile (Aktions-Button) vor dem loadGui laden -
-    -- Gui:loadProfiles(xmlFilename), Muster wie FS25_EasyDevControls.
-    -- Schon vorhandene Profilnamen ueberschreibt das Spiel nicht (Gui:loadProfileSet).
+    -- Eigene GUI-Profile müssen vor loadGui geladen sein. Bereits vorhandene
+    -- Profilnamen überschreibt das Spiel nicht (Gui:loadProfileSet).
     if not NachbarFelderWaypointPage._profileGeladen then
         NachbarFelderWaypointPage._profileGeladen = true
         if g_gui ~= nil and g_gui.loadProfiles ~= nil then
@@ -104,7 +96,7 @@ function NachbarFelderWaypointPage:registerAndInject()
         print("NachbarFelder: [WP-PAGE] loadGui nicht verfuegbar")
         return
     end
-    -- XML laden — setzt self.nfWpPage, self.nfWpTab, self.nfWp* als Felder
+    -- loadGui legt nfWpPage, nfWpTab und die übrigen nfWp*-IDs als Felder auf self an
     g_gui:loadGui(
         Utils.getFilename("gui/NachbarFelderWaypointPage.xml", modDirectory),
         "NachbarFelderWaypointPage",
@@ -125,18 +117,17 @@ function NachbarFelderWaypointPage:registerAndInject()
             return
         end
 
-        -- Tab-Titel direkt setzen: $l10n_ wird vom C++-Parser vor dem Lua-Wrapper aufgeloest,
-        -- daher setText nach loadGui als zuverlaessiger Fallback.
+        -- $l10n_ löst der C++-Parser auf, bevor Mod-Texte greifen,
+        -- daher den Titel nach loadGui selbst setzen.
         local title = nfTabTitel()
         if wpTab.setText ~= nil then wpTab:setText(title) end
 
-        -- Prefabs nach loadGui ausblenden (bleiben als Klonvorlagen, sollen nicht sichtbar sein)
+        -- Prefabs dienen nur als Klonvorlagen
         if self.nfWpBoolPrefab    ~= nil then self.nfWpBoolPrefab:setVisible(false)    end
         if self.nfWpActionPrefab  ~= nil then self.nfWpActionPrefab:setVisible(false)  end
         if self.nfWpSectionPrefab ~= nil then self.nfWpSectionPrefab:setVisible(false) end
 
-        -- Alternating-Hintergründe aktualisieren (Muster: FS25_additionalGameSettings)
-        -- Muss nach jedem Hinzufügen von Rows aufgerufen werden.
+        -- Abwechselnde Zeilenhintergründe; nach jedem Hinzufügen von Zeilen erneut aufrufen.
         local function updateAlternating(layout)
             local colors = InGameMenuSettingsFrame.COLOR_ALTERNATING
             if colors == nil then return end
@@ -147,8 +138,8 @@ function NachbarFelderWaypointPage:registerAndInject()
                     isAlt = true   -- nach jeder Sektion zurücksetzen
                 elseif container.getIsVisibleNonRec == nil
                     or container:getIsVisibleNonRec() then
-                    -- Build 160: nicht jedes Layout-Kind ist eine Bitmap (beim Joinen
-                    -- kam setImageColor = nil und der Spieler fiel durch die Map)
+                    -- Nicht jedes Layout-Kind ist eine Bitmap; ohne die Prüfung
+                    -- bricht setImageColor = nil den Beitritt zum Server ab.
                     if container.setImageColor ~= nil and colors[isAlt] ~= nil then
                         container:setImageColor(nil, unpack(colors[isAlt]))
                     end
@@ -157,16 +148,14 @@ function NachbarFelderWaypointPage:registerAndInject()
             end
             if layout ~= nil and layout.invalidateLayout ~= nil then layout:invalidateLayout() end
         end
-        -- Referenz für spätere Aufrufe in onTabOpen speichern
         self._updateAlternating = updateAlternating
 
-        -- Rows per Klonen anlegen — Muster identisch zu FS25_additionalGameSettings
+        -- Zeilen per Klonen der Prefabs anlegen (wie FS25_additionalGameSettings)
         if self.nfWpBoolPrefab ~= nil and self.nfWpLayout ~= nil then
             local self_ref = self
 
             local function addRow(id, labelKey, callbackName, tooltipKey, isAction)
-                -- Aktions-Zeilen: nfWpActionPrefab (Button, Build 135 - vorher MultiTextOption)
-                -- Toggle-Zeilen:  nfWpBoolPrefab   (BinaryOption, Nein/Ja)
+                -- Aktion: nfWpActionPrefab (Button), Schalter: nfWpBoolPrefab (BinaryOption)
                 local prefab = isAction and self_ref.nfWpActionPrefab or self_ref.nfWpBoolPrefab
                 if prefab == nil then return end
                 local box = prefab:clone(self_ref.nfWpLayout)
@@ -182,8 +171,8 @@ function NachbarFelderWaypointPage:registerAndInject()
                     opt:setCallback("onClickCallback", callbackName)
                     opt:setDisabled(false)
                     self_ref[id] = opt
-                    -- Tooltip: erstes Kind mit setText. BinaryOption: der Text selbst;
-                    -- Button: nach dem Rahmen (ThreePartBitmap hat kein setText).
+                    -- Tooltip ins erste Kind mit setText. BinaryOption: der Text selbst,
+                    -- Button: das Kind nach dem Rahmen (ThreePartBitmap hat kein setText).
                     local tt = tooltipKey and g_i18n:getText(tooltipKey) or ""
                     for _, kind in ipairs(opt.elements or {}) do
                         if kind.setText ~= nil then
@@ -191,7 +180,6 @@ function NachbarFelderWaypointPage:registerAndInject()
                             break
                         end
                     end
-                    -- Aktions-Zeilen: Beschriftung des Buttons (refreshWpInfo erneuert sie)
                     if isAction then
                         local key = NachbarFelderWaypointPage.BUTTON_TEXT[id]
                         if key ~= nil then
@@ -199,7 +187,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                         end
                     end
                 end
-                -- Label immer sichtbar – zeigt Beschriftung der Zeile in weiß links.
+                -- Label links in der Zeile
                 local labelEl = box.elements[2]
                 if labelEl ~= nil then
                     labelEl:setVisible(true)
@@ -223,8 +211,7 @@ function NachbarFelderWaypointPage:registerAndInject()
             addRow("nfWpTeleport",      "NF_wpTeleport_short",      "onNFWpTeleport",      "NF_wpTeleport_long",      true)
             addRow("nfWpType",          "NF_wpType_short",          "onNFWpType",          "NF_wpType_long",          true)
             addRow("nfWpDelete",        "NF_wpDelete_short",        "onNFWpDelete",        "NF_wpDelete_long",        true)
-            -- Build 134: neuer Punkt direkt aus dem Menue - ohne Taste (deren Belegung
-            -- im Spielerprofil abweichen kann) und ohne Typ-Durchklicken
+            -- Punkt direkt aus dem Menü setzen, unabhängig von der Tastenbelegung
             addSection("NF_wpNew_section_title")
             addRow("nfWpAddHere",       "NF_wpAddHere_short",       "onNFWpAddHere",       "NF_wpAddHere_long",       true)
             addRow("nfWpAddSpawnHere",  "NF_wpAddSpawnHere_short",  "onNFWpAddSpawnHere",  "NF_wpAddSpawnHere_long",  true)
@@ -237,10 +224,10 @@ function NachbarFelderWaypointPage:registerAndInject()
             addRow("nfWpCatLoader",     "NF_wpCatLoader_short",     "onNFWpCatLoader",     "NF_wpCatLoader_long",     false)
             addRow("nfWpCatTeleLoader", "NF_wpCatTeleLoader_short", "onNFWpCatTeleLoader", "NF_wpCatTeleLoader_long", false)
 
-            -- FocusManager braucht passenden Zielobjekt-Namen auf dem target-Objekt
+            -- FocusManager erwartet den Namen des Ziel-Frames auf dem target-Objekt
             self.name = settingsFrame.name
 
-            -- Prefabs löschen (analog BC SettingsManager Zeilen 71-74)
+            -- Prefabs werden nicht mehr gebraucht
             if self.nfWpBoolPrefab ~= nil then
                 self.nfWpBoolPrefab:delete()
                 self.nfWpBoolPrefab = nil
@@ -254,14 +241,13 @@ function NachbarFelderWaypointPage:registerAndInject()
                 self.nfWpSectionPrefab = nil
             end
 
-            -- Alternating-Hintergründe initial setzen
             updateAlternating(self.nfWpLayout)
             if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then self.nfWpLayout:invalidateLayout() end
         else
             print("NachbarFelder: [WP-PAGE] nfWpBoolPrefab nicht gefunden – Rows fehlen")
         end
 
-        -- Am Ende der vorhandenen Sub-Kategorien einfügen
+        -- Hinter den vorhandenen Sub-Kategorien einhängen
         local position = #settingsFrame.subCategoryPages + 1
 
         local function addAtPosition(element, target, pos)
@@ -278,15 +264,13 @@ function NachbarFelderWaypointPage:registerAndInject()
         table.insert(settingsFrame.subCategoryPages, position, wpPage)
         table.insert(settingsFrame.subCategoryTabs,  position, wpTab)
 
-        -- SUB_CATEGORY-ID registrieren (am Ende, keine ID-Verschiebung nötig)
+        -- Am Ende angehängt, daher verschieben sich keine vorhandenen IDs
         InGameMenuSettingsFrame.SUB_CATEGORY.NF_WAYPOINTS = position
 
-        -- HEADER_SLICES landet in OverlayManager:createOverlay, das den
-        -- Identifier als "prefix.sliceId" am ersten Punkt zerlegt. Ein leerer
-        -- String ergibt dort prefix == nil und beim Öffnen des Tabs die
-        -- Warnung "Identifier '' does not contain prefix or slice ID"
-        -- (OverlayManager.lua:159). Deshalb das Symbol eines vorhandenen
-        -- Basisspiel-Tabs übernehmen.
+        -- HEADER_SLICES geht an OverlayManager:createOverlay, das "prefix.sliceId"
+        -- am Punkt zerlegt. Ein leerer String erzeugt beim Öffnen die Warnung
+        -- "Identifier '' does not contain prefix or slice ID", daher das Symbol
+        -- eines Basisspiel-Tabs übernehmen.
         local slices = InGameMenuSettingsFrame.HEADER_SLICES
         local slice  = ""
         for _, vorhanden in ipairs(slices) do
@@ -301,19 +285,12 @@ function NachbarFelderWaypointPage:registerAndInject()
         end
 
         table.insert(slices, position, slice)
-        -- Build 177 (User, 13.10.): HEADER_TITLES loest der Frame ueber g_i18n:getText(schluessel) auf - ohne
-        -- die Mod-Umgebung, also nur in der Textliste des Basisspiels. Die Texte
-        -- dieser Mod stehen dort nicht (auch nicht aus einer eigenen l10n-Datei),
-        -- und der Aufruf laeuft in JEDEM Frame, in dem die Einstellungsseite offen
-        -- ist: im Entwicklermodus entsteht dabei fortlaufend
-        -- "DevWarning: Missing 'NF_wpPage_tabTitle' in l10n_de.xml". Genau das hat GIANTS bei
-        -- Farm Economy zweimal beanstandet; in der Verkaufsversion sieht man diese
-        -- Zeilen nicht, deshalb faellt es im eigenen Log nie auf.
-        --
-        -- Darum steht hier der Schluessel eines vorhandenen Basisspiel-Tabs: die
-        -- Suche findet immer etwas. Sichtbar wird dieser Titel nie, denn solange
-        -- unser Tab offen ist, schreibt der update-Hook weiter unten die Kopfzeile
-        -- in jedem Frame selbst.
+        -- HEADER_TITLES löst der Frame jeden Frame über g_i18n:getText auf, und zwar
+        -- ohne Mod-Umgebung, also nur gegen die Basisspiel-Texte. Ein Mod-Schlüssel
+        -- erzeugt im Entwicklermodus laufend "DevWarning: Missing ... in l10n_de.xml"
+        -- (ein ModHub-Prüfpunkt), im normalen Log fällt das nicht auf.
+        -- Daher den Schlüssel eines Basisspiel-Tabs eintragen. Sichtbar wird er nie,
+        -- der update-Hook unten überschreibt die Kopfzeile, solange unser Tab offen ist.
         local titles = InGameMenuSettingsFrame.HEADER_TITLES
         local titel  = "NF_wpPage_tabTitle"
         for _, vorhanden in ipairs(titles) do
@@ -326,7 +303,7 @@ function NachbarFelderWaypointPage:registerAndInject()
 
         settingsFrame:updateAbsolutePosition()
 
-        -- FocusManager-Registrierung (analog additionalGameSettings)
+        -- Seite und Tab beim FocusManager registrieren (wie additionalGameSettings)
         local currentGui     = FocusManager.currentGui
         local getDescendants = settingsFrame.getDescendants
 
@@ -354,9 +331,8 @@ function NachbarFelderWaypointPage:registerAndInject()
             end
         )
 
-        -- update()-Hook: Header jeden Frame korrigieren wenn unser Tab aktiv ist.
-        -- Nötig weil InGameMenuSettingsFrame.update() den Header aus HEADER_TITLES
-        -- neu setzt und unser externer l10n-Schlüssel dabei "MISSING" liefert.
+        -- InGameMenuSettingsFrame.update() setzt die Kopfzeile jeden Frame aus
+        -- HEADER_TITLES neu, daher hier wieder unseren Titel eintragen.
         local nfTabIdx = position
         settingsFrame.update = Utils.appendedFunction(
             settingsFrame.update,
@@ -371,14 +347,13 @@ function NachbarFelderWaypointPage:registerAndInject()
             end
         )
 
-        -- Paging-Callback: Scrollbar + Fokus-Links + Header-Fix wenn Tab gewählt wird
+        -- Beim Wechsel auf unseren Tab: Kopfzeile, Scrollbar und Fokus-Links setzen
         settingsFrame.subCategoryPaging.onClickCallback = Utils.overwrittenFunction(
             settingsFrame.subCategoryPaging.onClickCallback,
             function(pagingElem, superFunc, state)
                 local ret = superFunc(pagingElem, state)
                 local val = pagingElem.texts and pagingElem.texts[state]
                 if val ~= nil and tonumber(val) == InGameMenuSettingsFrame.SUB_CATEGORY.NF_WAYPOINTS then
-                    -- Header-Text direkt überschreiben (superFunc hat MISSING gesetzt)
                     local sf = g_inGameMenu and g_inGameMenu.pageSettings
                     if sf ~= nil then
                         local title = nfTabTitel()
@@ -397,13 +372,9 @@ function NachbarFelderWaypointPage:registerAndInject()
 
         print("NachbarFelder: [WP-PAGE] Wegpunkt-Tab eingefügt (pos=" .. position .. ")")
 
-        -- BetterContracts-Kompatibilität: BC berechnet bei JEDEM Menü-Öffnen
-        -- seinen Tab-Index als "letzter Paging-Eintrag" (Annahme im BC-Code:
-        -- "our mod button should always be the last one"). Seit unser
-        -- Wegpunkte-Tab dahinter hängt, öffnete BCs Tab-Klick UNSERE Seite.
-        -- Fix: Wir hängen uns NACH BCs onFrameOpen-Hook (unsere Injection
-        -- läuft später → appended-Kette: Vanilla → BC → wir) und setzen
-        -- BCs modState auf den Paging-State, dessen Wert BCs Seitennummer ist.
+        -- BetterContracts ermittelt seinen Tab bei jedem Öffnen als letzten Paging-
+        -- Eintrag und würde damit unsere Seite öffnen. Unser Hook hängt hinter dem
+        -- von BC und setzt dessen modState auf den Paging-State mit BCs Seitennummer.
         local bcIdx = InGameMenuSettingsFrame.SUB_CATEGORY ~= nil
             and InGameMenuSettingsFrame.SUB_CATEGORY.BCONTRACTS or nil
         if bcIdx ~= nil then
@@ -437,7 +408,6 @@ end
 function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
     if settingsFrame ~= nil then
         if settingsFrame.updateAbsolutePosition ~= nil then settingsFrame:updateAbsolutePosition() end
-        -- Header-Text direkt überschreiben (HEADER_TITLES-Lookup uppercased intern)
         local title = nfTabTitel()
         local sfHdrKeys = {"categoryHeaderText","subCategoryHeaderText","subCategoryHeader","categoryTitle","headerTitle","pageTitle","subCategoryTitle","headerText"}
         for _, name in ipairs(sfHdrKeys) do
@@ -450,11 +420,9 @@ function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
         end
     end
     self:refreshWpInfo()
-    -- Alternating-Hintergründe auffrischen (analog AGS onFrameOpen)
     if self.nfWpLayout ~= nil and self._updateAlternating ~= nil then
         self._updateAlternating(self.nfWpLayout)
     end
-    -- Scrollbar auf unseren Layout zeigen
     if settingsFrame ~= nil and settingsFrame.settingsSlider ~= nil and self.nfWpLayout ~= nil
        and settingsFrame.settingsSlider.setDataElement ~= nil then
         settingsFrame.settingsSlider:setDataElement(self.nfWpLayout)
@@ -482,8 +450,8 @@ function NachbarFelderWaypointPage:refreshWpInfo()
     local count = #wps
     local jetzt = g_time or 0
 
-    -- Build 134: nach "hier setzen" zum neuen Punkt springen, sobald er in der
-    -- Liste ist (MP-Client: erst mit dem Sync vom Server, deshalb Frist)
+    -- Nach "hier setzen" zum neuen Punkt springen, sobald er in der Liste steht.
+    -- Auf MP-Clients erst nach dem Server-Sync, daher mit Frist.
     if self._springeZuNeuemBis ~= nil then
         if count > (self._anzahlVorNeu or 0) then
             self.currentIdx = count
@@ -493,7 +461,6 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         end
     end
 
-    -- Index korrigieren
     if count > 0 and (self.currentIdx == nil or self.currentIdx < 1) then
         self.currentIdx = 1
     end
@@ -501,11 +468,10 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         self.currentIdx = count > 0 and count or nil
     end
 
-    -- Info-Text
     if self.nfWpInfoText ~= nil then
         local text
-        -- Build 134: Hinweis aus "hier setzen" (z.B. zu nah an WP 12) - Ingame-
-        -- Meldungen verdeckt das Menue, deshalb hier in der Infozeile
+        -- Meldungen aus "hier setzen" stehen in der Infozeile, weil das Menü
+        -- Ingame-Benachrichtigungen verdeckt.
         if self._hinweisText ~= nil and jetzt > (self._hinweisBis or 0) then
             self._hinweisText = nil
         end
@@ -516,8 +482,8 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         else
             local idx = self.currentIdx or 1
             local wp  = wps[idx]
-            -- Build 161: ohne gueltige Koordinaten nicht formatieren - ein solcher
-            -- Punkt kaeme vom Server-Sync und wuerde den Beitritt abbrechen
+            -- Punkte ohne gültige Koordinaten (z. B. aus einem fehlerhaften
+            -- Server-Sync) nicht formatieren, sonst bricht der Beitritt ab.
             if wp ~= nil and tonumber(wp.x) ~= nil and tonumber(wp.z) ~= nil then
                 text = string.format("WP %d / %d     x = %d     z = %d     [%s]",
                     idx, count, math.floor(wp.x), math.floor(wp.z), nfPageText(nfCatKey(wp.cat)))
@@ -530,7 +496,6 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         end
     end
 
-    -- Aktions-Buttons (Build 135: echte Buttons) - Beschriftung auffrischen
     for id, key in pairs(NachbarFelderWaypointPage.BUTTON_TEXT) do
         local elem = self[id]
         if elem ~= nil and elem.setText ~= nil then
@@ -538,21 +503,19 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         end
     end
 
-    -- Typ-Button: zeigt die aktuelle Kategorie, Klick schaltet weiter
+    -- Typ-Button zeigt die aktuelle Kategorie, ein Klick schaltet weiter
     if self.nfWpType ~= nil and self.nfWpType.setText ~= nil then
         local wp      = (count > 0 and self.currentIdx ~= nil) and wps[self.currentIdx] or nil
         local catName = (wp ~= nil) and nfPageText(nfCatKey(wp.cat)) or "-"
         self.nfWpType:setText(catName)
     end
 
-    -- Map-Toggle: BinaryOption, Nein/Ja + Zustand korrekt setzen
     if self.nfWpMapShow ~= nil and mgr ~= nil then
         local STATE_YES_V = BinaryOptionElement ~= nil and BinaryOptionElement.STATE_RIGHT or 2
         local mapState  = (mgr._wpHotspotsEnabled ~= false) and STATE_YES_V or 1
         nfSetOptionState(self.nfWpMapShow, mapState)
     end
 
-    -- Fahrzeugkategorie-Toggles
     if mgr ~= nil then
         local STATE_YES_V = BinaryOptionElement ~= nil and BinaryOptionElement.STATE_RIGHT or 2
         local cats = mgr.vehicleCatEnabled or {}
@@ -571,9 +534,7 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         end
     end
 
-    -- Buttons aktivieren/deaktivieren.
-    -- Eingreifende Aktionen (Teleport/Typ/Loeschen/Kategorien) nur fuer
-    -- Admins (Build 75); Blaettern und Karten-Schalter bleiben fuer alle.
+    -- Eingreifende Aktionen nur für Admins; Blättern und Karten-Schalter für alle.
     local isAdmin = self.manager ~= nil and self.manager.getIsLocalAdmin ~= nil
                     and self.manager:getIsLocalAdmin()
     local hasWp = count > 0 and self.currentIdx ~= nil
@@ -591,14 +552,13 @@ function NachbarFelderWaypointPage:refreshWpInfo()
         nfSetDisabled(ctl, not isAdmin)
     end
 
-    -- Layout neu berechnen
     if self.nfWpLayout ~= nil then
         if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then self.nfWpLayout:invalidateLayout() end
     end
 end
 
 -- ============================================================
--- Callbacks — werden vom GUI-System auf der Seiten-Instanz aufgerufen
+-- Callbacks (vom GUI-System auf der Seiten-Instanz aufgerufen)
 -- ============================================================
 local function getPage()
     return g_NachbarFelderWaypointPage
@@ -614,9 +574,8 @@ function NachbarFelderWaypointPage:onClickNFWpTab()
     local function schritt()
         local sf = g_inGameMenu and g_inGameMenu.pageSettings
         if sf == nil then return end
-        -- setState erwartet den PAGING-STATE, nicht die Seitennummer. Bei
-        -- ausgeblendeten Sub-Kategorien weichen beide voneinander ab →
-        -- den State suchen, dessen Text-Wert unsere Seitennummer ist.
+        -- setState erwartet den Paging-State, nicht die Seitennummer. Bei
+        -- ausgeblendeten Sub-Kategorien weichen beide ab, daher den passenden State suchen.
         local target = InGameMenuSettingsFrame.SUB_CATEGORY.NF_WAYPOINTS
         local state  = target
         local paging = sf.subCategoryPaging
@@ -629,7 +588,7 @@ function NachbarFelderWaypointPage:onClickNFWpTab()
             end
         end
         sf.subCategoryPaging:setState(state, true)
-        -- Direkt aufrufen — setState löst onClickCallback nicht immer aus
+        -- setState löst onClickCallback nicht zuverlässig aus
         page:onTabOpen(sf)
     end
     schritt()
@@ -658,7 +617,7 @@ end
 function NachbarFelderWaypointPage:onNFWpTeleport(state, elem)
     local page = getPage()
     if page == nil then return end
-    -- Nur Admins (Build 75); inline statt requireAdmin (steht weiter unten)
+    -- Admin-Prüfung inline, requireAdmin ist erst weiter unten definiert
     local mgr = page.manager
     if mgr ~= nil and mgr.getIsLocalAdmin ~= nil and not mgr:getIsLocalAdmin() then
         if mgr.notifyAdminRequired ~= nil then mgr:notifyAdminRequired() end
@@ -669,14 +628,14 @@ function NachbarFelderWaypointPage:onNFWpTeleport(state, elem)
     page:refreshWpInfo()
 end
 
--- Dedi-MP-Client: Änderungen als Event an den Server schicken - der Server
--- ist Besitzer der WP-Datei; lokale Änderungen würde der nächste Sync überschreiben.
+-- Auf MP-Clients gehen Änderungen als Event an den Server. Der Server besitzt die
+-- Wegpunktdatei, lokale Änderungen würde der nächste Sync überschreiben.
 local function isMpClient()
     return g_currentMission ~= nil and not g_currentMission:getIsServer() and g_client ~= nil
 end
 
--- Zweite Verteidigungslinie (Build 75): Handler-Guard, falls ein Control
--- trotz Ausgrauen ausgeloest wird. Der Server prueft zusaetzlich selbst.
+-- Absicherung, falls ein Control trotz Ausgrauen ausgelöst wird.
+-- Der Server prüft zusätzlich selbst.
 local function requireAdmin(page)
     local mgr = page ~= nil and page.manager or nil
     if mgr ~= nil and mgr.getIsLocalAdmin ~= nil and not mgr:getIsLocalAdmin() then
@@ -693,7 +652,7 @@ function NachbarFelderWaypointPage:onNFWpType(state, elem)
     local idx = page.currentIdx or 0
     local wp = (page.manager.userTrafficWaypoints or {})[idx]
     if wp ~= nil then
-        -- Normal -> Kurz -> Lang -> Spawnpunkt (4, Build 132) -> Normal
+        -- Normal -> Kurz -> Lang -> Spawnpunkt -> Normal
         local naechsterTyp = { [0] = 1, [1] = 2, [2] = 4, [4] = 0 }
         local newCat = naechsterTyp[wp.cat or 0] or 0
         wp.cat = newCat  -- sofort lokal anzeigen; Server-Sync bestätigt
@@ -702,7 +661,7 @@ function NachbarFelderWaypointPage:onNFWpType(state, elem)
                 NachbarFelderWaypointEditEvent.OP_SETCAT, idx, newCat))
         else
             page.manager:saveWaypoints()
-            -- Karten-Beschriftung ("12 S" fuer Spawnpunkte) sofort nachziehen
+            -- Kartenbeschriftung ("12 S" für Spawnpunkte) sofort aktualisieren
             if page.manager ~= nil and page.manager.updateWpHotspots ~= nil then page.manager:updateWpHotspots() end
         end
     end
@@ -744,8 +703,8 @@ function NachbarFelderWaypointPage:onNFWpDelete(state, elem)
     page:refreshWpInfo()
 end
 
--- Build 134: Punkt an der eigenen Position setzen - dieselbe Logik wie die Taste
--- "NachbarFelder: Wegpunkt setzen" (Fahrzeug: Fahrtrichtung, zu Fuss: Blickrichtung).
+-- Punkt an der eigenen Position setzen, wie die Taste "Wegpunkt setzen"
+-- (im Fahrzeug Fahrtrichtung, zu Fuß Blickrichtung).
 local function setzePunktHier(cat)
     local page = getPage()
     if page == nil or page.manager == nil or page.manager.addWaypointAtPlayer == nil then return end
@@ -759,7 +718,7 @@ local function setzePunktHier(cat)
         print("NachbarFelder: [WP-PAGE] addWaypointAtPlayer fehlt")
     end
     if gesetzt then
-        -- zum neuen Punkt springen, sobald er da ist (MP: nach dem Server-Sync)
+        -- Auf MP-Clients ist der Punkt erst nach dem Server-Sync in der Liste
         page._anzahlVorNeu      = vorher
         page._springeZuNeuemBis = (g_time or 0) + 10000
     else
@@ -780,8 +739,8 @@ end
 function NachbarFelderWaypointPage:onNFWpMapShow(state, elem)
     local page = getPage()
     if page == nil then return end
-    -- setWpHotspotsVisible setzt das Flag UND baut die Hotspots neu auf /
-    -- entfernt sie - nur das Flag zu setzen ließ vorhandene Punkte sichtbar.
+    -- setWpHotspotsVisible baut die Hotspots auch neu auf bzw. entfernt sie;
+    -- nur das Flag zu setzen reicht nicht.
     page.manager:setWpHotspotsVisible(state == STATE_YES())
 end
 
@@ -794,14 +753,14 @@ local function setCatEnabled(catKey, state)
     local page = getPage()
     if page == nil then return end
     if not requireAdmin(page) then
-        if page ~= nil and page.refreshWpInfo ~= nil then page:refreshWpInfo() end  -- Schalter zuruecksetzen
+        if page ~= nil and page.refreshWpInfo ~= nil then page:refreshWpInfo() end  -- Schalter zurücksetzen
         return
     end
     local mgr = page.manager
     local enabled = (state == STATE_YES())
     mgr.vehicleCatEnabled = mgr.vehicleCatEnabled or {}
     mgr.vehicleCatEnabled[catKey] = enabled  -- lokal für sofortige Anzeige
-    mgr.trafficVehicleList = nil  -- Liste beim naechsten Spawn neu aufbauen
+    mgr.trafficVehicleList = nil  -- Liste beim nächsten Spawn neu aufbauen
     if isMpClient() then
         g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
             NachbarFelderWaypointEditEvent.OP_VEHCAT,

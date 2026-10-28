@@ -1,6 +1,6 @@
 ﻿NachbarFelderSettingsPage = {}
 
--- Build 165: Log-Ausgaben nur im Debug-Log (Warnungen/Fehler immer), siehe NachbarFelder.lua
+-- Log-Filter siehe NachbarFelder.lua
 local print = NachbarFelderLog.print
 local NachbarFelderSettingsPage_mt = Class(NachbarFelderSettingsPage, FrameElement)
 
@@ -14,8 +14,8 @@ local modSaveDir = modSettingDirectory .. "NachbarFelderSetting.xml"
 
 function NachbarFelderSettingsPage.new(NachbarFelderManager)
 	local self = FrameElement.new(nil, NachbarFelderSettingsPage_mt)
-	self.settings = {}  		-- list of all setting objects 
-	self.settingsByName = {}  	-- contains setting objects by name 
+	self.settings = {}  		-- Name -> aktueller Wert
+	self.settingsByName = {}  	-- Name -> Setting-Objekt
 	self.controls = {}
 	self.NachbarFelderManager = NachbarFelderManager
 
@@ -25,7 +25,7 @@ function NachbarFelderSettingsPage.new(NachbarFelderManager)
 	self.settings["trafficLimit"] = NachbarFelderManager.trafficLimit
 	self.settings["trafficTrailerSize"] = NachbarFelderManager.trafficTrailerSize
 	self.settings["engeMap"] = NachbarFelderManager.engeMap
-	self.settings["debugLog"] = NachbarFelderManager.debugLog == true   -- Build 165
+	self.settings["debugLog"] = NachbarFelderManager.debugLog == true
 
 	createFolder(modSettingDirectory)
     xmlSchema:register(XMLValueType.BOOL, baseXmlKey .. ".mod#active", "Mod_active")
@@ -47,11 +47,11 @@ function NachbarFelderSettingsPage:init()
 		{ name = "trafficLimit", autoBind = true, min = 1, max = 8, step = 1, nillable = false, value = self.settings["trafficLimit"]},
 		{ name = "trafficTrailerSize", autoBind = true, min = 0, max = 3, step = 1, nillable = false, value = self.settings["trafficTrailerSize"]},
 		{ name = "engeMap", autoBind = true, nillable = false },
-		{ name = "debugLog", autoBind = true, nillable = false },   -- Build 165
+		{ name = "debugLog", autoBind = true, nillable = false },
     }
 
-	-- Build 150: Feldarbeit entfernt - keine Regler mehr fuer "Anzahl Arbeiter" und die
-	-- Arbeitsarten. Die Werte bleiben in Speicherdatei und Sync, wirken aber nicht mehr.
+	-- Keine Regler fuer Arbeiterzahl und Arbeitsarten (Feldarbeit ist nicht aktiv).
+	-- Die Werte bleiben in Speicherdatei und Sync, haben aber keine Wirkung.
 
 	controlProperties = self:loadSettingsFromXML(controlProperties)
 
@@ -67,12 +67,9 @@ function NachbarFelderSettingsPage:init()
 end
 
 function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
-	-- MP-Sync (Build 67), gleiche Architektur wie das Wegpunkt-Editing:
-	-- Dedi-Client: Aenderung an den Server schicken (der ist autoritativ,
-	--   speichert im Savegame und synct an alle Clients zurueck).
-	--   Lokal wird trotzdem sofort angewendet (fluessiges UI); der
-	--   Server-Sync bestaetigt bzw. korrigiert direkt danach.
-	-- Server (SP/Host): direkt anwenden + an Clients broadcasten.
+	-- Client: Aenderung an den Server schicken, der speichert und an alle verteilt.
+	-- Lokal wird trotzdem sofort angewendet, der Server-Sync korrigiert ggf.
+	-- Server (SP/Host): direkt anwenden und an die Clients senden.
 	local isServer = g_currentMission ~= nil and g_currentMission:getIsServer()
 	if not isServer and g_client ~= nil and NachbarFelderSettingsEditEvent ~= nil then
 		local num = b
@@ -82,11 +79,11 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
 	end
 
 	if a.name == "debugLog" then
-		-- Build 165: ueber den Setter, damit das Log-Filter mitschaltet
+		-- ueber den Setter, damit der Log-Filter mitschaltet
 		self.NachbarFelderManager:setDebugLog(b == true)
 	elseif self.NachbarFelderManager[a.name] ~= nil then
 		self.NachbarFelderManager[a.name] = b
-		-- Trailer-Cache invalidieren wenn Größeneinstellung geändert wurde
+		-- Anhaengerliste haengt an der Groesseneinstellung
 		if a.name == "trafficTrailerSize" then
 			self.NachbarFelderManager.trafficTrailerList = nil
 		end
@@ -100,7 +97,7 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
 
 	if isServer then
 		local m = self.NachbarFelderManager
-		-- Live-Stand ist ab jetzt autoritativ (landet im Savegame)
+		-- ab jetzt gilt der Live-Stand, er landet im Savegame
 		m.settingsFromSavegame = true
 		if m.broadcastSettingsToClients ~= nil then
 			m:broadcastSettingsToClients()
@@ -109,11 +106,9 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
     self:updateUiElements()
 end
 
--- Controls aus dem Manager-Stand neu befuellen (Build 67).
--- Wird von applySettingsState() gerufen, wenn ein Settings-Sync vom
--- Server eintrifft - die GUI zeigt dann sofort die Server-Werte.
--- setState() der Elemente feuert dabei KEINE onClick-Callbacks,
--- es entsteht also keine Event-Schleife.
+--- Fuellt die Controls aus dem Manager-Stand neu, aufgerufen von applySettingsState()
+-- nach einem Settings-Sync. setState() loest keine onClick-Callbacks aus, daher
+-- entsteht keine Event-Schleife.
 function NachbarFelderSettingsPage:refreshFromManager()
 	local m = self.NachbarFelderManager
 	self.settings["active"]                = m.active ~= false
@@ -121,7 +116,7 @@ function NachbarFelderSettingsPage:refreshFromManager()
 	self.settings["trafficLimit"]          = m.trafficLimit or 4
 	self.settings["trafficTrailerSize"]    = m.trafficTrailerSize or 2
 	self.settings["engeMap"]               = m.engeMap ~= false
-	self.settings["debugLog"] = m.debugLog == true   -- Build 165
+	self.settings["debugLog"] = m.debugLog == true
 	for _, v in pairs(m.missionHelper or {}) do
 		if not v.skip then
 			self.settings[v.name] = v.active == true
@@ -143,7 +138,7 @@ function NachbarFelderSettingsPage:updateUiElements(skipAutoBindControls)
 		control:setDisabled(not isAdmin)
 	end
 	
-    -- Update the focus manager
+    -- Layout und Fokus-Reihenfolge aktualisieren
     local settingsPage = g_gui.screenControllers[InGameMenu].pageSettings
     settingsPage.generalSettingsLayout:invalidateLayout()
 
@@ -152,10 +147,8 @@ function NachbarFelderSettingsPage:updateUiElements(skipAutoBindControls)
 end
 
 function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
-	-- Savegame/Server ist autoritativ (Build 67): Wurden die Settings
-	-- bereits aus dem Savegame geladen, gilt der Manager-Stand - die
-	-- lokale NachbarFelderSetting.xml wuerde ihn sonst ueberschreiben.
-	-- (Lokale Datei bleibt Fallback fuer Savegames ohne settings-Block.)
+	-- Kommen die Settings aus dem Savegame, gilt der Manager-Stand; die lokale
+	-- NachbarFelderSetting.xml ist nur Fallback fuer Savegames ohne settings-Block.
 	if self.NachbarFelderManager.settingsFromSavegame then
 		local m = self.NachbarFelderManager
 		self.settings["active"]                = m.active ~= false
@@ -163,7 +156,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 		self.settings["trafficLimit"]          = m.trafficLimit or 4
 		self.settings["trafficTrailerSize"]    = m.trafficTrailerSize or 2
 		self.settings["engeMap"]               = m.engeMap ~= false
-		self.settings["debugLog"] = m.debugLog == true   -- Build 165
+		self.settings["debugLog"] = m.debugLog == true
 		for _, v in pairs(properties) do
 			if v.name == "MAX_ASSISTANT_WORKERS" then
 				v.value = self.settings["MAX_ASSISTANT_WORKERS"]
@@ -173,8 +166,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 				v.value = self.settings["trafficTrailerSize"]
 			end
 		end
-		-- Mission-Toggles: die properties SIND die missionHelper-Eintraege,
-		-- deren .active traegt bereits den Savegame-Stand.
+		-- die properties sind die missionHelper-Eintraege, .active kommt schon aus dem Savegame
 		for _, v in pairs(m.missionHelper or {}) do
 			if not v.skip then
 				self.settings[v.name] = v.active == true
@@ -220,7 +212,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 	ttsVal = math.max(0, math.min(3, ttsVal))
 	self.settings["trafficTrailerSize"] = ttsVal
 	self.NachbarFelderManager.trafficTrailerSize = ttsVal
-	self.NachbarFelderManager.trafficTrailerList = nil  -- Cache invalidieren bei geänderter Größe
+	self.NachbarFelderManager.trafficTrailerList = nil  -- Cache haengt an der Groesse
 	for k,v in pairs(properties) do
 		if v.name == "trafficTrailerSize" then
 			v.value = ttsVal
@@ -231,13 +223,12 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 	local engVal = xmlFile:getBool(baseXmlKey .. ".engeMap#value")
 	if engVal ~= nil and engVal ~= (self.NachbarFelderManager.engeMap ~= false) then
 		self.NachbarFelderManager.engeMap = engVal
-		-- Beide Caches weg: Fahrzeugliste haengt an den Kategorien,
-		-- Geraeteliste am Gewichtslimit.
+		-- Fahrzeugliste haengt an den Kategorien, Geraeteliste am Gewichtslimit
 		self.NachbarFelderManager.trafficVehicleList = nil
 		self.NachbarFelderManager.trafficTrailerList = nil
 	end
 	self.settings["engeMap"] = self.NachbarFelderManager.engeMap ~= false
-	self.settings["debugLog"] = self.NachbarFelderManager.debugLog == true   -- Build 165
+	self.settings["debugLog"] = self.NachbarFelderManager.debugLog == true
 
 	print("loadFromXml")
 	
@@ -263,8 +254,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 			end
 		end        
     end)
-	-- harvestMission (missionHelper[6]) wird NICHT mehr zwangsdeaktiviert -
-	-- Ernte ist freigegeben und über die Settings-Seite schaltbar.
+	-- Hacken (7) und Unkraut (8) sind immer aus; Ernte (6) bleibt frei schaltbar.
 	if self.NachbarFelderManager.missionHelper[7] ~= nil then
 		local hoeName = self.NachbarFelderManager.missionHelper[7].name
 		self.settings[hoeName] = false
