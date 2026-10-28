@@ -9,73 +9,70 @@
     </title>
     <description>
         <de><![CDATA[
-Schluss mit leeren Straßen – jetzt kommt Leben in deine Welt!
+Auf den Straßen der Karte sind die Nachbarn mit ihren Traktoren unterwegs. Sie fahren über das KI-Straßennetz zu wechselnden Zielen, halten an deinen Wegpunkten, stellen sich eine Weile ab und fahren dann weiter. Ein Teil zieht ein passendes Anbaugerät mit. Nach einigen Fahrten stellen sie den Traktor ab und kommen später wieder.
 
-Mit „Lebendige Straßen“ sind deine Nachbarn unterwegs: KI-Traktoren, teils mit Anbaugerät, fahren selbstständig über die KI-Straßen der Karte, halten an deinen Wegpunkten, parken eine Weile und fahren weiter. Nach getaner Arbeit machen sie Feierabend und kommen später wieder.
-
-Features:
-- Verkehr mit eigenen Fahrzeugen der Nachbarn, auf Wunsch mit Anbaugerät
-- Fahrziele entlang der KI-Straßen plus deine eigenen Wegpunkte
-- Eigene Spawnpunkte: dort starten neue Fahrzeuge
-- Tagesrhythmus: nachts und mittags weniger Verkehr
-- Wiederkehrende Stammfahrzeuge, Fahrzeug-Pool gegen Ruckler
-- Die Autos des Spielverkehrs bremsen für die Nachbar-Fahrzeuge
-- Festgefahrene Fahrzeuge suchen ein neues Ziel oder werden entfernt
-- Kartenunabhängig, Singleplayer, Multiplayer und Dedicated Server
+Was die Mod macht:
+- Verkehr mit Traktoren der Nachbarn, auf Wunsch mit Anbaugerät
+- Ziele auf dem KI-Straßennetz der Karte und an deinen eigenen Wegpunkten
+- Eigene Spawnpunkte legen fest, wo neue Fahrzeuge starten
+- Nachts und mittags ist weniger los
+- Bekannte Fahrzeuge tauchen immer wieder auf, abgestellte Fahrzeuge werden wiederverwendet statt neu geladen
+- Die Autos des Spielverkehrs bremsen für die Traktoren
+- Bleibt ein Traktor hängen, sucht er sich ein anderes Ziel oder wird entfernt
+- Läuft auf jeder Karte, im Einzelspieler, im Multiplayer und auf dem Dedicated Server
 
 Bedienung:
 - Einstellungen: ESC > Einstellungen, Abschnitt „Lebendige Straßen“
 - Wegpunkte und Spawnpunkte: ESC > Einstellungen > Reiter „Wegpunkte“
 - Hilfe: ESC > Hilfe > „Lebendige Straßen“
-- Strg + Alt + L entfernt alle Nachbar-Fahrzeuge (Tasten änderbar unter Steuerung, Einträge „Lebendige Straßen: …“)
+- Strg + Alt + L entfernt alle Fahrzeuge der Nachbarn (Tasten unter Steuerung, Einträge „Lebendige Straßen: …“)
 
-PS: Kracht es an engen Stellen trotzdem mit dem Spielverkehr, den Verkehr im Spielmenü ausschalten.
+Gibt es an engen Stellen trotzdem Zusammenstöße mit dem Spielverkehr, hilft es, den Verkehr im Spielmenü abzuschalten.
 ]]></de>
-    <en><![CDATA[
-No more empty roads – it’s time to bring your world to life!
+        <en><![CDATA[
+Your neighbours are out on the roads with their tractors. They follow the AI road network of the map to changing destinations, stop at your waypoints, park for a while and then move on. Some of them pull a matching implement. After a few trips they park up and come back later.
 
-With "Living Roads" your neighbours are on the move: AI tractors, some with an implement, drive on their own along the AI roads of the map, stop at your waypoints, park for a while and drive on. When their work is done they call it a day and come back later.
+What the mod does:
+- Traffic with your neighbours' tractors, optionally with an implement
+- Destinations on the AI road network of the map and at your own waypoints
+- Your own spawn points decide where new vehicles start
+- Less traffic at night and around noon
+- Familiar vehicles keep coming back; parked vehicles are reused instead of loaded again
+- The cars of the game traffic brake for the tractors
+- A tractor that gets stuck picks another destination or is removed
+- Works on any map, in single player, multiplayer and on dedicated servers
 
-Features:
-- Traffic with the neighbours' own vehicles, optionally with an implement
-- Destinations along the AI roads plus your own waypoints
-- Own spawn points where new vehicles start
-- Daily rhythm: less traffic at night and at noon
-- Recurring regular vehicles, vehicle pool against stutters
-- The cars of the game traffic brake for the neighbour vehicles
-- Stuck vehicles pick a new destination or are removed
-- Works on any map, single player, multiplayer and dedicated server
-
-Usage:
+How to use it:
 - Settings: ESC > Settings, section "Living Roads"
 - Waypoints and spawn points: ESC > Settings > tab "Waypoints"
 - Help: ESC > Help > "Living Roads"
-- Ctrl + Alt + L removes all neighbour vehicles (keys can be changed in the controls, entries "Living Roads: …")
+- Ctrl + Alt + L removes all neighbour vehicles (keys under Controls, entries "Living Roads: …")
 
-PS: If the game traffic still collides in narrow spots, switch off traffic in the game menu.
+If the game traffic still collides with them in narrow places, turning off traffic in the game menu helps.
 ]]></en>
-    <fr><![CDATA[
-Fini les routes vides – donne vie à ton monde !
+        <fr><![CDATA[
+Tes voisins circulent sur les routes avec leurs tracteurs. Ils suivent le réseau routier IA de la carte vers des destinations variées, s'arrêtent à tes points de passage, stationnent un moment puis repartent. Certains tirent un outil adapté. Après quelques trajets, ils garent leur tracteur et reviennent plus tard.
 
-Avec « Routes Vivantes », tes voisins circulent : des tracteurs IA, parfois avec un outil, roulent seuls sur les routes IA de la carte, s’arrêtent à tes points de passage, stationnent un moment puis repartent.
-
-Fonctionnalités :
-- Circulation avec les propres véhicules des voisins, parfois avec un outil
-- Destinations le long des routes IA et tes propres points de passage
-- Points d’apparition personnels pour les nouveaux véhicules
-- Rythme journalier : moins de circulation la nuit et à midi
-- Les voitures de la circulation du jeu freinent pour les véhicules voisins
+Ce que fait le mod :
+- Circulation avec les tracteurs des voisins, avec un outil si tu le souhaites
+- Destinations sur le réseau routier IA de la carte et à tes propres points de passage
+- Tes points d'apparition décident où démarrent les nouveaux véhicules
+- Moins de circulation la nuit et vers midi
+- Des véhicules connus reviennent régulièrement ; les véhicules garés sont réutilisés au lieu d'être rechargés
+- Les voitures de la circulation du jeu freinent pour les tracteurs
+- Un tracteur bloqué choisit une autre destination ou est retiré
 - Fonctionne sur toutes les cartes, en solo, en multijoueur et sur serveur dédié
 
 Utilisation :
-- Paramètres : ÉCHAP > Paramètres, section « Living Roads »
-- Points de passage et d’apparition : ÉCHAP > Paramètres > onglet « Waypoints »
-- « Ctrl » + « Alt » + « L » supprime tous les véhicules voisins
+- Paramètres : ÉCHAP > Paramètres, section « Routes Vivantes »
+- Points de passage et d'apparition : ÉCHAP > Paramètres > onglet « Points de passage »
+- Aide : ÉCHAP > Aide > « Routes Vivantes »
+- Ctrl + Alt + L retire tous les véhicules des voisins (touches dans Commandes, entrées « Routes Vivantes : … »)
 
-PS : Si la circulation du jeu provoque encore des collisions dans les passages étroits, désactive-la dans le menu du jeu.
+Si la circulation du jeu provoque encore des collisions dans les passages étroits, désactive-la dans le menu du jeu.
 ]]></fr>
     </description>
-    <iconFilename>icon_NachbarFelder.dds</iconFilename>
+    <iconFilename>icon_LivingRoads.dds</iconFilename>
     <multiplayer supported="true"/>
     <extraSourceFiles>
         <sourceFile filename="NachbarFelder.lua" />
@@ -383,9 +380,9 @@ PS : Si la circulation du jeu provoque encore des collisions dans les passages �
             <fr>Aperçu</fr>
         </text>
         <text name="NF_help_ueberblick_text1">
-            <en>With "Living Roads" your neighbours are on the move: AI tractors, some with an implement, drive on their own along the AI roads of the map, stop at your waypoints, park for a while and drive on. After a number of trips they call it a day and park; later they are woken up again.</en>
-            <de>Mit „Lebendige Straßen“ sind deine Nachbarn unterwegs: KI-Traktoren, teils mit Anbaugerät, fahren selbstständig über die KI-Straßen der Karte, halten an deinen Wegpunkten, parken eine Weile und fahren weiter. Nach einigen Fahrten machen sie Feierabend und parken; später werden sie wieder geweckt.</de>
-            <fr>Avec « Routes Vivantes », tes voisins circulent : des tracteurs IA, parfois avec un outil, roulent seuls sur les routes IA de la carte, s'arrêtent à tes points de passage, stationnent un moment puis repartent. Après quelques trajets, ils terminent leur journée et se garent ; ils sont réveillés plus tard.</fr>
+            <en>Your neighbours drive their tractors along the AI road network of the map, some of them with an implement. They stop at your waypoints, park for a while and move on. After a few trips they park up and come back later.</en>
+            <de>Die Nachbarn fahren mit ihren Traktoren über das KI-Straßennetz der Karte, manche mit Anbaugerät. Sie halten an deinen Wegpunkten, stellen sich eine Weile ab und fahren weiter. Nach einigen Fahrten stellen sie den Traktor ab und kommen später wieder.</de>
+            <fr>Tes voisins roulent avec leurs tracteurs sur le réseau routier IA de la carte, certains avec un outil. Ils s'arrêtent à tes points de passage, stationnent un moment puis repartent. Après quelques trajets, ils garent leur tracteur et reviennent plus tard.</fr>
         </text>
         <text name="NF_help_ueberblick_text2">
             <en>Vehicles only appear while a player is in the game, about 3 minutes after joining. You set how many drive at the same time in the settings; fewer drive at night and at noon (daily rhythm). Destinations are your waypoints plus points along the AI roads that the mod finds itself (server config "zielQuelle" = "wegpunkte": your points only).</en>
@@ -453,9 +450,9 @@ PS : Si la circulation du jeu provoque encore des collisions dans les passages �
             <fr>Les voitures de la circulation du jeu freinent pour les véhicules voisins. S'il y a quand même des collisions dans les passages étroits, désactive la circulation dans le menu du jeu ou mets « spielverkehrAnmelden » sur false dans la configuration du serveur.</fr>
         </text>
         <text name="NF_help_verkehr_text2">
-            <en>A vehicle that stays stuck picks a new destination and is removed if necessary. Loading spots where vehicles cannot get away are locked for that map. For problem reports the lines starting with "NachbarFelder:" from log.txt help most.</en>
-            <de>Bleibt ein Fahrzeug länger stecken, sucht es sich ein neues Ziel und wird notfalls entfernt. Ladeplätze, an denen Fahrzeuge nicht wegkommen, sperrt die Mod für diese Karte. Hilfreich bei Problemen sind die Zeilen mit „NachbarFelder:“ aus der log.txt.</de>
-            <fr>Un véhicule bloqué trop longtemps choisit une nouvelle destination et est retiré si nécessaire. Les emplacements de chargement d'où les véhicules ne repartent pas sont bloqués pour cette carte. Pour signaler un problème, les lignes commençant par « NachbarFelder: » du fichier log.txt sont les plus utiles.</fr>
+            <en>A vehicle that stays stuck picks a new destination and is removed if necessary. Loading spots where vehicles cannot get away are locked for that map. For problem reports the lines starting with "LivingRoads:" from log.txt help most.</en>
+            <de>Bleibt ein Fahrzeug länger stecken, sucht es sich ein neues Ziel und wird notfalls entfernt. Ladeplätze, an denen Fahrzeuge nicht wegkommen, sperrt die Mod für diese Karte. Hilfreich bei Problemen sind die Zeilen mit „LivingRoads:“ aus der log.txt.</de>
+            <fr>Un véhicule bloqué trop longtemps choisit une nouvelle destination et est retiré si nécessaire. Les emplacements de chargement d'où les véhicules ne repartent pas sont bloqués pour cette carte. Pour signaler un problème, les lignes commençant par « LivingRoads: » du fichier log.txt sont les plus utiles.</fr>
         </text>
         <text name="NF_wpArt_wegpunkt">
             <en>Waypoint</en>

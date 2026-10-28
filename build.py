@@ -14,7 +14,7 @@ NAME = "FS25_LivingRoads.zip"
 
 DATEIEN = [
     "modDesc.xml",
-    "icon_NachbarFelder.dds",
+    "icon_LivingRoads.dds",
     # Einstiegspunkt (extraSourceFiles) - laedt den Rest per source()
     "NachbarFelder.lua",
     "NachbarFelderManager.lua",
