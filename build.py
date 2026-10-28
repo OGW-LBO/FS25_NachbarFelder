@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Baut FS25_NachbarFelder.zip.
+"""Baut FS25_LivingRoads.zip.
 
 NachbarFelder.lua ist der einzige Eintrag in extraSourceFiles; alle weiteren
 Lua-Dateien laedt sie selbst per source(). Sie muessen trotzdem in die ZIP.
@@ -10,7 +10,7 @@ kopiert - das macht der Nutzer bzw. der Server-Upload selbst.
 import os
 import zipfile
 
-NAME = "FS25_NachbarFelder.zip"
+NAME = "FS25_LivingRoads.zip"
 
 DATEIEN = [
     "modDesc.xml",

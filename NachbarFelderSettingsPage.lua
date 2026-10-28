@@ -184,7 +184,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 		return properties
 	end
 
-	local xmlFile = XMLFile.loadIfExists("NachbarFelderSettings", modSaveDir, xmlSchema)
+	local xmlFile = XMLFile.loadIfExists("NachbarFelderSettings", NachbarFelderLesePfad(modSaveDir), xmlSchema)
     if xmlFile == nil then
         return properties
     end

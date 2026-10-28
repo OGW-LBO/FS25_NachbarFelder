@@ -729,7 +729,7 @@ function NachbarFelderManager:pickPatrolWaypoint(waypoints, excludeIdx, refX, re
 end
 
 -- ============================================================
--- Server-Konfiguration: modSettings/FS25_NachbarFelder/
+-- Server-Konfiguration: modSettings/FS25_LivingRoads/
 --                       NachbarFelderServerConfig.xml
 -- (gleicher Ordner wie NachbarFelderWaypoints.xml)
 -- Die Settings-GUI wirkt nur lokal - auf dem Dedicated Server
@@ -742,7 +742,7 @@ function NachbarFelderManager:loadServerConfig()
     local function schritt()
         local dir  = modSettingDirectory
         createFolder(dir)
-        local path = dir .. "NachbarFelderServerConfig.xml"
+        local path = NachbarFelderLesePfad(dir .. "NachbarFelderServerConfig.xml")
         local root = "nachbarFelder"
         print("NachbarFelder: Server-Konfig-Pfad: " .. tostring(path))
         if not fileExists(path) then
@@ -750,7 +750,7 @@ function NachbarFelderManager:loadServerConfig()
             if xf ~= nil and xf ~= 0 then
                 local c = self.vehicleCatEnabled or {}
                 setXMLString(xf, root .. ".hinweis",
-                    "Serverseitige Einstellungen fuer FS25_NachbarFelder - Aenderungen wirken nach Server-Neustart")
+                    "Serverseitige Einstellungen fuer FS25_LivingRoads - wirken nach einem Server-Neustart")
                 setXMLInt(xf, root .. ".farmId",              0)   -- Build 138: 0 = automatisch (leere Farm ohne Spieler)
                 setXMLInt(xf, root .. ".maxWorkers",          self.MAX_ASSISTANT_WORKERS)
                 setXMLInt(xf, root .. ".trafficLimit",        self.trafficLimit)
@@ -2949,7 +2949,7 @@ end
 function NachbarFelderManager:onMinuteChanged(minute)
     if not g_currentMission:getIsServer() then return end
 
-    -- Server-Konfig einmalig laden (modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml)
+    -- Server-Konfig einmalig laden (modSettings/FS25_LivingRoads/NachbarFelderServerConfig.xml)
     self:loadServerConfig()
 
 
@@ -3543,7 +3543,7 @@ function NachbarFelderManager:ladeLadeplatzSperre()
     if pfad == nil then return end
     local verworfen = 0
     local function schritt()
-        local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", pfad, lpXmlSchema)
+        local xmlFile = XMLFile.loadIfExists("NachbarFelderLadeplaetze", NachbarFelderLesePfad(pfad), lpXmlSchema)
         if xmlFile == nil then return end
         xmlFile:iterate(lpXmlKey .. ".platz", function(_, key)
             local x = xmlFile:getValue(key .. "#x")
@@ -6107,12 +6107,12 @@ end
 -- ============================================================
 -- Client-lokale Anzeige-Einstellungen (Build 71): Dinge, die nur
 -- diesen Rechner betreffen (Karten-Hotspots an/aus), landen in
--- modSettings/FS25_NachbarFelder/NachbarFelderClient.xml -
+-- modSettings/FS25_LivingRoads/NachbarFelderClient.xml -
 -- NICHT im Savegame und nicht auf dem Server.
 -- ============================================================
 function NachbarFelderManager:loadClientPrefs()
     local function schritt()
-        local path = modSettingDirectory .. "NachbarFelderClient.xml"
+        local path = NachbarFelderLesePfad(modSettingDirectory .. "NachbarFelderClient.xml")
         if not fileExists(path) then
             -- Datei mit Defaults anlegen (Build 73): so ist sofort sichtbar,
             -- dass der Mechanismus laeuft; gespeichert wird bei jedem Umschalten.
@@ -6234,7 +6234,7 @@ end
 
 function NachbarFelderManager:loadWaypoints()
     local pfad = nfGetWpFilePath()   -- Build 132: Datei der geladenen Karte
-    local xmlFile = XMLFile.loadIfExists("NachbarFelderWaypoints", pfad, wpXmlSchema)
+    local xmlFile = XMLFile.loadIfExists("NachbarFelderWaypoints", NachbarFelderLesePfad(pfad), wpXmlSchema)
 
     -- Build 132: Gibt es fuer diese Karte noch keine Datei, wird die alte
     -- gemeinsame Datei EINMAL uebernommen - fuer die erste Karte, die der Server
@@ -6242,7 +6242,7 @@ function NachbarFelderManager:loadWaypoints()
     -- eine spaeter geladene andere Karte die Punkte nicht noch einmal erbt.
     local ausAlterDatei = false
     if xmlFile == nil and pfad ~= wpFilePathAlt and g_currentMission:getIsServer() then
-        local alt = XMLFile.loadIfExists("NachbarFelderWaypoints", wpFilePathAlt, wpXmlSchema)
+        local alt = XMLFile.loadIfExists("NachbarFelderWaypoints", NachbarFelderLesePfad(wpFilePathAlt), wpXmlSchema)
         if alt ~= nil then
             local vergeben = alt:getString(wpXmlKey .. "#uebernommenFuer")
             if vergeben == nil or vergeben == "" then

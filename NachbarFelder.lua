@@ -1,5 +1,4 @@
 local modDirectory = g_currentModDirectory
-g_currentModName = "FS25_NachbarFelder"
 local modName = g_currentModName
 
 -- ============================================================
@@ -27,6 +26,24 @@ function NachbarFelderLog.print(msg)
     end
 end
 local print = NachbarFelderLog.print
+
+-- Bis zur Umbenennung hiess die Mod FS25_NachbarFelder, ihre Dateien lagen in
+-- modSettings/FS25_NachbarFelder/. Fehlt eine Datei im eigenen Ordner, wird sie
+-- dort gelesen; gespeichert wird immer im eigenen Ordner.
+local NF_EIGENER_ORDNER = g_currentModSettingsDirectory
+local NF_ALTER_ORDNERNAME = "FS25_NachbarFelder"
+function NachbarFelderLesePfad(pfad)
+    if pfad == nil or NF_EIGENER_ORDNER == nil or fileExists(pfad) then return pfad end
+    if string.sub(pfad, 1, #NF_EIGENER_ORDNER) ~= NF_EIGENER_ORDNER then return pfad end
+    local basis = string.match(NF_EIGENER_ORDNER, "^(.*[/\\])[^/\\]+[/\\]$")
+    if basis == nil then return pfad end
+    local alt = basis .. NF_ALTER_ORDNERNAME .. "/" .. string.sub(pfad, #NF_EIGENER_ORDNER + 1)
+    if alt ~= pfad and fileExists(alt) then
+        print("NachbarFelder: " .. alt .. " aus dem alten Ordner gelesen")
+        return alt
+    end
+    return pfad
+end
 
 -- ============================================================
 -- Network-Events: Client → Server

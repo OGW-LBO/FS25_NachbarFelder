@@ -423,9 +423,9 @@ PS : Si la circulation du jeu provoque encore des collisions dans les passages �
             <fr>Les paramètres se trouvent dans ÉCHAP &gt; Paramètres, section « Routes Vivantes » (seuls les administrateurs peuvent les modifier) : mod activé ou non, nombre de véhicules (1 à 8), taille des outils et « Carte étroite » (petits tracteurs avec outils légers uniquement). « Journal de débogage » écrit des informations détaillées dans log.txt pour le dépannage ; désactivé = avertissements et erreurs uniquement.</fr>
         </text>
         <text name="NF_help_einstellungen_text2">
-            <en>On a server there is also the file modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, e.g. for spawn intervals, parking times, pool size, implement share and "spielverkehrAnmelden". Changes there take effect after a restart.</en>
-            <de>Auf einem Server gibt es zusätzlich die Datei modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, z. B. für Spawn-Abstände, Parkzeiten, Pool-Größe, Gespann-Anteil und „spielverkehrAnmelden“. Was dort eingetragen wird, gilt nach einem Neustart.</de>
-            <fr>Sur un serveur, il existe en plus le fichier modSettings/FS25_NachbarFelder/NachbarFelderServerConfig.xml, par exemple pour les intervalles d'apparition, les temps de stationnement, la taille du pool, la proportion d'outils et « spielverkehrAnmelden ». Les modifications prennent effet après un redémarrage.</fr>
+            <en>On a server there is also the file modSettings/FS25_LivingRoads/NachbarFelderServerConfig.xml, e.g. for spawn intervals, parking times, pool size, implement share and "spielverkehrAnmelden". Changes there take effect after a restart.</en>
+            <de>Auf einem Server gibt es zusätzlich die Datei modSettings/FS25_LivingRoads/NachbarFelderServerConfig.xml, z. B. für Spawn-Abstände, Parkzeiten, Pool-Größe, Gespann-Anteil und „spielverkehrAnmelden“. Was dort eingetragen wird, gilt nach einem Neustart.</de>
+            <fr>Sur un serveur, il existe en plus le fichier modSettings/FS25_LivingRoads/NachbarFelderServerConfig.xml, par exemple pour les intervalles d'apparition, les temps de stationnement, la taille du pool, la proportion d'outils et « spielverkehrAnmelden ». Les modifications prennent effet après un redémarrage.</fr>
         </text>
         <text name="NF_help_page_tasten_title">
             <en>Keys and console</en>

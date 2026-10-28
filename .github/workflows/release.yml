@@ -1,4 +1,4 @@
-# Release bauen: build.py baut FS25_NachbarFelder.zip, die ZIP haengt an einem
+# Release bauen: build.py baut FS25_LivingRoads.zip, die ZIP haengt an einem
 # GitHub-Release mit Tag "build<N>" (N = NachbarFelderManager.BUILD).
 # Ausloeser:
 #   - Push auf main (z. B. Merge eines PR): neues Release, wenn es build<N> noch nicht gibt
@@ -59,14 +59,14 @@ jobs:
         run: |
           version=$(grep -oP '<version>\K[^<]+' modDesc.xml)
           cat > notes.md <<EOF
-          Lebendige Straßen (FS25_NachbarFelder) Build ${BUILD} (modDesc-Version ${version}).
+          Lebendige Straßen (FS25_LivingRoads) Build ${BUILD} (modDesc-Version ${version}).
 
-          Installation: FS25_NachbarFelder.zip unveraendert in den Mods-Ordner legen.
+          Installation: FS25_LivingRoads.zip unveraendert in den Mods-Ordner legen.
           Den Dateinamen nicht aendern - das Spiel verwendet ihn als Mod-Namen.
 
           Aenderungen: siehe docs/PROJEKTSTAND.md, Abschnitt Build ${BUILD}.
           EOF
-          gh release create "${TAG}" FS25_NachbarFelder.zip \
+          gh release create "${TAG}" FS25_LivingRoads.zip \
             --target "${GITHUB_SHA}" \
             --title "Lebendige Straßen Build ${BUILD}" \
             --notes-file notes.md
