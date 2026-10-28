@@ -127,7 +127,7 @@ function NachbarFelderWaypointDialog:onClickTeleport()
     self:onClickClose()
 end
 
--- Aendert die Liste direkt und speichert lokal, ohne Event an den Server.
+-- Einzelspieler und Host loeschen direkt, ein Multiplayer-Client schickt das Loeschen an den Server.
 function NachbarFelderWaypointDialog:onClickDelete()
     local function schritt()
         local m   = g_NachbarFelderManager
@@ -137,8 +137,18 @@ function NachbarFelderWaypointDialog:onClickDelete()
         local wp = wps[self.selectedIdx]
         print("LivingRoads: [WP-Dialog] Loesche WP" .. self.selectedIdx ..
               " x=" .. tostring(math.floor(wp.x)) .. " z=" .. tostring(math.floor(wp.z)))
+        -- Im Multiplayer gehoert die Wegpunkt-Datei dem Server: der Client schickt nur
+        -- das Loeschen, die neue Liste kommt mit dem naechsten Sync zurueck.
+        if g_currentMission ~= nil and not g_currentMission:getIsServer() and g_client ~= nil then
+            g_client:getServerConnection():sendEvent(NachbarFelderWaypointEditEvent.new(
+                NachbarFelderWaypointEditEvent.OP_DELETE, self.selectedIdx))
+            return
+        end
         table.remove(wps, self.selectedIdx)
-        if m ~= nil then m:saveWaypoints() end
+        if m ~= nil then
+            m:saveWaypoints()
+            if m.updateWpHotspots ~= nil then m:updateWpHotspots() end
+        end
 
         local count = #wps
         if count == 0 then

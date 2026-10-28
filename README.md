@@ -8,7 +8,7 @@ ab und fahren weiter. Die Mod läuft auf jeder Karte, im Einzelspieler, im Multi
 
 - Autor: OGW
 - modDesc-Version: `1.0.0.0` (`descVersion` 113)
-- Interner Stand: `NachbarFelderManager.BUILD = 179`, im Log als `LivingRoads: loadMap auf SERVER (Build 179)`
+- Interner Stand: `NachbarFelderManager.BUILD = 180`, im Log als `LivingRoads: loadMap auf SERVER (Build 180)`
 
 Maßgeblich ist die Build-Nummer, nicht die modDesc-Version.
 

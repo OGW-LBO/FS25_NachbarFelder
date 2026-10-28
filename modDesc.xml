@@ -539,6 +539,16 @@ Si la circulation du jeu provoque encore des collisions dans les passages étroi
             <de>Wegpunkt entfernt. Verbleibend: %d</de>
             <fr>Point retiré. Restants : %d</fr>
         </text>
+        <text name="NF_msg_wpLoeschungGesendet">
+            <en>Living Roads: deleting WP%d, request sent to the server</en>
+            <de>Lebendige Straßen: Löschen von WP%d an den Server geschickt</de>
+            <fr>Routes Vivantes : suppression du point %d envoyée au serveur</fr>
+        </text>
+        <text name="NF_msg_wpGeloescht">
+            <en>Living Roads: WP%d deleted (x=%d z=%d), %d waypoints left</en>
+            <de>Lebendige Straßen: WP%d gelöscht (x=%d z=%d), noch %d Wegpunkte</de>
+            <fr>Routes Vivantes : point %d supprimé (x=%d z=%d), il reste %d points</fr>
+        </text>
         <text name="NF_msg_nichtGesetzt">
             <en>Not placed</en>
             <de>Nicht gesetzt</de>
