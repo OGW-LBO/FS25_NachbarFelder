@@ -41,7 +41,6 @@ function NachbarFelderSettingsPage.new(NachbarFelderManager)
 end
 
 function NachbarFelderSettingsPage:init()
-	print("init Settings page")
 	local controlProperties = {
 		{ name = "active", autoBind = true, nillable = false },
 		{ name = "trafficLimit", autoBind = true, min = 1, max = 8, step = 1, nillable = false, value = self.settings["trafficLimit"]},
@@ -172,7 +171,7 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 				self.settings[v.name] = v.active == true
 			end
 		end
-		print("NachbarFelder: [SETTINGS] GUI nutzt Savegame-Stand (lokale Datei ignoriert)")
+		print("LivingRoads: [SETTINGS] GUI nutzt Savegame-Stand (lokale Datei ignoriert)")
 		return properties
 	end
 
@@ -230,7 +229,6 @@ function NachbarFelderSettingsPage:loadSettingsFromXML(properties)
 	self.settings["engeMap"] = self.NachbarFelderManager.engeMap ~= false
 	self.settings["debugLog"] = self.NachbarFelderManager.debugLog == true
 
-	print("loadFromXml")
 	
     local itKey = baseXmlKey .. ".mission"
     xmlFile:iterate(itKey, function(_, key)

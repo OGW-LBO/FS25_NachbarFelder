@@ -320,14 +320,14 @@ function NachbarFelderManager:applySettingEdit(name, value)
         end
     end
     if not known then
-        print("NachbarFelder: [SETTINGS] Unbekannte Einstellung ignoriert: " .. tostring(name))
+        print("LivingRoads: [SETTINGS] Unbekannte Einstellung ignoriert: " .. tostring(name))
         return
     end
 
     -- Der Live-Stand landet beim nächsten Speichern im Savegame und hat
     -- dann Vorrang vor der Server-Konfig.
     self.settingsFromSavegame = true
-    print("NachbarFelder: [SETTINGS] " .. tostring(name) .. " = " .. tostring(value))
+    print("LivingRoads: [SETTINGS] " .. tostring(name) .. " = " .. tostring(value))
     self:broadcastSettingsToClients()
 end
 
@@ -411,7 +411,7 @@ function NachbarFelderManager:getEffectiveFarmId()
             end
         end
         if gewaehlt == nil then
-            print(string.format("NachbarFelder: WARNUNG Konfig farmId=%d existiert nicht oder hat Spieler - waehle automatisch", cfg))
+            print(string.format("LivingRoads: WARNUNG Konfig farmId=%d existiert nicht oder hat Spieler - waehle automatisch", cfg))
         end
     end
     if gewaehlt == nil then
@@ -430,12 +430,12 @@ function NachbarFelderManager:getEffectiveFarmId()
     self.farmIdResolved = true
     if gewaehlt == nil then
         self.farmId = spectator
-        print("NachbarFelder: WARNUNG keine Farm ohne Spieler gefunden - Helfer koennen nicht starten. " ..
+        print("LivingRoads: WARNUNG keine Farm ohne Spieler gefunden - Helfer koennen nicht starten. " ..
               "Im Spiel eine leere Farm anlegen und Server neu starten.")
         return self.farmId
     end
     self.farmId = gewaehlt.farmId
-    print(string.format("NachbarFelder: Helfer-Farm = %d '%s' (%s, Farmland %d, Gebaeude %d)",
+    print(string.format("LivingRoads: Helfer-Farm = %d '%s' (%s, Farmland %d, Gebaeude %d)",
         gewaehlt.farmId, gewaehlt.name, grund, gewaehlt.farmlands, gewaehlt.gebaeude))
     self:broadcastSettingsToClients()   -- damit die Clients die Helfer-Farm kennen
     return self.farmId
@@ -453,7 +453,7 @@ function NachbarFelderManager:onMasterUserAdded(user)
         self.adminConnections = self.adminConnections or {}
         self.adminConnections[user:getConnection()] = true
         local name = (user.getNickname ~= nil) and user:getNickname() or "?"
-        print("NachbarFelder: [ADMIN] Master-User registriert: " .. tostring(name))
+        print("LivingRoads: [ADMIN] Master-User registriert: " .. tostring(name))
     end
 end
 
@@ -547,7 +547,7 @@ function NachbarFelderManager:registerWaypointFail(idx)
         -- Nummer entspricht dem Karten-Hotspot, mit Koordinaten lässt sich
         -- der Punkt im Spiel finden und neu setzen.
         local pos = self:getWaypointPosText(idx)
-        print("NachbarFelder: [TRAFFIC] WP" .. tostring(idx) .. pos ..
+        print("LivingRoads: [TRAFFIC] WP" .. tostring(idx) .. pos ..
             " fuer diese Session als Ziel gesperrt (2x nicht erreichbar)")
         -- alle gesperrten Ziele in einer Logzeile
         local list = {}
@@ -557,7 +557,7 @@ function NachbarFelderManager:registerWaypointFail(idx)
         table.sort(list)
         local names = {}
         for _, i in ipairs(list) do table.insert(names, "WP" .. tostring(i)) end
-        print("NachbarFelder: [TRAFFIC] Aktuell gesperrte Ziele: " .. table.concat(names, ", "))
+        print("LivingRoads: [TRAFFIC] Aktuell gesperrte Ziele: " .. table.concat(names, ", "))
     end
 end
 
@@ -580,7 +580,7 @@ function NachbarFelderManager:registerWaypointStartFail(idx)
     self.wpStartFails[idx] = (self.wpStartFails[idx] or 0) + 1
     if self.wpStartFails[idx] == 2 then
         local pos = self:getWaypointPosText(idx)
-        print("NachbarFelder: [TRAFFIC] WP" .. tostring(idx) .. pos ..
+        print("LivingRoads: [TRAFFIC] WP" .. tostring(idx) .. pos ..
             " taugt nicht als Startplatz - dort halten keine Fahrzeuge mehr" ..
             (self:getIsEigenerWaypoint(idx)
                 and " (Tipp: den Punkt aus dem fahrenden Fahrzeug mitten auf der Strasse neu setzen)."
@@ -703,7 +703,7 @@ function NachbarFelderManager:loadServerConfig()
         createFolder(dir)
         local path = NachbarFelderLesePfad(dir .. "NachbarFelderServerConfig.xml")
         local root = "nachbarFelder"
-        print("NachbarFelder: Server-Konfig-Pfad: " .. tostring(path))
+        print("LivingRoads: Server-Konfig-Pfad: " .. tostring(path))
         if not fileExists(path) then
             local xf = createXMLFile("nfConfig", path, root)
             if xf ~= nil and xf ~= 0 then
@@ -739,7 +739,7 @@ function NachbarFelderManager:loadServerConfig()
                 setXMLBool(xf, root .. ".vehicles.teleLoaders",    c.TELELOADERVEHICLES ~= false)
                 saveXMLFile(xf)
                 delete(xf)
-                print("NachbarFelder: Konfig-Vorlage angelegt: " .. path)
+                print("LivingRoads: Konfig-Vorlage angelegt: " .. path)
             end
             return
         end
@@ -833,13 +833,13 @@ function NachbarFelderManager:loadServerConfig()
             self.vehicleCatEnabled = c
             self.trafficVehicleList = nil  -- mit den neuen Kategorien neu aufbauen
         else
-            print("NachbarFelder: Server-Konfig vehicles.* ignoriert - " ..
+            print("LivingRoads: Server-Konfig vehicles.* ignoriert - " ..
                 "In-Game-Kategorien aus der Wegpunkt-Datei sind aktiv")
         end
         delete(xf)
         -- Eigenes c, das obige existiert nur im vehicles.*-Zweig
         local c = self.vehicleCatEnabled or {}
-        print("NachbarFelder: Server-Konfig geladen: maxWorkers=" ..
+        print("LivingRoads: Server-Konfig geladen: maxWorkers=" ..
             tostring(self.MAX_ASSISTANT_WORKERS) ..
             " trafficLimit=" .. tostring(self.trafficLimit) ..
             " trailerSize=" .. tostring(self.trafficTrailerSize) ..
@@ -872,7 +872,7 @@ end
 function NachbarFelderManager:installHooks()
     if self.hooksInstalled then return end
     self.hooksInstalled = true
-    print("NachbarFelder: Hooks werden installiert")
+    print("LivingRoads: Hooks werden installiert")
 
     -- Bewusst keine FarmlandManager-Hooks (getIsOwnedByFarmAtWorldPosition usw.): der
     -- GOTO-Weg fragt sie nicht ab, sie wirken nur bei Feldarbeit, Leveler, Platzieren und
@@ -923,7 +923,7 @@ end
 -- schon in init() von NachbarFelder.lua, daher auch auf dem Dedi)
 -- ============================================================
 function NachbarFelderManager:loadMap()
-    print("NachbarFelder: loadMap auf " ..
+    print("LivingRoads: loadMap auf " ..
         (g_currentMission:getIsServer() and "SERVER" or "CLIENT") ..
         " (Build " .. tostring(NachbarFelderManager.BUILD) .. ")")
 
@@ -959,7 +959,7 @@ function NachbarFelderManager:loadMap()
             self:applySettingsState(self.savegameSettings)
             self.settingsFromSavegame = true
             self.savegameSettings = nil
-            print("NachbarFelder: [SETTINGS] Einstellungen aus dem Savegame angewendet")
+            print("LivingRoads: [SETTINGS] Einstellungen aus dem Savegame angewendet")
         end
     end
 end
@@ -1001,7 +1001,7 @@ end
 function NachbarFelderManager:installKartenHook()
     if NachbarFelderManager.kartenHookInstalliert or g_client == nil then return end
     if IngameMap == nil or IngameMap.drawHotspot == nil then
-        print("NachbarFelder: Karten-Symbole bleiben sichtbar (IngameMap.drawHotspot fehlt)")
+        print("LivingRoads: Karten-Symbole bleiben sichtbar (IngameMap.drawHotspot fehlt)")
         return
     end
     NachbarFelderManager.kartenHookInstalliert = true
@@ -1015,7 +1015,7 @@ function NachbarFelderManager:installKartenHook()
             end
             return superFunc(map, hotspot, ...)
         end)
-    print("NachbarFelder: Helfer-Symbole der Nachbar-Fahrzeuge auf der Karte ausgeblendet")
+    print("LivingRoads: Helfer-Symbole der Nachbar-Fahrzeuge auf der Karte ausgeblendet")
 end
 
 --- Eigene Kategorie in der Ingame-Hilfe (ESC > Hilfe). HelpLineManager:loadFromXML liest
@@ -1026,15 +1026,15 @@ function NachbarFelderManager:ladeHilfe()
     self.hilfeGeladen = true
     local dir = NachbarFelderManager.modDirectory
     if dir == nil or g_helpLineManager == nil or g_helpLineManager.loadFromXML == nil then
-        print("NachbarFelder: Ingame-Hilfe nicht geladen (HelpLineManager nicht verfuegbar)")
+        print("LivingRoads: Ingame-Hilfe nicht geladen (HelpLineManager nicht verfuegbar)")
         return
     end
     if g_helpLineManager ~= nil and g_helpLineManager.loadFromXML ~= nil then
         g_helpLineManager:loadFromXML(Utils.getFilename("help/helpLine.xml", dir))
         self:setzeHilfeSymbole(dir)
-        print("NachbarFelder: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
+        print("LivingRoads: Ingame-Hilfe geladen (ESC > Hilfe > Lebendige Strassen)")
     else
-        print("NachbarFelder: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
+        print("LivingRoads: Ingame-Hilfe konnte nicht geladen werden (Hilfe-Manager fehlt)")
     end
 end
 
@@ -1086,7 +1086,7 @@ function NachbarFelderManager:setzeHilfeSymbole(dir)
         if gefunden then break end
     end
     if not gefunden then
-        print("NachbarFelder: Hilfe-Symbole fehlgeschlagen (Kategorie nicht gefunden)")
+        print("LivingRoads: Hilfe-Symbole fehlgeschlagen (Kategorie nicht gefunden)")
     end
 end
 
@@ -1096,7 +1096,7 @@ end
 function NachbarFelderManager:serverSideInit()
     if self.serverInitialized then return end
     self.serverInitialized = true
-    print("NachbarFelder: Server-Initialisierung gestartet")
+    print("LivingRoads: Server-Initialisierung gestartet")
 
     self:installHooks()
     self:selectBestSpawnPlace()
@@ -1146,7 +1146,7 @@ function NachbarFelderManager:serverSideInit()
                         end
                     end
                     if remaining <= 0 then
-                        print("NachbarFelder: Letzter Spieler weg - stoppe alle Helfer")
+                        print("LivingRoads: Letzter Spieler weg - stoppe alle Helfer")
                         g_NachbarFelderManager:stopAllHelpers()
                     end
                 end
@@ -1165,7 +1165,7 @@ function NachbarFelderManager:serverSideInit()
             end)
     end
 
-    print("NachbarFelder: Server bereit. Naechster Start in " .. tostring(self.timeToNextStart) .. " Minuten")
+    print("LivingRoads: Server bereit. Naechster Start in " .. tostring(self.timeToNextStart) .. " Minuten")
 end
 
 -- ============================================================
@@ -1186,7 +1186,7 @@ function NachbarFelderManager:prepareForShutdown()
             self:meldeBeimSpielverkehrAb(veh)
         end
     end
-    print("NachbarFelder: Shutdown - AI-Jobs gestoppt, Fahrzeuge raeumt die Engine auf")
+    print("LivingRoads: Shutdown - AI-Jobs gestoppt, Fahrzeuge raeumt die Engine auf")
 end
 
 -- ============================================================
@@ -1202,14 +1202,14 @@ function NachbarFelderManager:stopAllHelpers()
     self.timeToNextStart = math.random(1 * timeScale, 4 * timeScale)
     -- Nach dem Login laufen erst 3 Min Echtzeit-Ladepause, dann timeToNextStart
     print(string.format(
-        "NachbarFelder: Alle Helfer gestoppt (kein Spieler online). Erster Spawn ca. %d Min " ..
+        "LivingRoads: Alle Helfer gestoppt (kein Spieler online). Erster Spawn ca. %d Min " ..
         "nach Spieler-Login (3 Min Echtzeit-Pause + %d Min Timer)",
         self.timeToNextStart + 3, self.timeToNextStart))
 end
 
 -- ============================================================
 -- Wegpunkt an der Spielerposition setzen (nur Admin)
--- Taste "NachbarFelder: Wegpunkt setzen" (Standard Strg+Alt+O) und die Buttons
+-- Taste "LivingRoads: Wegpunkt setzen" (Standard Strg+Alt+O) und die Buttons
 -- im Reiter Wegpunkte. Gespeichert in der Wegpunkt-Datei der Karte.
 -- ============================================================
 function NachbarFelderManager:onInputAddWaypoint(actionName, inputValue, callbackState, isAnalog, isMouse, deviceCategory)
@@ -1229,7 +1229,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         self:notifyAdminRequired()
         return false, "Nur fuer Admins"
     end
-    print("NachbarFelder: [WP] " .. art .. " setzen ausgeloest")
+    print("LivingRoads: [WP] " .. art .. " setzen ausgeloest")
     local x, y, z, ry
     -- Position und Richtung wie in AISystem.lua: im Fahrzeug rootNode + Vorwaertsvektor,
     -- zu Fuss getMapPositionAndLookYaw, sonst die Kamera. FS25 liefert das Fahrzeug nur
@@ -1289,7 +1289,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         end
     end
     if x == nil then
-        print("NachbarFelder: [WP] Position nicht verfuegbar")
+        print("LivingRoads: [WP] Position nicht verfuegbar")
         return false, "Position nicht verfuegbar"
     end
     -- Richtung noch offen (Fall 2b/3): Blickrichtung der Kamera, die entlang -Z schaut
@@ -1307,7 +1307,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
     z  = math.floor(z + 0.5)
     ry = ry or 0
     local richtungText = nfText("NF_richtungAus", nfText(richtungQuelle or "NF_richtung_unbekannt"))
-    print(string.format("NachbarFelder: [WP] Position x=%d z=%d, %s (%.0f Grad)",
+    print(string.format("LivingRoads: [WP] Position x=%d z=%d, %s (%.0f Grad)",
         x, z, richtungText, math.deg(ry) % 360))
     local MIN_DIST = 10   -- m, Mindestabstand zum naechsten Wegpunkt
     self.userTrafficWaypoints = self.userTrafficWaypoints or {}
@@ -1315,7 +1315,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         local dist = math.sqrt((x - wp.x)^2 + (z - wp.z)^2)
         if dist < MIN_DIST then
             local grund = nfText("NF_msg_zuNah", i, dist)
-            print("NachbarFelder: [TRAFFIC] " .. art .. " - " .. grund)
+            print("LivingRoads: [TRAFFIC] " .. art .. " - " .. grund)
             if g_currentMission ~= nil then
                 g_currentMission:addIngameNotification(
                     FSBaseMission.INGAME_NOTIFICATION_CRITICAL,
@@ -1340,7 +1340,7 @@ function NachbarFelderManager:addWaypointAtPlayer(cat)
         return true
     end
     table.insert(self.userTrafficWaypoints, { x=x, z=z, ry=ry, cat=cat, label="" })
-    print(string.format("NachbarFelder: [TRAFFIC] %s %d gesetzt x=%d z=%d Richtung %.0f Grad",
+    print(string.format("LivingRoads: [TRAFFIC] %s %d gesetzt x=%d z=%d Richtung %.0f Grad",
         art, #self.userTrafficWaypoints, x, z, math.deg(ry) % 360))
     self:saveWaypoints()
     self:updateWpHotspots()
@@ -1398,7 +1398,7 @@ function NachbarFelderManager:_teleportToWp(wp)
             FSBaseMission.INGAME_NOTIFICATION_OK,
             nfMeldung("NF_msg_teleportiert", math.floor(x), math.floor(z)))
     end
-    print("NachbarFelder: [MGR] Teleport x=" .. math.floor(x) .. " z=" .. math.floor(z))
+    print("LivingRoads: [MGR] Teleport x=" .. math.floor(x) .. " z=" .. math.floor(z))
 end
 
 -- ============================================================
@@ -1410,7 +1410,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
         return
     end
     if #self.userTrafficWaypoints == 0 then
-        print("NachbarFelder: [TRAFFIC] Keine Wegpunkte vorhanden")
+        print("LivingRoads: [TRAFFIC] Keine Wegpunkte vorhanden")
         return
     end
     -- MP-Client: Loeschen beim Server anfragen
@@ -1425,7 +1425,7 @@ function NachbarFelderManager:onInputRemoveWaypoint(actionName, inputValue, call
         return
     end
     local removed = table.remove(self.userTrafficWaypoints)
-    print("NachbarFelder: [TRAFFIC] Wegpunkt entfernt (x=" .. tostring(removed.x) ..
+    print("LivingRoads: [TRAFFIC] Wegpunkt entfernt (x=" .. tostring(removed.x) ..
         " z=" .. tostring(removed.z) .. "). Verbleibend: " .. tostring(#self.userTrafficWaypoints))
     self:saveWaypoints()
     self:updateWpHotspots()
@@ -1458,25 +1458,25 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
         for i, wp in ipairs(self.userTrafficWaypoints) do
             local dist = math.sqrt((x - wp.x)^2 + (z - wp.z)^2)
             if dist < 10 then
-                print("NachbarFelder: [TRAFFIC] " .. art .. " verworfen - nur " ..
+                print("LivingRoads: [TRAFFIC] " .. art .. " verworfen - nur " ..
                     tostring(math.floor(dist)) .. "m von WP" .. tostring(i))
                 return
             end
         end
         table.insert(self.userTrafficWaypoints, { x=x, z=z, ry=ry, cat=cat, label="" })
-        print(string.format("NachbarFelder: [TRAFFIC] %s %d gesetzt (Client-Event) x=%d z=%d Richtung %.0f Grad",
+        print(string.format("LivingRoads: [TRAFFIC] %s %d gesetzt (Client-Event) x=%d z=%d Richtung %.0f Grad",
             art, #self.userTrafficWaypoints, x, z, math.deg(ry) % 360))
     elseif op == E.OP_REMOVELAST then
         if #self.userTrafficWaypoints == 0 then return end
         local removed = table.remove(self.userTrafficWaypoints)
-        print("NachbarFelder: [TRAFFIC] Wegpunkt entfernt (Client-Event) x=" ..
+        print("LivingRoads: [TRAFFIC] Wegpunkt entfernt (Client-Event) x=" ..
             tostring(removed.x) .. " z=" .. tostring(removed.z) ..
             ". Verbleibend: " .. tostring(#self.userTrafficWaypoints))
     elseif op == E.OP_DELETE then
         local idx = math.floor((a or 0) + 0.5)
         if self.userTrafficWaypoints[idx] == nil then return end
         table.remove(self.userTrafficWaypoints, idx)
-        print("NachbarFelder: [TRAFFIC] WP" .. tostring(idx) ..
+        print("LivingRoads: [TRAFFIC] WP" .. tostring(idx) ..
             " geloescht (Client-Event). Verbleibend: " .. tostring(#self.userTrafficWaypoints))
     elseif op == E.OP_SETCAT then
         local idx = math.floor((a or 0) + 0.5)
@@ -1487,7 +1487,7 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
         if c ~= 1 and c ~= 2 and c ~= NachbarFelderManager.WP_CAT_SPAWN then c = 0 end
         wp.cat = c
         if c == NachbarFelderManager.WP_CAT_SPAWN then
-            print(string.format("NachbarFelder: [TRAFFIC] WP%d ist jetzt Spawnpunkt (x=%d z=%d)",
+            print(string.format("LivingRoads: [TRAFFIC] WP%d ist jetzt Spawnpunkt (x=%d z=%d)",
                 idx, math.floor(wp.x or 0), math.floor(wp.z or 0)))
         end
     elseif op == E.OP_VEHCAT then
@@ -1496,7 +1496,7 @@ function NachbarFelderManager:applyWaypointEdit(op, a, b, c)
         self.vehicleCatEnabled = self.vehicleCatEnabled or {}
         self.vehicleCatEnabled[key] = ((b or 0) >= 0.5)
         self.trafficVehicleList = nil
-        print("NachbarFelder: [TRAFFIC] Fahrzeugkategorie " .. key .. " = " ..
+        print("LivingRoads: [TRAFFIC] Fahrzeugkategorie " .. key .. " = " ..
             tostring(self.vehicleCatEnabled[key]) .. " (Client-Event)")
     else
         return
@@ -1511,13 +1511,13 @@ end
 function NachbarFelderManager:selectBestSpawnPlace()
     local sp = g_currentMission and g_currentMission.storeSpawnPlaces
     if sp == nil or #sp == 0 then
-        print("NachbarFelder: Keine storeSpawnPlaces gefunden!")
+        print("LivingRoads: Keine storeSpawnPlaces gefunden!")
         return
     end
 
     self.spawnPlaceIndex = 1
     local best = self:getNfSpawnPlace() or sp[1]
-    print("NachbarFelder: Shop-Spawn [1] x=" ..
+    print("LivingRoads: Shop-Spawn [1] x=" ..
         tostring(math.floor(best.startX or 0)) ..
         " z=" .. tostring(math.floor(best.startZ or 0)) ..
         " (" .. tostring(#sp) .. " Punkte)")
@@ -1539,7 +1539,7 @@ function NachbarFelderManager:getNfSpawnPlaces()
     local sp = g_currentMission and g_currentMission.storeSpawnPlaces or {}
     if not self.spawnPlatzGemeldet and sp[1] ~= nil then
         self.spawnPlatzGemeldet = true
-        print(string.format("NachbarFelder: Spawn am Shop-Platz des Spiels x=%.0f z=%.0f",
+        print(string.format("LivingRoads: Spawn am Shop-Platz des Spiels x=%.0f z=%.0f",
             sp[1].startX or 0, sp[1].startZ or 0))
     end
     return sp
@@ -1604,7 +1604,7 @@ function NachbarFelderManager:buildRoadSamples()
             table.insert(ohne, "WP" .. tostring(i))
         end
     end
-    print(string.format("NachbarFelder: [TRAFFIC] Strassenrichtung: %d KI-Splines, %d Stuetzpunkte" ..
+    print(string.format("LivingRoads: [TRAFFIC] Strassenrichtung: %d KI-Splines, %d Stuetzpunkte" ..
         " - %d von %d Wegpunkten parken laengs zur Strasse%s",
         #splines, n, mit, #(self.userTrafficWaypoints or {}),
         #ohne > 0 and (" (ohne KI-Strasse im Umkreis 20 m: " .. table.concat(ohne, ", ") .. ")") or ""))
@@ -1657,7 +1657,7 @@ function NachbarFelderManager:buildRoadWaypointList()
     end
 
     self.roadWaypoints = gewaehlt
-    print(string.format("NachbarFelder: [TRAFFIC] %d Fahrziele aus dem KI-Strassennetz erzeugt" ..
+    print(string.format("LivingRoads: [TRAFFIC] %d Fahrziele aus dem KI-Strassennetz erzeugt" ..
         " (Mindestabstand %d m)", #gewaehlt, MIN_ABSTAND))
     return gewaehlt
 end
@@ -1680,7 +1680,7 @@ function NachbarFelderManager:getPatrolWaypointList()
         end
     end
     self.patrolWpList = liste
-    print(string.format("NachbarFelder: [TRAFFIC] Fahrziele gesamt: %d (%d eigene Wegpunkte" ..
+    print(string.format("LivingRoads: [TRAFFIC] Fahrziele gesamt: %d (%d eigene Wegpunkte" ..
         " + %d Strassenziele, zielQuelle=%s)",
         #liste, eigene, #liste - eigene, tostring(self.zielQuelle or "strassen")))
     return liste
@@ -1890,7 +1890,7 @@ function NachbarFelderManager:applyServerDriverFigure(vehicle)
     vehicle.setVehicleCharacter = function() end
     if not self.figurHinweisGezeigt then
         self.figurHinweisGezeigt = true
-        print("NachbarFelder: Fahrerfiguren der NF-Fahrzeuge werden auf dem Server nicht geladen" ..
+        print("LivingRoads: Fahrerfiguren der NF-Fahrzeuge werden auf dem Server nicht geladen" ..
             " (fahrerfigurenAufServer=false) - bitte pruefen, ob auf den Clients weiter Fahrer sitzen")
     end
 end
@@ -1948,7 +1948,7 @@ function NachbarFelderManager:setDebugLog(an)
         NachbarFelderLog.debug = an
     end
     if an ~= vorher then
-        print("NachbarFelder: Debug-Log " .. (an and "an" or "aus"))
+        print("LivingRoads: Debug-Log " .. (an and "an" or "aus"))
     end
 end
 
@@ -2067,7 +2067,7 @@ function NachbarFelderManager:update(dt)
             if (self._spkCount or 0) > 0 and (self._spkReports or 0) < 200 then
                 self._spkReports = (self._spkReports or 0) + 1
                 print(string.format(
-                    "NachbarFelder: [PERF] %d langsame Frames (>%dms) in 10s, max %dms (%s)",
+                    "LivingRoads: [PERF] %d langsame Frames (>%dms) in 10s, max %dms (%s)",
                     self._spkCount, math.floor(self._spkLimitMin or slowLimit),
                     math.floor(self._spkMax or 0),
                     g_currentMission:getIsServer() and "Server" or "Client"))
@@ -2138,7 +2138,7 @@ function NachbarFelderManager:update(dt)
             if k.NachbarFelderWorker.stuckAt == nil then
                 k.NachbarFelderWorker.stuckAt = g_time
             elseif g_time - k.NachbarFelderWorker.stuckAt > 90000 then
-                print("NachbarFelder: Status=9999 Timeout (5min) - Fahrzeug wird geloescht (Feld " ..
+                print("LivingRoads: [TRAFFIC] Fahrzeug haengt seit 90 s beim Stoppen - wird entfernt (Eintrag " ..
                     tostring(k.NachbarFelderWorker.fieldId) .. ")")
                 k.NachbarFelderWorker.status = 100
                 k.NachbarFelderWorker.needTimer = true
@@ -2174,7 +2174,7 @@ function NachbarFelderManager:update(dt)
                     w.parkSecs      = 5
                     w.patrolWdLastX = nil
                     w.patrolWdStage = nil
-                    print("NachbarFelder: [TRAFFIC] Feierabend - faehrt zum Parkpunkt WP" ..
+                    print("LivingRoads: [TRAFFIC] Feierabend - faehrt zum Parkpunkt WP" ..
                         tostring(parkZiel) .. " (patrolId=" .. tostring(w.fieldId) .. ")")
                     w.status    = 1
                     w.needTimer = true
@@ -2189,7 +2189,7 @@ function NachbarFelderManager:update(dt)
                         w.status        = 60
                         w.gotoStartedAt = nil
                         w.needTimer     = true
-                        print("NachbarFelder: [TRAFFIC] Hops erledigt - Heimfahrt (patrolId=" ..
+                        print("LivingRoads: [TRAFFIC] Hops erledigt - Heimfahrt (patrolId=" ..
                             tostring(w.fieldId) .. ")")
                     end
                 else
@@ -2206,7 +2206,7 @@ function NachbarFelderManager:update(dt)
                     w.patrolWdLastX  = nil
                     w.patrolWdStage  = nil
                     -- Dauerschreiber (jeder Hop): nur im Debug-Log (logLevel=2)
-                    self:log(2, "NachbarFelder: [TRAFFIC] -> WP" .. tostring(newDest) ..
+                    self:log(2, "LivingRoads: [TRAFFIC] -> WP" .. tostring(newDest) ..
                         " [" .. (NF_CAT_NAMES[newCat] or "?") .. "]" ..
                         " (noch " .. tostring(w.hopsLeft) .. " Hops, patrolId=" ..
                         tostring(w.fieldId) .. ")")
@@ -2229,13 +2229,13 @@ function NachbarFelderManager:update(dt)
                     local zu = self:getIstEingeklappt(impl)
                     if zu == false then
                         local sf = impl.spec_foldable
-                        print("NachbarFelder: [KLAPP] nach 10 s noch offen: " .. self:getKlappText(impl))
+                        print("LivingRoads: [KLAPP] nach 10 s noch offen: " .. self:getKlappText(impl))
                         if (sf.foldMoveDirection or 0) == 0 then
                             impl:setFoldState(-(sf.turnOnFoldDirection or 1), false)
-                            print("NachbarFelder: [KLAPP] Einklappbefehl wiederholt")
+                            print("LivingRoads: [KLAPP] Einklappbefehl wiederholt")
                         end
                     elseif zu == true then
-                        print("NachbarFelder: [KLAPP] eingeklappt: " .. self:getKlappText(impl))
+                        print("LivingRoads: [KLAPP] eingeklappt: " .. self:getKlappText(impl))
                     end
                 end
                 schritt()
@@ -2254,7 +2254,7 @@ function NachbarFelderManager:update(dt)
                     w.kippSeit = w.kippSeit or g_time
                     if g_time - w.kippSeit > 3000 then
                         local x, _, z = getWorldTranslation(veh.rootNode)
-                        print(string.format("NachbarFelder: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
+                        print(string.format("LivingRoads: %s %s ist umgekippt bei x=%d z=%d (Status %s) - wird entfernt",
                             "[TRAFFIC] Fahrzeug",
                             tostring(self:getWorkerName(w)), math.floor(x), math.floor(z), tostring(w.status)))
                         -- Platz sperren: dort kippen erfahrungsgemaess auch andere Gespanne
@@ -2341,7 +2341,7 @@ function NachbarFelderManager:update(dt)
                                 w.patrolDestIdx = newDest
                                 w.patrolTargetX = w.waypoints[newDest][1]
                                 w.patrolTargetZ = w.waypoints[newDest][2]
-                                print("NachbarFelder: [TRAFFIC] Stufe3 - steckte fest, faehrt von der Strasse" ..
+                                print("LivingRoads: [TRAFFIC] Stufe3 - steckte fest, faehrt von der Strasse" ..
                                     " aus weiter zu WP" .. tostring(newDest) .. " (patrolId=" ..
                                     tostring(w.fieldId) .. ")")
                                 w.status    = 1
@@ -2351,10 +2351,10 @@ function NachbarFelderManager:update(dt)
                         if gerettet then
                             -- weiter mit neuem Ziel
                         elseif self:sleepPatrolEntry(k, false) then
-                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug schlaeft im Pool (patrolId=" ..
+                            print("LivingRoads: [TRAFFIC] Stufe3 - Fahrzeug schlaeft im Pool (patrolId=" ..
                                 tostring(w.fieldId) .. ")")
                         else
-                            print("NachbarFelder: [TRAFFIC] Stufe3 - Fahrzeug loeschen (patrolId=" ..
+                            print("LivingRoads: [TRAFFIC] Stufe3 - Fahrzeug loeschen (patrolId=" ..
                                 tostring(w.fieldId) .. ")")
                             w.status    = 100
                             w.needTimer = true
@@ -2375,7 +2375,7 @@ function NachbarFelderManager:update(dt)
                         w.parkUntil = g_time + secs * 1000
                         w.status    = 2
                         -- Routine-Ankunft (Durchfahrts-Logik): nur im Debug-Log
-                        self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %.0f m vor Ziel WP%s still -" ..
+                        self:log(2, string.format("LivingRoads: [TRAFFIC] steht %.0f m vor Ziel WP%s still -" ..
                             " gilt als angekommen, parkt (patrolId=%s)",
                             zielDist, tostring(w.patrolDestIdx), tostring(w.fieldId)))
 
@@ -2386,7 +2386,7 @@ function NachbarFelderManager:update(dt)
                     elseif stuckMs > 30000 and stage == 0 and self:merkeStufe1Schleife(w) then
                         -- Wiederholte Stufe 1 in kurzer Zeit: das Fahrzeug rollt zwischendurch ein
                         -- paar Meter (Waechter beginnt neu), kommt aber nicht weiter. Direkt Stufe 3.
-                        print(string.format("NachbarFelder: [TRAFFIC] Stufe1 zum %d. Mal in %d min - gilt als" ..
+                        print(string.format("LivingRoads: [TRAFFIC] Stufe1 zum %d. Mal in %d min - gilt als" ..
                             " festgefahren, weiter mit Stufe 3 (patrolId=%s)",
                             NachbarFelderManager.STUFE1_SCHLEIFE_ANZAHL,
                             NachbarFelderManager.STUFE1_SCHLEIFE_MS / 60000, tostring(w.fieldId)))
@@ -2400,7 +2400,7 @@ function NachbarFelderManager:update(dt)
                         local fremdD, fremdName = self:getNaechstesFremdfahrzeug(x, z, veh)
                         local zielBelegt = w.patrolTargetX ~= nil
                             and self:isSpotBlockedByAnyVehicle(w.patrolTargetX, w.patrolTargetZ, 10, veh)
-                        print(string.format("NachbarFelder: [TRAFFIC][DIAG] 30s ohne Bewegung" ..
+                        print(string.format("LivingRoads: [DIAG] 30s ohne Bewegung" ..
                             " (Ziel WP%s, noch %.0f m, Zielplatz %s, naechstes Fahrzeug %s in %.0f m): %s",
                             tostring(w.patrolDestIdx), math.min(zielDist, 99999),
                             zielBelegt and "BELEGT" or "frei",
@@ -2416,7 +2416,7 @@ function NachbarFelderManager:update(dt)
                         w.patrolTargetX = w.waypoints[newDest][1]
                         w.patrolTargetZ = w.waypoints[newDest][2]
                         w.parkSecs      = self:scaleParkSecs(math.random(20, 60))
-                        print("NachbarFelder: [TRAFFIC] Stufe1 - 30s fest, neues Ziel WP" ..
+                        print("LivingRoads: [TRAFFIC] Stufe1 - 30s fest, neues Ziel WP" ..
                             tostring(newDest) .. " (patrolId=" .. tostring(w.fieldId) .. ")")
                         w.status    = 1
                         w.needTimer = true
@@ -2434,7 +2434,7 @@ function NachbarFelderManager:update(dt)
                         w.patrolTargetX = w.waypoints[newDest][1]
                         w.patrolTargetZ = w.waypoints[newDest][2]
                         w.parkSecs      = self:scaleParkSecs(math.random(20, 60))
-                        print("NachbarFelder: [TRAFFIC] Stufe2 - neues Ziel WP" ..
+                        print("LivingRoads: [TRAFFIC] Stufe2 - neues Ziel WP" ..
                             tostring(newDest) .. " (patrolId=" .. tostring(w.fieldId) .. ")")
                         w.status    = 1
                         w.needTimer = true
@@ -2505,7 +2505,7 @@ function NachbarFelderManager:update(dt)
                         local fname    = vehicle.configFileName
                         local baseName = fname ~= nil and (string.match(fname, "[^/\\]+$") or fname)
                                          or tostring(vehicle.typeName or "?")
-                        print("NachbarFelder: [TRAFFIC] Blacklist: " .. baseName ..
+                        print("LivingRoads: [TRAFFIC] Blacklist: " .. baseName ..
                             " (kein spec_aiFieldWorker, kann keinen GOTO-Job ausfuehren)")
                         if fname ~= nil then
                             self.trafficVehicleBlacklist = self.trafficVehicleBlacklist or {}
@@ -2570,7 +2570,7 @@ function NachbarFelderManager:update(dt)
                             -- Ausrichtung (die gespeicherte ry ist die Blickrichtung beim Setzen, oft quer
                             -- zur Fahrbahn). Nur der Ladeplatz hat eine vom Spiel definierte Ausrichtung,
                             -- also startet das Gespann dort und faehrt die Strecke selbst.
-                            print("NachbarFelder: [TRAFFIC] Gespann startet am Ladeplatz " ..
+                            print("LivingRoads: [TRAFFIC] Gespann startet am Ladeplatz " ..
                                 "und faehrt selbst zu WP" .. tostring(nearestIdx))
                             if #wps >= 2 and nfW.patrolDestIdx ~= nil then
                                 nfW.status    = 1.5
@@ -2655,7 +2655,7 @@ function NachbarFelderManager:update(dt)
                         k.NachbarFelderWorker.needTimer = true
                     else
                         if g_time - k.NachbarFelderWorker.gotoStartedAt > 120000 then
-                            print("NachbarFelder: Rueckfahrt-Timeout Feld " ..
+                            print("LivingRoads: Rueckfahrt-Timeout Feld " ..
                                 tostring(k.NachbarFelderWorker.fieldId) .. " - loesche Fahrzeug")
                             k.NachbarFelderWorker.gotoStartedAt = nil
                             k.NachbarFelderWorker.status = 100
@@ -2687,7 +2687,7 @@ function NachbarFelderManager:update(dt)
                                     filename = xml,
                                     spawnAt  = g_time + math.random(300, 480) * 1000
                                 })
-                                print("NachbarFelder: [TRAFFIC] Stammfahrzeug respawnt in 5-8 Min: " ..
+                                print("LivingRoads: [TRAFFIC] Stammfahrzeug respawnt in 5-8 Min: " ..
                                     tostring(string.match(xml, "[^/\\]+$") or xml))
                             end
                         end
@@ -2725,11 +2725,11 @@ function NachbarFelderManager:onMinuteChanged(minute)
         end
     end
     if realCount ~= self.playersOnline then
-        print("NachbarFelder: Spieler: " .. tostring(self.playersOnline) .. " -> " .. tostring(realCount))
+        print("LivingRoads: Spieler: " .. tostring(self.playersOnline) .. " -> " .. tostring(realCount))
         -- Erster Spieler auf leerem Server: Wartezeit vor dem ersten Spawn starten
         if self.playersOnline <= 0 and realCount > 0 then
             self.playerJoinTime = g_time  -- Echtzeit, robust gegen Zeitspruenge
-            print("NachbarFelder: Erster Spieler erkannt - warte " ..
+            print("LivingRoads: Erster Spieler erkannt - warte " ..
                 tostring(math.floor((self.firstSpawnDelayMs or 180000) / 60000)) ..
                 " Minuten (Echtzeit) vor erstem Spawn")
         end
@@ -2776,7 +2776,7 @@ function NachbarFelderManager:onMinuteChanged(minute)
                     w.blockX, w.blockZ, w.blockSeit = x, z, g_time
                 elseif g_time - w.blockSeit > NachbarFelderManager.BLOCK_ECHTZEIT_MS then
                     w.blockSeit = nil
-                    self:log(2, string.format("NachbarFelder: [TRAFFIC] steht %d s unbewegt (Status %s) -" ..
+                    self:log(2, string.format("LivingRoads: [TRAFFIC] steht %d s unbewegt (Status %s) -" ..
                         " Pool bzw. entfernen (patrolId=%s)", math.floor(NachbarFelderManager.BLOCK_ECHTZEIT_MS / 1000),
                         tostring(w.status), tostring(w.fieldId)))
                     -- Verkehr: in den Pool statt loeschen
@@ -2874,7 +2874,7 @@ function NachbarFelderManager:getSpawnLookAt()
 
     if bestX ~= nil then
         self.spawnLookAt = { x = bestX, z = bestZ, quelle = "Werkstatt" }
-        print(string.format("NachbarFelder: Spawn-Blickrichtung = Werkstatt bei x=%.1f z=%.1f (%.0f m entfernt)",
+        print(string.format("LivingRoads: Spawn-Blickrichtung = Werkstatt bei x=%.1f z=%.1f (%.0f m entfernt)",
             bestX, bestZ, bestDist or 0))
         return self.spawnLookAt
     end
@@ -2889,11 +2889,11 @@ function NachbarFelderManager:getSpawnLookAt()
     end
 
     if self.spawnLookAt ~= nil then
-        print("NachbarFelder: Spawn-Blickrichtung = Ausrichtung des Shop-Spawnplatzes")
+        print("LivingRoads: Spawn-Blickrichtung = Ausrichtung des Shop-Spawnplatzes")
         return self.spawnLookAt
     end
 
-    print("NachbarFelder: Keine Spawn-Blickrichtung ermittelbar - Rotation bleibt wie vom Spiel gesetzt")
+    print("LivingRoads: Keine Spawn-Blickrichtung ermittelbar - Rotation bleibt wie vom Spiel gesetzt")
     return nil
 end
 
@@ -2960,7 +2960,7 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         local ry = rry or 0
                         g_currentMission:teleportVehicle(vehicle, rx, rz, ry)
                         aufStrasse = true
-                        print(string.format("NachbarFelder: [TRAFFIC] %.0f m vom Shop-Platz auf die KI-Strasse" ..
+                        print(string.format("LivingRoads: [TRAFFIC] %.0f m vom Shop-Platz auf die KI-Strasse" ..
                             " gesetzt (weg von der Wand)", rdist or 0))
                     end
                     schritt()
@@ -3023,12 +3023,12 @@ function NachbarFelderManager:onSpawnedVehicle(vehicles, vehicleLoadState, loadi
                         end
                         if not hasImplement then
                             nfW.firstStart = nil
-                            print("NachbarFelder: [TRAFFIC] Einzelfahrzeug faehrt vom Ladeplatz los, Ziel WP" ..
+                            print("LivingRoads: [TRAFFIC] Einzelfahrzeug faehrt vom Ladeplatz los, Ziel WP" ..
                                 tostring(nfW.patrolDestIdx))
                         else
                             -- firstStart bleibt fuer den Kuppel-Ablauf gesetzt
                             nfW.spawnWpIdx = nearestIdx
-                            print("NachbarFelder: [TRAFFIC] Gespann wird am Ladeplatz gekuppelt")
+                            print("LivingRoads: [TRAFFIC] Gespann wird am Ladeplatz gekuppelt")
                         end
                     end
                 end
@@ -3158,7 +3158,7 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
     local function diagnose(text)
         if diag and not w.spawnPlatzDiagnose then
             w.spawnPlatzDiagnose = true
-            self:log(2, "NachbarFelder: [TRAFFIC] Ladeplatz-Pruefung (" .. tostring(grund) .. "): " .. text)
+            self:log(2, "LivingRoads: [TRAFFIC] Ladeplatz-Pruefung (" .. tostring(grund) .. "): " .. text)
         end
     end
     if type(sp) ~= "table" then
@@ -3182,7 +3182,7 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
         self.spawnpunktGemeldet = self.spawnpunktGemeldet or {}
         if not self.spawnpunktGemeldet[sp.spawnpunktIdx] then
             self.spawnpunktGemeldet[sp.spawnpunktIdx] = true
-            print(string.format("NachbarFelder: Spawnpunkt WP%d: Fahrzeug kam dort nicht weg (%s) - Punkt pruefen:" ..
+            print(string.format("LivingRoads: Spawnpunkt WP%d: Fahrzeug kam dort nicht weg (%s) - Punkt pruefen:" ..
                 " freie Flaeche, nah an einer befahrbaren Strasse, beim Setzen in Abfahrtrichtung schauen",
                 sp.spawnpunktIdx, tostring(grund)))
         end
@@ -3192,7 +3192,7 @@ function NachbarFelderManager:merkeSpawnFehlschlag(w, x, z, grund, maxDist, diag
     table.insert(self.spawnPlatzSperre, { sp.x, sp.z, tostring(grund) })
     self:speichereLadeplatzSperre()
     self:hinweisSpawnpunkt(grund)
-    print(string.format("NachbarFelder: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
+    print(string.format("LivingRoads: Ladeplatz x=%d z=%d taugt nicht (%s) - dauerhaft fuer diese Karte gesperrt" ..
         " (%d Plaetze gesperrt, Datei %s)", math.floor(sp.x), math.floor(sp.z), tostring(grund),
         #self.spawnPlatzSperre, tostring(self:getLadeplatzDatei())))
 end
@@ -3203,7 +3203,7 @@ end
 function NachbarFelderManager:hinweisSpawnpunkt(grund)
     if self.spawnHinweisGegeben or self:getHatSpawnpunkte() then return end
     self.spawnHinweisGegeben = true
-    print("NachbarFelder: Hinweis - automatischer Ladeplatz gescheitert (" .. tostring(grund) ..
+    print("LivingRoads: Hinweis - automatischer Ladeplatz gescheitert (" .. tostring(grund) ..
         "). Zuverlaessiger: Spawnpunkt setzen (ESC > Einstellungen > Wegpunkte > Spawnpunkt hier setzen)")
     if g_client ~= nil and g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
         g_currentMission:addIngameNotification(FSBaseMission.INGAME_NOTIFICATION_INFO,
@@ -3245,10 +3245,10 @@ function NachbarFelderManager:ladeLadeplatzSperre()
     end
     schritt()
     if #self.spawnPlatzSperre > 0 then
-        print(string.format("NachbarFelder: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
+        print(string.format("LivingRoads: %d gesperrte Ladeplaetze geladen (%s)", #self.spawnPlatzSperre, pfad))
     end
     if verworfen > 0 then
-        print(string.format("NachbarFelder: %d Ladeplatz-Sperren wegen 'umgekippt' aufgehoben (lag am Gespann)", verworfen))
+        print(string.format("LivingRoads: %d Ladeplatz-Sperren wegen 'umgekippt' aufgehoben (lag am Gespann)", verworfen))
         self:speichereLadeplatzSperre()
     end
 end
@@ -3438,7 +3438,7 @@ function NachbarFelderManager:waehleSpawnpunkt(nurPruefen)
                     self.spawnpunktEinbahnGemeldet = self.spawnpunktEinbahnGemeldet or {}
                     if not self.spawnpunktEinbahnGemeldet[i] then
                         self.spawnpunktEinbahnGemeldet[i] = true
-                        print(string.format("NachbarFelder: Spawnpunkt WP%d: die KI-Strasse ist dort nur in" ..
+                        print(string.format("LivingRoads: Spawnpunkt WP%d: die KI-Strasse ist dort nur in" ..
                             " Gegenrichtung befahrbar - Fahrzeuge starten in Fahrtrichtung der Strasse", i))
                     end
                 end
@@ -3474,7 +3474,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
                 return
             end
             if self:getHatSpawnpunkte() then
-                print("NachbarFelder: Alle Spawnpunkte belegt - Ausweich auf die Platzsuche am Shop")
+                print("LivingRoads: Alle Spawnpunkte belegt - Ausweich auf die Platzsuche am Shop")
             end
             local sx, sz = self:getShopPosition()
             if sx == nil then return end
@@ -3510,7 +3510,7 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
                     end
                 end
             end
-            print("NachbarFelder: Kein freier Strassenplatz fuer den Spawn gefunden (" .. tostring(geprueft) ..
+            print("LivingRoads: Kein freier Strassenplatz fuer den Spawn gefunden (" .. tostring(geprueft) ..
                 " Stellen geprueft) - Laden am Shop-Platz")
         end
         schritt()
@@ -3557,9 +3557,9 @@ function NachbarFelderManager:setzeLadepositionStrasse(data, entry)
         w.spawnAufStrasse = true
         local wer = "[TRAFFIC] Fahrzeug"
         if sp.spawnpunktIdx ~= nil then
-            print(string.format("NachbarFelder: %s wird am Spawnpunkt WP%d geladen", wer, sp.spawnpunktIdx))
+            print(string.format("LivingRoads: %s wird am Spawnpunkt WP%d geladen", wer, sp.spawnpunktIdx))
         else
-            print(string.format("NachbarFelder: %s wird direkt an der KI-Strasse geladen (%.0f m vom Shop-Platz," ..
+            print(string.format("LivingRoads: %s wird direkt an der KI-Strasse geladen (%.0f m vom Shop-Platz," ..
                 " freier Platz, Stufe %s, %d Stellen geprueft)", wer, sp.dist or 0, tostring(sp.stufe or "?"),
                 sp.geprueft or 0))
         end
@@ -3649,7 +3649,7 @@ end
 function NachbarFelderManager:loadVehicles(NachbarFelderWorker)
     local vehicles = NachbarFelderWorker.vehiclesToLoad
     if vehicles == nil or #vehicles == 0 then
-        print("Keine vehicles gefunden")
+        print("LivingRoads: [TRAFFIC] Keine Fahrzeuge zum Laden gefunden")
         return
     end
     local info = vehicles[1]
@@ -3708,7 +3708,7 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
             elseif implement ~= nil then
                 if not implement.isAddedToPhysics then implement:addToPhysics() end
                 if not isPatrolRig then
-                    print("NachbarFelder: Feldhelfer - Geraet [" .. tostring(implement.configFileName) ..
+                    print("LivingRoads: Feldhelfer - Geraet [" .. tostring(implement.configFileName) ..
                         "] liess sich nicht kuppeln")
                 end
             end
@@ -3728,7 +3728,7 @@ function NachbarFelderManager:setAttachment(NachbarFelderWorker)
             if impl ~= nil and not attached then
                 local fname = impl.configFileName or ""
                 local base  = string.match(fname, "[^/\\]+$") or fname
-                print("NachbarFelder: [TRAFFIC] Anbaugeraet nicht kuppelbar (" .. base ..
+                print("LivingRoads: [TRAFFIC] Anbaugeraet nicht kuppelbar (" .. base ..
                     ") - entfernt, Fahrzeug faehrt solo.")
                 if impl ~= nil and impl.delete ~= nil then impl:delete() end
                 table.remove(NachbarFelderWorker.vehicleType, v)
@@ -3842,7 +3842,7 @@ function NachbarFelderManager:meldeBeimSpielverkehrAn(vehicle)
     vehicle.nf_spielverkehrNode = node
     if not self.spielverkehrGemeldet then
         self.spielverkehrGemeldet = true
-        print("NachbarFelder: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
+        print("LivingRoads: [TRAFFIC] Fahrzeuge werden beim Spielverkehr angemeldet (Autos bremsen fuer sie)")
     end
 end
 
@@ -3909,7 +3909,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
         for _, att in ipairs(vehicle:getAttachedImplements()) do
             local impl = att.object
             if self:getIstEingeklappt(impl) == false then
-                print("NachbarFelder: [KLAPP] Einklappbefehl gegeben, noch offen: " .. self:getKlappText(impl))
+                print("LivingRoads: [KLAPP] Einklappbefehl gegeben, noch offen: " .. self:getKlappText(impl))
                 self.klappPruefung = self.klappPruefung or {}
                 table.insert(self.klappPruefung, { impl = impl, at = g_time + 10000 })
             end
@@ -3931,7 +3931,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
         job.getPricePerMs = function() return 0 end
     end
     if job == nil then
-        print("NachbarFelder: FEHLER - AIJobType.GOTO konnte nicht erstellt werden!")
+        print("LivingRoads: FEHLER - AIJobType.GOTO konnte nicht erstellt werden!")
         return
     end
     job.positionAngleParameter:setPosition(x, z)
@@ -3940,7 +3940,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     job:setValues()
 
     -- kommt bei jedem Hop, daher nur auf logLevel 2
-    self:log(2, "NachbarFelder: GOTO Start -> x=" .. tostring(math.floor(x or 0)) ..
+    self:log(2, "LivingRoads: GOTO Start -> x=" .. tostring(math.floor(x or 0)) ..
         " z=" .. tostring(math.floor(z or 0)) ..
         " farmId=" .. tostring(self.farmId) ..
         " Feld=" .. tostring(fieldId))
@@ -3949,13 +3949,13 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
     if vehicle.createAgent == nil then
         local fname = vehicle.configFileName
         local baseName = fname ~= nil and (string.match(fname, "[^/\\]+$") or fname) or tostring(vehicle.typeName)
-        print("NachbarFelder: kein createAgent auf " .. baseName .. " - Fahrzeug wird gesperrt")
+        print("LivingRoads: kein createAgent auf " .. baseName .. " - Fahrzeug wird gesperrt")
         -- für den Rest der Sitzung nicht mehr spawnen
         if fname ~= nil then
             self.trafficVehicleBlacklist = self.trafficVehicleBlacklist or {}
             if not self.trafficVehicleBlacklist[fname] then
                 self.trafficVehicleBlacklist[fname] = true
-                print("NachbarFelder: [TRAFFIC] Blacklist: " .. baseName .. " (kein createAgent)")
+                print("LivingRoads: [TRAFFIC] Blacklist: " .. baseName .. " (kein createAgent)")
                 self.trafficVehicleList = nil
                 for i = #self.regularVehicleXMLs, 1, -1 do
                     if self.regularVehicleXMLs[i] == fname then
@@ -4001,7 +4001,7 @@ function NachbarFelderManager:driveToField(vehicle, fieldId, x, y, z, angleSD)
 
     -- Zustand direkt nach dem Start, fuer Jobs, die ohne Fehler anlaufen und trotzdem stehen
     if nfW ~= nil and nfW.isPatrol then
-        print("NachbarFelder: [TRAFFIC][DIAG] nach Start: " .. self:getVehicleAiDiag(vehicle))
+        print("LivingRoads: [DIAG] nach Start: " .. self:getVehicleAiDiag(vehicle))
     end
 end
 
@@ -4314,7 +4314,7 @@ function NachbarFelderManager:buildTrafficVehicleList()
             local tempo = nfGetItemMaxSpeed(item)
             if tempo ~= nil and tempo < NF_MIN_VEH_SPEED_KMH then
                 zuLangsam = zuLangsam + 1
-                print(string.format("NachbarFelder: [TRAFFIC]   zu langsam (%.0f km/h): %s", tempo,
+                print(string.format("LivingRoads: [TRAFFIC]   zu langsam (%.0f km/h): %s", tempo,
                     tostring(string.match(item.xmlFilename, "[^/\\]+$") or item.xmlFilename)))
             -- unbekanntes Gewicht nur als Notfallliste, siehe unten
             elseif w ~= nil and w <= maxGewicht then
@@ -4340,9 +4340,9 @@ function NachbarFelderManager:buildTrafficVehicleList()
         for _, e in ipairs(ohneGewicht) do
             table.insert(self.trafficVehicleList, e)
         end
-        print("NachbarFelder: [TRAFFIC] Warnung: kein Traktorgewicht lesbar - Liste nur nach Kategorie")
+        print("LivingRoads: [TRAFFIC] Warnung: kein Traktorgewicht lesbar - Liste nur nach Kategorie")
     end
-    print(string.format("NachbarFelder: [TRAFFIC] Fahrzeugliste: %d Kleintraktoren bis %.0f t" ..
+    print(string.format("LivingRoads: [TRAFFIC] Fahrzeugliste: %d Kleintraktoren bis %.0f t" ..
         " (%d ohne lesbares Gewicht, %d unter %d km/h aussortiert)", #self.trafficVehicleList,
         NF_KLEIN_MAX_VEH_WEIGHT_KG / 1000, #ohneGewicht, zuLangsam, NF_MIN_VEH_SPEED_KMH))
 end
@@ -4376,7 +4376,7 @@ function NachbarFelderManager:merkeVerkehrGeraetAbweisung(filename, x, z)
     end
     if not e.gesperrt and e.n >= 3 and #e.orte >= 2 then
         e.gesperrt = true
-        print(string.format("NachbarFelder: [TRAFFIC] Anbaugeraet [%s] %dx sofort abgewiesen an %d Stellen" ..
+        print(string.format("LivingRoads: [TRAFFIC] Anbaugeraet [%s] %dx sofort abgewiesen an %d Stellen" ..
             " - fuer diese Session nicht mehr im Verkehr", tostring(filename), e.n, #e.orte))
     end
 end
@@ -4424,7 +4424,7 @@ function NachbarFelderManager:buildTrafficTrailerList()
     self.trafficTrailerList   = {}  -- schwer: Pflug, Maehwerk (nur Grosstraktoren)
     self.trafficImplListLight = {}  -- leicht: Rechen, Zinkenrotor
     if (self.trafficTrailerSize or 2) == 0 then
-        print("NachbarFelder: [TRAFFIC] Anbaugeraete: deaktiviert (Einstellung = 0)")
+        print("LivingRoads: [TRAFFIC] Anbaugeraete: deaktiviert (Einstellung = 0)")
         return
     end
     if g_storeManager == nil then return end
@@ -4463,7 +4463,7 @@ function NachbarFelderManager:buildTrafficTrailerList()
         end
     end
 
-    print("NachbarFelder: [TRAFFIC] Anbaugeraete: " ..
+    print("LivingRoads: [TRAFFIC] Anbaugeraete: " ..
         tostring(#self.trafficTrailerList) .. " schwer (Pflug/Maehwerk)" ..
         " + " .. tostring(#self.trafficImplListLight) .. " leicht (Rechen/Zinkenrotor)" ..
         (eng and "  [enge Karte: nur leichte bis "
@@ -4610,7 +4610,7 @@ function NachbarFelderManager:rettungAufStrasse(veh, x, z)
     local ok = g_currentMission ~= nil and g_currentMission.teleportVehicle ~= nil
     if ok then
         g_currentMission:teleportVehicle(veh, rx, rz, rry or 0)
-        print(string.format("NachbarFelder: [TRAFFIC] steckte fest - %.0f m weiter auf die KI-Strasse gesetzt",
+        print(string.format("LivingRoads: [TRAFFIC] steckte fest - %.0f m weiter auf die KI-Strasse gesetzt",
             rdist or 0))
     end
     return ok
@@ -4691,7 +4691,7 @@ function NachbarFelderManager:loeseBegegnung(eintrag, veh, x, z)
     w2.patrolWdSince = g_time
     local v2 = w2.vehiclesToLoad and w2.vehiclesToLoad[1]
     local name2 = v2 ~= nil and (string.match(v2.configFileName or "", "[^/\\]+$") or "?") or "?"
-    print(string.format("NachbarFelder: [TRAFFIC] Begegnung mit %s - weicht %.0f m auf die KI-Strasse aus," ..
+    print(string.format("LivingRoads: [TRAFFIC] Begegnung mit %s - weicht %.0f m auf die KI-Strasse aus," ..
         " neues Ziel WP%s (patrolId=%s)", name2, rdist or 0, tostring(newDest), tostring(w.fieldId)))
     return true
 end
@@ -4839,12 +4839,12 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
         if not self:isSpotBlockedByAnyVehicle(vx, vz, 25, tractor) then return end
         local rx, rz, rry = self:getNearestRoadPoint(vx, vz, 150, 25)
         if rx == nil or self:isSpotBlockedByAnyVehicle(rx, rz, 12, tractor) then
-            print("NachbarFelder: [TRAFFIC] Schlafplatz belegt, kein freier Strassenplatz" ..
+            print("LivingRoads: [TRAFFIC] Schlafplatz belegt, kein freier Strassenplatz" ..
                 " in der Naehe - Fahrzeug bleibt stehen")
             return
         end
         g_currentMission:teleportVehicle(tractor, rx, rz, rry or 0)
-        print(string.format("NachbarFelder: [TRAFFIC] Schlafplatz war belegt - Fahrzeug %.0f m" ..
+        print(string.format("LivingRoads: [TRAFFIC] Schlafplatz war belegt - Fahrzeug %.0f m" ..
             " weiter auf die KI-Strasse gestellt", MathUtil.vector2Length(rx - vx, rz - vz)))
     end
     schritt()
@@ -4872,7 +4872,7 @@ function NachbarFelderManager:sleepPatrolEntry(entry, inPlace)
 
     local fname = tractor.configFileName or ""
     local base  = string.match(fname, "[^/\\]+$") or fname
-    print("NachbarFelder: [POOL] " .. base .. " schlaeft" ..
+    print("LivingRoads: [POOL] " .. base .. " schlaeft" ..
         (inPlace and " an Ort und Stelle (Hops fertig)" or " an Ort und Stelle") ..
         " - Pool: " .. tostring(#self.trafficPool) .. "/" .. tostring(self.poolSize))
 
@@ -4906,7 +4906,7 @@ function NachbarFelderManager:wakePooledVehicle()
             poolEntry = cand
             break
         else
-            print("NachbarFelder: [POOL] Eintrag verworfen (Fahrzeug existiert nicht mehr)")
+            print("LivingRoads: [POOL] Eintrag verworfen (Fahrzeug existiert nicht mehr)")
         end
     end
     if poolEntry == nil then return false end
@@ -4980,7 +4980,7 @@ function NachbarFelderManager:wakePooledVehicle()
 
     local fname = tractor.configFileName or ""
     local base  = string.match(fname, "[^/\\]+$") or fname
-    print("NachbarFelder: [POOL] " .. base .. " aufgeweckt -> Ziel WP" ..
+    print("LivingRoads: [POOL] " .. base .. " aufgeweckt -> Ziel WP" ..
         tostring(worker.patrolDestIdx) .. " | " .. tostring(worker.hopsLeft) ..
         " Hops | Pool: " .. tostring(#self.trafficPool) .. "/" .. tostring(self.poolSize))
     return true
@@ -5003,7 +5003,7 @@ function NachbarFelderManager:clearTrafficPool()
     end
     self.trafficPool = {}
     if n > 0 then
-        print("NachbarFelder: [POOL] geleert - " .. tostring(n) .. " Fahrzeug(e) geloescht")
+        print("LivingRoads: [POOL] geleert - " .. tostring(n) .. " Fahrzeug(e) geloescht")
     end
 end
 
@@ -5140,7 +5140,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     if #waypoints < 3 then
         if not self.wpFewWarned then
             self.wpFewWarned = true
-            print("NachbarFelder: [TRAFFIC] Zu wenige Wegpunkte (" ..
+            print("LivingRoads: [TRAFFIC] Zu wenige Wegpunkte (" ..
                 tostring(#waypoints) .. "/3) - kein Traffic-Spawn bis mehr WPs gesetzt sind.")
         end
         return false
@@ -5211,7 +5211,7 @@ function NachbarFelderManager:generateTraffic(forcedVehicleXML, overrideSpawnWpI
     self:loadVehicles(self.vehicleType[patrolId])
     self.countWorkers = self.countWorkers + 1
     local fname = string.match(vehInfo.filename, "[^/\\]+$") or vehInfo.filename
-    print("NachbarFelder: [TRAFFIC] " .. tostring(fname) ..
+    print("LivingRoads: [TRAFFIC] " .. tostring(fname) ..
         (trailerAdded and (" + " .. tostring(string.match(vehList[2].filename or "", "[^/\\]+$") or "Anbaugeraet")
             .. string.format(" (%s m, Traktor %.1f t, max %.1f m)",
                 vehList[2].breiteM ~= nil and string.format("%.1f", vehList[2].breiteM) or "?",
@@ -5270,7 +5270,7 @@ function NachbarFelderManager:onPeriodChanged()
     local tageProMonat = env ~= nil and env.daysPerPeriod or nil
     if tag == nil then
         -- Ohne Tageszaehler bei jedem Monatswechsel aufraeumen
-        print("NachbarFelder: WARNUNG - Spieltag nicht verfuegbar, Aufraeumen beim Monatswechsel wie bisher")
+        print("LivingRoads: WARNUNG - Spieltag nicht verfuegbar, Aufraeumen beim Monatswechsel wie bisher")
         self:deleteAllVehicles()
         return
     end
@@ -5280,11 +5280,11 @@ function NachbarFelderManager:onPeriodChanged()
     end
     local vergangen = tag - self.aufraeumTag
     if vergangen < minTage then
-        self:log(2, string.format("NachbarFelder: Monatswechsel - kein Aufraeumen (%d von %d Spieltagen," ..
+        self:log(2, string.format("LivingRoads: Monatswechsel - kein Aufraeumen (%d von %d Spieltagen," ..
             " %s Tage pro Monat)", vergangen, minTage, tostring(tageProMonat)))
         return
     end
-    print(string.format("NachbarFelder: Monatswechsel - Nachbar-Fahrzeuge werden aufgeraeumt (%d Spieltage seit" ..
+    print(string.format("LivingRoads: Monatswechsel - Nachbar-Fahrzeuge werden aufgeraeumt (%d Spieltage seit" ..
         " dem letzten Mal, %s Tage pro Monat)", vergangen, tostring(tageProMonat)))
     self.aufraeumTag = tag
     self:deleteAllVehicles()
@@ -5383,7 +5383,7 @@ function NachbarFelderManager:getShopBuildingPosition()
         schritt()
     end
     if bx ~= nil then
-        print("NachbarFelder: [TRAFFIC] Shop-Gebaeude x=" .. math.floor(bx) .. " z=" .. math.floor(bz))
+        print("LivingRoads: [TRAFFIC] Shop-Gebaeude x=" .. math.floor(bx) .. " z=" .. math.floor(bz))
     end
     return bx, bz
 end
@@ -5590,7 +5590,7 @@ function NachbarFelderManager:setupMapDrawHook()
         end
         schritt()
     end
-    print("NachbarFelder: [MAP] MapHotspot-System + Nummern-Hook initialisiert")
+    print("LivingRoads: [MAP] MapHotspot-System + Nummern-Hook initialisiert")
 end
 
 -- ============================================================
@@ -5604,7 +5604,7 @@ function NachbarFelderManager:loadClientPrefs()
         if not fileExists(path) then
             -- Mit Defaults anlegen; gespeichert wird danach bei jedem Umschalten
             self:saveClientPrefs()
-            print("NachbarFelder: [MAP] Client-Einstellungsdatei angelegt: " .. path)
+            print("LivingRoads: [MAP] Client-Einstellungsdatei angelegt: " .. path)
             return
         end
         local xf = loadXMLFile("nfClient", path)
@@ -5612,7 +5612,7 @@ function NachbarFelderManager:loadClientPrefs()
         local show = getXMLBool(xf, "nachbarFelderClient.showWpOnMap")
         if show ~= nil then
             self._wpHotspotsEnabled = show
-            print("NachbarFelder: [MAP] Karten-Hotspots laut Client-Einstellung: " ..
+            print("LivingRoads: [MAP] Karten-Hotspots laut Client-Einstellung: " ..
                 tostring(show))
         end
         delete(xf)
@@ -5655,7 +5655,7 @@ function NachbarFelderManager:updateWpHotspots()
     if self._wpHotspotsEnabled == false then return end
     if g_currentMission == nil then return end
     if not ensureWpHotspotClass() then
-        print("NachbarFelder: [MAP] MapHotspot nicht verfügbar")
+        print("LivingRoads: [MAP] MapHotspot nicht verfügbar")
         return
     end
 
@@ -5671,7 +5671,7 @@ function NachbarFelderManager:updateWpHotspots()
             table.insert(self._wpMapHotspots, hs)
         end
     end
-    print(string.format("NachbarFelder: [MAP] %d WP-Hotspots gesetzt", #(self._wpMapHotspots))  )
+    print(string.format("LivingRoads: [MAP] %d WP-Hotspots gesetzt", #(self._wpMapHotspots))  )
 end
 
 function NachbarFelderManager:saveWaypoints()
@@ -5686,7 +5686,7 @@ function NachbarFelderManager:saveWaypoints()
     local pfad = nfGetWpFilePath()   -- Datei der geladenen Karte
     local xmlFile = XMLFile.create("NachbarFelderWaypoints", pfad, wpXmlKey, wpXmlSchema)
     if xmlFile == nil then
-        print("NachbarFelder: [TRAFFIC] Konnte Waypoint-Datei nicht schreiben: " .. pfad)
+        print("LivingRoads: [TRAFFIC] Konnte Waypoint-Datei nicht schreiben: " .. pfad)
         return
     end
     -- Fahrzeugkategorie-Filter
@@ -5708,7 +5708,7 @@ function NachbarFelderManager:saveWaypoints()
     end
     xmlFile:save(false, false)
     xmlFile:delete()
-    print("NachbarFelder: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
+    print("LivingRoads: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
         " Wegpunkte gespeichert -> " .. pfad)
     -- Änderung sofort an alle Clients verteilen
     if g_currentMission:getIsServer() and g_server ~= nil then
@@ -5738,7 +5738,7 @@ function NachbarFelderManager:loadWaypoints()
     end
 
     if xmlFile == nil then
-        print("NachbarFelder: [TRAFFIC] Keine Wegpunkt-Datei fuer diese Karte: " .. pfad)
+        print("LivingRoads: [TRAFFIC] Keine Wegpunkt-Datei fuer diese Karte: " .. pfad)
         return
     end
     self.wpFails = {}  -- alte Erreichbarkeits-Sperren verwerfen
@@ -5773,11 +5773,11 @@ function NachbarFelderManager:loadWaypoints()
     end
     xmlFile:delete()
     if ausAlterDatei then
-        print("NachbarFelder: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
+        print("LivingRoads: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
             " Wegpunkte aus der alten gemeinsamen Datei fuer diese Karte uebernommen -> " .. pfad)
         self:saveWaypoints()
     elseif #self.userTrafficWaypoints > 0 then
-        print("NachbarFelder: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
+        print("LivingRoads: [TRAFFIC] " .. tostring(#self.userTrafficWaypoints) ..
             " Wegpunkte geladen: " .. pfad)
     end
 end
@@ -5790,21 +5790,21 @@ function NachbarFelderManager:addConsoleCommands()
     self.consoleCommandsAdded = true
 
     addConsoleCommand("nachbarFelderTimer",
-        "NachbarFelder: Zeit bis zum naechsten Verkehrs-Spawn anzeigen",
+        "LivingRoads: Zeit bis zum naechsten Verkehrs-Spawn anzeigen",
         "consoleCommandNachbarFelderTimer", self)
     addConsoleCommand("nachbarFelderEntfernen",
-        "NachbarFelder: alle aktiven Fahrzeuge entfernen",
+        "LivingRoads: alle aktiven Fahrzeuge entfernen",
         "consoleCommandNachbarFelderEntfernen", self)
     addConsoleCommand("nachbarFelderTrafficStop",
-        "NachbarFelder: alle Traffic-Fahrzeuge entfernen und neue sperren",
+        "LivingRoads: alle Traffic-Fahrzeuge entfernen und neue sperren",
         "consoleCommandNachbarFelderTrafficStop", self)
     addConsoleCommand("nachbarFelderTrafficStart",
-        "NachbarFelder: Traffic-Fahrzeuge wieder erlauben",
+        "LivingRoads: Traffic-Fahrzeuge wieder erlauben",
         "consoleCommandNachbarFelderTrafficStart", self)
 end
 
 function NachbarFelderManager:consoleCommandNachbarFelderTimer()
-    print("NachbarFelder: naechster Verkehrs-Spawn in " .. tostring(self.timeToNextStart) .. " Spielminuten")
+    print("LivingRoads: naechster Verkehrs-Spawn in " .. tostring(self.timeToNextStart) .. " Spielminuten")
 end
 
 function NachbarFelderManager:consoleCommandNachbarFelderEntfernen()
@@ -5813,7 +5813,7 @@ end
 
 function NachbarFelderManager:consoleCommandNachbarFelderTrafficStop()
     if not g_currentMission:getIsServer() then
-        print("NachbarFelder: nachbarFelderTrafficStop nur auf Server/SP verfuegbar!")
+        print("LivingRoads: nachbarFelderTrafficStop nur auf Server/SP verfuegbar!")
         return
     end
     self.trafficPaused = true
@@ -5829,16 +5829,16 @@ function NachbarFelderManager:consoleCommandNachbarFelderTrafficStop()
             count = count + 1
         end
     end
-    print("NachbarFelder: [TRAFFIC] gestoppt – " .. tostring(count) .. " Fahrzeug(e) werden entfernt.")
+    print("LivingRoads: [TRAFFIC] gestoppt – " .. tostring(count) .. " Fahrzeug(e) werden entfernt.")
 end
 
 function NachbarFelderManager:consoleCommandNachbarFelderTrafficStart()
     if not g_currentMission:getIsServer() then
-        print("NachbarFelder: nachbarFelderTrafficStart nur auf Server/SP verfuegbar!")
+        print("LivingRoads: nachbarFelderTrafficStart nur auf Server/SP verfuegbar!")
         return
     end
     self.trafficPaused = false
-    print("NachbarFelder: [TRAFFIC] wieder aktiv – neue Fahrzeuge spawnen normal.")
+    print("LivingRoads: [TRAFFIC] wieder aktiv – neue Fahrzeuge spawnen normal.")
 end
 
 -- ============================================================

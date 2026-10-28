@@ -37,7 +37,7 @@ function NachbarFelderLesePfad(pfad)
     if basis == nil then return pfad end
     local alt = basis .. NF_ALTER_ORDNERNAME .. "/" .. string.sub(pfad, #NF_EIGENER_ORDNER + 1)
     if alt ~= pfad and fileExists(alt) then
-        print("NachbarFelder: " .. alt .. " aus dem alten Ordner gelesen")
+        print("LivingRoads: " .. alt .. " aus dem alten Ordner gelesen")
         return alt
     end
     return pfad
@@ -61,7 +61,7 @@ function NachbarFelderDeleteEvent:readStream(streamId, connection)
         -- nur von Admin-Verbindungen annehmen
         if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
-            print("NachbarFelder: [ADMIN] Delete-Event abgelehnt - Absender ist kein Admin")
+            print("LivingRoads: [ADMIN] Delete-Event abgelehnt - Absender ist kein Admin")
             return
         end
         -- aktive Fahrzeuge und Pool-Fahrzeuge entfernen
@@ -70,7 +70,7 @@ function NachbarFelderDeleteEvent:readStream(streamId, connection)
         else
             g_NachbarFelderManager:deleteAllVehicles()
         end
-        print("NachbarFelder: Fahrzeuge durch Client-Event geloescht")
+        print("LivingRoads: Fahrzeuge durch Client-Event geloescht")
     end
 end
 function NachbarFelderDeleteEvent:writeStream(streamId, connection)
@@ -119,7 +119,7 @@ function NachbarFelderWaypointEditEvent:readStream(streamId, connection)
         -- vollstaendig gelesen sein
         if g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
-            print("NachbarFelder: [ADMIN] Wegpunkt-Edit abgelehnt - Absender ist kein Admin")
+            print("LivingRoads: [ADMIN] Wegpunkt-Edit abgelehnt - Absender ist kein Admin")
             return
         end
         g_NachbarFelderManager:applyWaypointEdit(self.op, self.a, self.b, self.c)
@@ -158,7 +158,7 @@ function NachbarFelderSettingsEditEvent:readStream(streamId, connection)
         -- nur Admin-Verbindungen; Stream ist bereits komplett gelesen
         if g_NachbarFelderManager.getIsConnectionAdmin ~= nil
            and not g_NachbarFelderManager:getIsConnectionAdmin(connection) then
-            print("NachbarFelder: [ADMIN] Settings-Edit abgelehnt - Absender ist kein Admin")
+            print("LivingRoads: [ADMIN] Settings-Edit abgelehnt - Absender ist kein Admin")
             return
         end
         g_NachbarFelderManager:applySettingEdit(self.settingName, self.value)
@@ -217,7 +217,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     if g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager ~= nil then
         g_NachbarFelderManager:applySettingsState(state)
-        print("NachbarFelder: [SETTINGS] Stand vom Server empfangen (maxWorkers=" ..
+        print("LivingRoads: [SETTINGS] Stand vom Server empfangen (maxWorkers=" ..
             tostring(state.maxWorkers) .. " trafficLimit=" .. tostring(state.trafficLimit) .. ")")
     end
 end
@@ -243,12 +243,12 @@ function NachbarFelderWaypointRequestEvent:readStream(streamId, connection)
     if not g_currentMission:getIsServer() then return end
     local wps = (g_NachbarFelderManager ~= nil) and g_NachbarFelderManager.userTrafficWaypoints or {}
     connection:sendEvent(NachbarFelderWaypointSyncEvent.new(wps))
-    print("NachbarFelder: [SYNC] " .. tostring(#wps) .. " Wegpunkte an Client gesendet")
+    print("LivingRoads: [SYNC] " .. tostring(#wps) .. " Wegpunkte an Client gesendet")
     -- beim Join gleich auch die Einstellungen des Servers mitschicken
     if g_NachbarFelderManager ~= nil and g_NachbarFelderManager.getSettingsState ~= nil then
         connection:sendEvent(NachbarFelderSettingsSyncEvent.new(
             g_NachbarFelderManager:getSettingsState()))
-        print("NachbarFelder: [SETTINGS] Stand an Client gesendet")
+        print("LivingRoads: [SETTINGS] Stand an Client gesendet")
     end
 end
 
@@ -310,7 +310,7 @@ function NachbarFelderWaypointSyncEvent:readStream(streamId, connection)
         if g_NachbarFelderWaypointPage ~= nil then
             if g_NachbarFelderWaypointPage ~= nil and g_NachbarFelderWaypointPage.refreshWpInfo ~= nil then g_NachbarFelderWaypointPage:refreshWpInfo() end
         end
-        print("NachbarFelder: [SYNC] " .. tostring(#wps) .. " Wegpunkte vom Server empfangen")
+        print("LivingRoads: [SYNC] " .. tostring(#wps) .. " Wegpunkte vom Server empfangen")
     end
 end
 
@@ -327,7 +327,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
         and g_NachbarFelderManager._inputLoggedOnce ~= true
 
     if logOnce then
-        print("NachbarFelder: [INPUT] addPlayerActionEvents aufgerufen" ..
+        print("LivingRoads: [INPUT] addPlayerActionEvents aufgerufen" ..
             " | player=" .. tostring(self.player ~= nil) ..
             " | isOwner=" .. tostring(self.player ~= nil and self.player.isOwner) ..
             " | g_client=" .. tostring(g_client ~= nil) ..
@@ -336,7 +336,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
 
     if self.player == nil or not self.player.isOwner then
         if logOnce then
-            print("NachbarFelder: [INPUT] Abbruch – kein lokaler Owner-Spieler")
+            print("LivingRoads: [INPUT] Abbruch – kein lokaler Owner-Spieler")
         end
         return
     end
@@ -344,7 +344,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
     -- reiner Dedicated-Server-Prozess: kein lokales Input-System
     if g_client == nil then
         if logOnce then
-            print("NachbarFelder: [INPUT] Abbruch – kein Client (Dedicated Server)")
+            print("LivingRoads: [INPUT] Abbruch – kein Client (Dedicated Server)")
         end
         return
     end
@@ -352,7 +352,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
     -- InputActions fehlen, wenn die modDesc-Actions nicht geladen wurden (Dedi)
     if InputAction.NF_DELETE_HELPER == nil then
         if logOnce then
-            print("NachbarFelder: [INPUT] Abbruch – InputActions nicht geladen")
+            print("LivingRoads: [INPUT] Abbruch – InputActions nicht geladen")
         end
         return
     end
@@ -363,7 +363,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
     -- g_currentMission.player ist in FS25 nil, daher den Spieler hier merken
     g_NachbarFelderManager.localPlayer = self.player
     if logOnce then
-        print("NachbarFelder: [INPUT] Registriere Action-Events...")
+        print("LivingRoads: [INPUT] Registriere Action-Events...")
     end
 
     -- entfernt aktive Fahrzeuge und Pool
@@ -384,15 +384,15 @@ local function addPlayerActionEvents(self, superFunc, ...)
                 if logOnce then
                     -- keine Taste nennen: die Belegung steht im Spielerprofil
                     -- und weicht oft vom modDesc-Standard ab
-                    print("NachbarFelder: [INPUT] NF_ADD_WAYPOINT registriert")
+                    print("LivingRoads: [INPUT] NF_ADD_WAYPOINT registriert")
                 end
             else
-                print("NachbarFelder: [INPUT] NF_ADD_WAYPOINT registerActionEvent gab nil zurueck")
+                print("LivingRoads: [INPUT] NF_ADD_WAYPOINT registerActionEvent gab nil zurueck")
             end
         end
         schritt()
     elseif logOnce then
-        print("NachbarFelder: [INPUT] InputAction.NF_ADD_WAYPOINT ist nil!")
+        print("LivingRoads: [INPUT] InputAction.NF_ADD_WAYPOINT ist nil!")
     end
 
     if InputAction.NF_REMOVE_WAYPOINT ~= nil then
@@ -414,7 +414,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
     end
 
     if logOnce then
-        print("NachbarFelder: [INPUT] Registrierung abgeschlossen")
+        print("LivingRoads: [INPUT] Registrierung abgeschlossen")
         if g_NachbarFelderManager ~= nil then
             g_NachbarFelderManager._inputLoggedOnce = true
         end
@@ -431,9 +431,9 @@ local function initialize(nachbarFelder)
         (g_currentMission:getIsServer() or g_currentMission.isMasterUser)
 
     if isAdmin then
-        print("NachbarFelder: Admin-Client erkannt (OWN_PLAYER_ENTERED)")
+        print("LivingRoads: Admin-Client erkannt (OWN_PLAYER_ENTERED)")
     else
-        print("NachbarFelder: Kein Admin, nur UI wird geladen")
+        print("LivingRoads: Kein Admin, nur UI wird geladen")
     end
 
     -- auch für Nicht-Admins (Controls sind dann gesperrt)

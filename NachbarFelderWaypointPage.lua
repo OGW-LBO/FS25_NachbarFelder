@@ -88,12 +88,12 @@ function NachbarFelderWaypointPage:registerAndInject()
         if g_gui ~= nil and g_gui.loadProfiles ~= nil then
             g_gui:loadProfiles(Utils.getFilename("gui/NachbarFelderGuiProfiles.xml", modDirectory))
         else
-            print("NachbarFelder: [WP-PAGE] loadProfiles nicht verfuegbar")
+            print("LivingRoads: [WP-PAGE] loadProfiles nicht verfuegbar")
         end
     end
 
     if g_gui == nil or g_gui.loadGui == nil then
-        print("NachbarFelder: [WP-PAGE] loadGui nicht verfuegbar")
+        print("LivingRoads: [WP-PAGE] loadGui nicht verfuegbar")
         return
     end
     -- loadGui legt nfWpPage, nfWpTab und die übrigen nfWp*-IDs als Felder auf self an
@@ -106,14 +106,14 @@ function NachbarFelderWaypointPage:registerAndInject()
     local function schritt()
         local settingsFrame = g_inGameMenu and g_inGameMenu.pageSettings
         if settingsFrame == nil then
-            print("NachbarFelder: [WP-PAGE] pageSettings nicht verfügbar")
+            print("LivingRoads: [WP-PAGE] pageSettings nicht verfügbar")
             return
         end
 
         local wpPage = self.nfWpPage
         local wpTab  = self.nfWpTab
         if wpPage == nil or wpTab == nil then
-            print("NachbarFelder: [WP-PAGE] nfWpPage/nfWpTab nicht gefunden (XML-Fehler?)")
+            print("LivingRoads: [WP-PAGE] nfWpPage/nfWpTab nicht gefunden (XML-Fehler?)")
             return
         end
 
@@ -244,7 +244,7 @@ function NachbarFelderWaypointPage:registerAndInject()
             updateAlternating(self.nfWpLayout)
             if self.nfWpLayout ~= nil and self.nfWpLayout.invalidateLayout ~= nil then self.nfWpLayout:invalidateLayout() end
         else
-            print("NachbarFelder: [WP-PAGE] nfWpBoolPrefab nicht gefunden – Rows fehlen")
+            print("LivingRoads: [WP-PAGE] nfWpBoolPrefab nicht gefunden – Rows fehlen")
         end
 
         -- Hinter den vorhandenen Sub-Kategorien einhängen
@@ -281,7 +281,7 @@ function NachbarFelderWaypointPage:registerAndInject()
             end
         end
         if slice == "" then
-            Logging.info("NachbarFelder: [WP-PAGE] Kein gültiger Header-Slice gefunden - Kopfzeile bleibt ohne Symbol.")
+            Logging.info("LivingRoads: [WP-PAGE] Kein gültiger Header-Slice gefunden - Kopfzeile bleibt ohne Symbol.")
         end
 
         table.insert(slices, position, slice)
@@ -370,7 +370,7 @@ function NachbarFelderWaypointPage:registerAndInject()
             end
         )
 
-        print("NachbarFelder: [WP-PAGE] Wegpunkt-Tab eingefügt (pos=" .. position .. ")")
+        print("LivingRoads: [WP-PAGE] Wegpunkt-Tab eingefügt (pos=" .. position .. ")")
 
         -- BetterContracts ermittelt seinen Tab bei jedem Öffnen als letzten Paging-
         -- Eintrag und würde damit unsere Seite öffnen. Unser Hook hängt hinter dem
@@ -399,7 +399,7 @@ function NachbarFelderWaypointPage:registerAndInject()
                     end
                     schritt()
                 end)
-            print("NachbarFelder: [WP-PAGE] BetterContracts-Kompatibilität aktiv (modState-Korrektur)")
+            print("LivingRoads: [WP-PAGE] BetterContracts-Kompatibilität aktiv (modState-Korrektur)")
         end
     end
     schritt()
@@ -715,7 +715,7 @@ local function setzePunktHier(cat)
     if page.manager.addWaypointAtPlayer ~= nil then
         gesetzt, grund = page.manager:addWaypointAtPlayer(cat)
     else
-        print("NachbarFelder: [WP-PAGE] addWaypointAtPlayer fehlt")
+        print("LivingRoads: [WP-PAGE] addWaypointAtPlayer fehlt")
     end
     if gesetzt then
         -- Auf MP-Clients ist der Punkt erst nach dem Server-Sync in der Liste

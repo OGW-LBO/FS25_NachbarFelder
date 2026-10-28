@@ -65,7 +65,7 @@ local function nfRoadSnap(tt, mgr, veh0)
     end
     if rx == nil then return end
     if mgr:isSpotBlockedByAnyVehicle(rx, rz, 8, veh0) then
-        print(string.format("NachbarFelder: [TRAFFIC] GOTO kommt nicht weg, Ausweichplatz %.0f m" ..
+        print(string.format("LivingRoads: [TRAFFIC] GOTO kommt nicht weg, Ausweichplatz %.0f m" ..
             " weiter ist belegt - bleibt stehen", rdist))
         return
     end
@@ -73,7 +73,7 @@ local function nfRoadSnap(tt, mgr, veh0)
     g_currentMission:teleportVehicle(veh0, rx, rz, ry)
     tt.roadSnapped = true
     -- rdist ist der Versatz, nicht der Abstand zur Strasse
-    print(string.format("NachbarFelder: [TRAFFIC] GOTO kommt nicht weg - Fahrzeug" ..
+    print(string.format("LivingRoads: [TRAFFIC] GOTO kommt nicht weg - Fahrzeug" ..
         " %.0f m %s gesetzt", rdist, wohin))
 end
 
@@ -131,7 +131,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
             tt.gotoStartedAt = nil
 
             if dist < 60 then
-                print("NachbarFelder: Helfer am Shop angekommen, wird entfernt (Feld " ..
+                print("LivingRoads: Helfer am Shop angekommen, wird entfernt (Feld " ..
                     tostring(tt.fieldId) .. ")")
                 tt.gotoRetryCount = nil
                 tt.lastReturnDist = nil
@@ -145,13 +145,13 @@ function NachbarFelderWorker:onAIJobFinished(...)
                 local fortschritt = (tt.lastReturnDist == nil) or (dist < tt.lastReturnDist - 5)
                 tt.lastReturnDist = dist
                 if fortschritt and tt.gotoRetryCount < 8 then
-                    print("NachbarFelder: Rueckfahrt laeuft - noch " .. tostring(math.floor(dist)) ..
+                    print("LivingRoads: Rueckfahrt laeuft - noch " .. tostring(math.floor(dist)) ..
                         "m zum Shop (Versuch " .. tostring(tt.gotoRetryCount) .. ", Feld " ..
                         tostring(tt.fieldId) .. ") - faehrt weiter")
                     -- Status bleibt 60, update() startet die naechste Rueckfahrt
                     tt.needTimer = true
                 else
-                    print("NachbarFelder: Rueckfahrt steckt bei " .. tostring(math.floor(dist)) ..
+                    print("LivingRoads: Rueckfahrt steckt bei " .. tostring(math.floor(dist)) ..
                         "m fest (Versuch " .. tostring(tt.gotoRetryCount) ..
                         ") - Helfer wird an Ort und Stelle entfernt (Feld " .. tostring(tt.fieldId) .. ")")
                     -- Kein Teleport zum Shop: das Fahrzeug wird ohnehin gleich entfernt.
@@ -193,7 +193,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
         -- Sollte nicht vorkommen: getPricePerMs() = 0, AIJob:updateCost() bucht
         -- nichts ab und prueft keinen Kontostand. Falls doch, wie Abbruch behandeln.
         if stopMsg == "AIMessageErrorOutOfMoney" then
-            print("NachbarFelder: GOTO wegen Geldmangel gestoppt (unerwartet - " ..
+            print("LivingRoads: GOTO wegen Geldmangel gestoppt (unerwartet - " ..
                 "Jobs sind kostenfrei) - Fahrzeug wird entfernt (Feld " ..
                 tostring(tt.fieldId) .. ")")
             tt.status    = 100
@@ -278,7 +278,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                            and g_NachbarFelderManager.merkeVerkehrGeraetAbweisung ~= nil then
                             g_NachbarFelderManager:merkeVerkehrGeraetAbweisung(impl.configFileName, vx, vz)
                         end
-                        print(("NachbarFelder: [TRAFFIC][DIAG] GOTO-Abweisung bei x=%d z=%d" ..
+                        print(("LivingRoads: [DIAG] GOTO-Abweisung bei x=%d z=%d" ..
                             " | naechster WP%s (%sm) | Ziel WP%s | %s | %dms%s%s"):format(
                             math.floor(vx), math.floor(vz),
                             tostring(nahIdx or "?"),
@@ -308,7 +308,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                                 -- Bezugspunkt ist das Fahrzeug, nicht das unerreichte Ziel
                                 newDest = mgr:pickPatrolWaypoint(tt.waypoints, oldDest, mgr:getWorkerPos(tt)) or oldDest
                             end
-                            print("NachbarFelder: [TRAFFIC] Ziel WP" .. tostring(oldDest) ..
+                            print("LivingRoads: [TRAFFIC] Ziel WP" .. tostring(oldDest) ..
                                 " sofort abgewiesen - Fahrzeug bleibt stehen, neues Ziel WP" ..
                                 tostring(newDest) .. " (Versuch " .. tostring(tt.gotoRejects) .. "/3, " ..
                                 mgr:getWorkerName(tt) .. ")")
@@ -330,7 +330,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                         if veh ~= nil then
                             local fname = veh.configFileName or ""
                             local base  = string.match(fname, "[^/\\]+$") or fname
-                            print("NachbarFelder: [TRAFFIC] " .. base ..
+                            print("LivingRoads: [TRAFFIC] " .. base ..
                                 " - drei Ziele in Folge sofort abgewiesen, Fahrzeug geht an Ort und" ..
                                 " Stelle in den Pool (bei vollem Pool: entfernt).")
                         end
@@ -365,7 +365,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
 
                         if tt.pathFails >= 3 then
                             nfMarkStartPlaceBad(tt, mgr, veh0)
-                            print("NachbarFelder: [TRAFFIC] drei Ziele in Folge nicht erreichbar (" ..
+                            print("LivingRoads: [TRAFFIC] drei Ziele in Folge nicht erreichbar (" ..
                                 mgr:getWorkerName(tt) .. ") - Fahrzeug geht in den Pool" ..
                                 " statt weitere Ziele durchzuprobieren.")
                             tt.pathFails          = nil
@@ -384,7 +384,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
                                 newDest = g_NachbarFelderManager:pickPatrolWaypoint(tt.waypoints, oldDest,
                                     g_NachbarFelderManager:getWorkerPos(tt)) or oldDest
                             end
-                            print("NachbarFelder: [TRAFFIC] WP" .. tostring(oldDest) ..
+                            print("LivingRoads: [TRAFFIC] WP" .. tostring(oldDest) ..
                                 " nicht erreichbar (" .. tostring(math.floor(gotoElapsed)) .. "ms" ..
                                 msgInfo .. ") - neues Ziel WP" .. tostring(newDest) ..
                                 " (Versuch " .. tostring(tt.pathFails) .. "/3, " ..

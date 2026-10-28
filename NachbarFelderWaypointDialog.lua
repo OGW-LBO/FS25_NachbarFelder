@@ -120,7 +120,7 @@ function NachbarFelderWaypointDialog:onClickTeleport()
                 setTranslation(lp.rootNode, x, y, z)
             end
         end
-        print("NachbarFelder: [WP-Dialog] Teleport zu WP" .. self.selectedIdx ..
+        print("LivingRoads: [WP-Dialog] Teleport zu WP" .. self.selectedIdx ..
               " x=" .. tostring(math.floor(x)) .. " z=" .. tostring(math.floor(z)))
     end
     schritt()
@@ -135,7 +135,7 @@ function NachbarFelderWaypointDialog:onClickDelete()
         if wps[self.selectedIdx] == nil then return end
 
         local wp = wps[self.selectedIdx]
-        print("NachbarFelder: [WP-Dialog] Loesche WP" .. self.selectedIdx ..
+        print("LivingRoads: [WP-Dialog] Loesche WP" .. self.selectedIdx ..
               " x=" .. tostring(math.floor(wp.x)) .. " z=" .. tostring(math.floor(wp.z)))
         table.remove(wps, self.selectedIdx)
         if m ~= nil then m:saveWaypoints() end
