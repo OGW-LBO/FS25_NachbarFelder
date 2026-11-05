@@ -90,9 +90,9 @@ Si la circulation du jeu provoque encore des collisions dans les passages étroi
             <fr>Routes Vivantes</fr>
         </text>
         <text name="NF_active_short">
-            <en>Neighbour traffic active</en>
-            <de>Nachbar-Verkehr aktiv</de>
-            <fr>Circulation des voisins active</fr>
+            <en>Traffic active</en>
+            <de>Verkehr aktiv</de>
+            <fr>Circulation active</fr>
         </text>
         <text name="NF_active_long">
             <en>Switches the neighbours' traffic on or off. Off = no new vehicles, vehicles on the road finish their trip.</en>
@@ -100,9 +100,9 @@ Si la circulation du jeu provoque encore des collisions dans les passages étroi
             <fr>Active ou désactive la circulation des voisins. Désactivé = plus de nouveaux véhicules, ceux en route terminent leur trajet.</fr>
         </text>
         <text name="NF_trafficLimit_short">
-            <en>Traffic vehicles</en>
-            <de>Traffic-Fahrzeuge</de>
-            <fr>Véhicules de circulation</fr>
+            <en>Vehicles at the same time</en>
+            <de>Fahrzeuge gleichzeitig</de>
+            <fr>Véhicules simultanés</fr>
         </text>
         <text name="NF_trafficLimit_long">
             <en>How many AI traffic vehicles drive simultaneously on the map? (1-8). Waypoints and spawn points are set in the 'Waypoints' tab.</en>

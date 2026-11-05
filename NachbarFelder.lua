@@ -10,7 +10,11 @@ local modName = g_currentModName
 -- wird synchronisiert) oder per logLevel=2 in der Server-Konfig.
 NachbarFelderLog = { debug = false }
 local NF_LOG_IMMER = { "WARNUNG", "Warnung", "Fehler", "FEHLER", "fehlgeschlagen",
-                       "nicht verfuegbar", "loadMap auf", "Debug-Log" }
+                       "nicht verfuegbar", "loadMap auf", "Debug-Log",
+                       -- Build 181: die Uebernahme aus dem Ordner der Vorgaengerversion
+                       -- passiert einmalig nach der Umbenennung und soll auch ohne
+                       -- Debug-Log im Log stehen - sonst sieht niemand, ob sie griff.
+                       "aus dem alten Ordner" }
 function NachbarFelderLog.print(msg)
     if NachbarFelderLog.debug then
         print(msg)

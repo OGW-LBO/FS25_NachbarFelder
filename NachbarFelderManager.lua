@@ -5,7 +5,7 @@ local print = NachbarFelderLog.print
 
 -- Steht beim loadMap im Log. Server und Clients werden getrennt bestückt,
 -- daran sieht man, ob beide denselben Stand fahren.
-NachbarFelderManager.BUILD = 180
+NachbarFelderManager.BUILD = 181
 
 local NachbarFelderManager_class = Class(NachbarFelderManager)
 
