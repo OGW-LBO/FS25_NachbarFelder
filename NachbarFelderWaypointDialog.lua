@@ -1,7 +1,5 @@
--- ============================================================
--- NachbarFelderWaypointDialog
+-- NachbarFelderWaypointDialog ---------------------------------------
 -- Zeigt Wegpunkte einzeln mit Vor/Zurueck-Navigation.
--- ============================================================
 -- Texte aus l10n (ModHub verlangt DE und EN); fehlt ein Key, wird er selbst angezeigt.
 local function nfDialogText(key, ...)
     local s = key
@@ -35,7 +33,7 @@ function NachbarFelderWaypointDialog.registerDialog()
         NachbarFelderWaypointDialog.new(nil, NachbarFelderWaypointDialog_mt))
 end
 
---- @return table Wegpunktliste des Managers (Referenz, keine Kopie) oder {}
+-- liefert Wegpunktliste des Managers (Referenz, keine Kopie) oder {}
 function NachbarFelderWaypointDialog:getWaypoints()
     local m = g_NachbarFelderManager
     if m ~= nil and m.userTrafficWaypoints ~= nil then
@@ -80,9 +78,7 @@ function NachbarFelderWaypointDialog:refreshDisplay()
     schritt()
 end
 
--- ============================================================
--- Navigation
--- ============================================================
+-- Navigation --------------------------------------------------------
 function NachbarFelderWaypointDialog:onClickPrev()
     self.selectedIdx = self.selectedIdx - 1
     self:refreshDisplay()
@@ -93,9 +89,7 @@ function NachbarFelderWaypointDialog:onClickNext()
     self:refreshDisplay()
 end
 
--- ============================================================
--- Aktionen
--- ============================================================
+-- Aktionen ----------------------------------------------------------
 
 -- Setzt das Fahrzeug des Spielers bzw. den Spieler selbst 1 m ueber das Terrain am Wegpunkt.
 function NachbarFelderWaypointDialog:onClickTeleport()

@@ -1,9 +1,7 @@
 local modDirectory = g_currentModDirectory
 local modName = g_currentModName
 
--- ============================================================
--- Debug-Log
--- ============================================================
+-- Debug-Log ---------------------------------------------------------
 -- Alle Log-Ausgaben laufen ueber NachbarFelderLog.print. Ohne Debug-Log
 -- kommen nur Zeilen durch, die einen der Begriffe aus NF_LOG_IMMER enthalten
 -- (Warnungen, Fehler, Startzeile). Umschaltbar in den Einstellungen (Admin,
@@ -11,9 +9,7 @@ local modName = g_currentModName
 NachbarFelderLog = { debug = false }
 local NF_LOG_IMMER = { "WARNUNG", "Warnung", "Fehler", "FEHLER", "fehlgeschlagen",
                        "nicht verfuegbar", "loadMap auf", "Debug-Log",
-                       -- Build 181: die Uebernahme aus dem Ordner der Vorgaengerversion
-                       -- passiert einmalig nach der Umbenennung und soll auch ohne
-                       -- Debug-Log im Log stehen - sonst sieht niemand, ob sie griff.
+                       -- der Umzug aus dem alten Ordner soll auch ohne Debug-Log zu sehen sein
                        "aus dem alten Ordner" }
 function NachbarFelderLog.print(msg)
     if NachbarFelderLog.debug then
@@ -47,9 +43,7 @@ function NachbarFelderLesePfad(pfad)
     return pfad
 end
 
--- ============================================================
--- Network-Events: Client an Server
--- ============================================================
+-- Network-Events: Client an Server ----------------------------------
 NachbarFelderDeleteEvent = {}
 NachbarFelderDeleteEvent_mt = Class(NachbarFelderDeleteEvent, Event)
 InitEventClass(NachbarFelderDeleteEvent, "NachbarFelderDeleteEvent")
@@ -130,9 +124,7 @@ function NachbarFelderWaypointEditEvent:readStream(streamId, connection)
     end
 end
 
--- ============================================================
--- Network-Events: Settings-Sync
--- ============================================================
+-- Network-Events: Settings-Sync -------------------------------------
 -- Wie beim Wegpunkt-Editing: der Client schickt die Aenderung, der Server
 -- wendet sie an, merkt sie fuers Savegame vor und verteilt den kompletten
 -- Stand an alle Clients.
@@ -226,9 +218,7 @@ function NachbarFelderSettingsSyncEvent:readStream(streamId, connection)
     end
 end
 
--- ============================================================
--- Network-Events: Wegpunkt-Sync
--- ============================================================
+-- Network-Events: Wegpunkt-Sync -------------------------------------
 
 -- Client an Server: Wegpunkte anfordern
 NachbarFelderWaypointRequestEvent = {}
@@ -318,9 +308,7 @@ function NachbarFelderWaypointSyncEvent:readStream(streamId, connection)
     end
 end
 
--- ============================================================
--- Input-Events
--- ============================================================
+-- Input-Events ------------------------------------------------------
 local function addPlayerActionEvents(self, superFunc, ...)
     superFunc(self, ...)
 
@@ -425,9 +413,7 @@ local function addPlayerActionEvents(self, superFunc, ...)
     end
 end
 
--- ============================================================
--- Client-Initialisierung
--- ============================================================
+-- Client-Initialisierung --------------------------------------------
 -- Läuft über OWN_PLAYER_ENTERED und baut nur die UI auf; die Spiellogik
 -- startet serverseitig in loadMap.
 local function initialize(nachbarFelder)
@@ -464,9 +450,7 @@ local function initialize(nachbarFelder)
     end
 end
 
--- ============================================================
--- Modul-Einstieg
--- ============================================================
+-- Modul-Einstieg ----------------------------------------------------
 local function init()
     source(modDirectory .. "NachbarFelderManager.lua")
     NachbarFelderManager.modDirectory = modDirectory   -- fuer help/helpLine.xml

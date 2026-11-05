@@ -105,7 +105,7 @@ function NachbarFelderSettingsPage:onSettingsChange(a, b, c)
     self:updateUiElements()
 end
 
---- Fuellt die Controls aus dem Manager-Stand neu, aufgerufen von applySettingsState()
+-- Fuellt die Controls aus dem Manager-Stand neu, aufgerufen von applySettingsState()
 -- nach einem Settings-Sync. setState() loest keine onClick-Callbacks aus, daher
 -- entsteht keine Event-Schleife.
 function NachbarFelderSettingsPage:refreshFromManager()

@@ -33,12 +33,10 @@ function NachbarFelderWorker.registerEventListeners(vehicleType)
     SpecializationUtil.registerEventListener(vehicleType, "onDelete",           NachbarFelderWorker)
 end
 
--- ============================================================
--- Standort-Rettung
+-- Standort-Rettung --------------------------------------------------
 -- Abweisung und "nicht erreichbar" haben meist dieselbe Ursache:
 -- der Standort taugt nicht, nicht das Ziel. Setzt das Fahrzeug auf
 -- den naechsten Punkt der KI-Strasse (Radius 150 m), sonst zum Shop.
--- ============================================================
 local function nfRoadSnap(tt, mgr, veh0)
     local vx, _, vz = getWorldTranslation(veh0.rootNode)
     -- Mindestens 25 m versetzen: der naechste Strassenpunkt hilft oft nicht,
@@ -100,9 +98,7 @@ local function nfMarkStartPlaceBad(tt, mgr, veh)
     end
 end
 
--- ============================================================
--- onAIJobFinished: GOTO beendet, Folgezustand bestimmen (nur Server)
--- ============================================================
+-- onAIJobFinished: GOTO beendet, Folgezustand bestimmen (nur Server) ---
 function NachbarFelderWorker:onAIJobFinished(...)
     if g_currentMission == nil or not g_currentMission:getIsServer() then return end
     if g_NachbarFelderManager == nil then return end
@@ -432,9 +428,7 @@ function NachbarFelderWorker:onAIJobFinished(...)
     end
 end
 
--- ============================================================
--- Weitere Event-Listener
--- ============================================================
+-- Weitere Event-Listener --------------------------------------------
 function NachbarFelderWorker:onTargetReached()
     -- Auswertung laeuft ueber onAIJobFinished
 end

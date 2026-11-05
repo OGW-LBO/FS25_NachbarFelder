@@ -1,10 +1,8 @@
--- ============================================================
--- NachbarFelderWaypointPage
+-- NachbarFelderWaypointPage -----------------------------------------
 -- Eigener Reiter für den Wegpunkt-Manager unter ESC > Allgemeine Einstellungen.
 -- Aufbau angelehnt an FS25_additionalGameSettings.
--- ============================================================
 
---- Text aus der l10n holen, optional mit string.format-Argumenten; fehlt der Schlüssel, kommt er selbst zurück.
+-- Text aus der l10n holen, optional mit string.format-Argumenten; fehlt der Schlüssel, kommt er selbst zurück.
 local function nfPageText(key, ...)
     local s = key
     if g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key) then
@@ -77,9 +75,7 @@ function NachbarFelderWaypointPage.new(manager)
     return self
 end
 
--- ============================================================
--- Laden + Einbetten in InGameMenuSettingsFrame
--- ============================================================
+-- Laden + Einbetten in InGameMenuSettingsFrame ----------------------
 function NachbarFelderWaypointPage:registerAndInject()
     -- Eigene GUI-Profile müssen vor loadGui geladen sein. Bereits vorhandene
     -- Profilnamen überschreibt das Spiel nicht (Gui:loadProfileSet).
@@ -441,9 +437,7 @@ function NachbarFelderWaypointPage:onTabOpen(settingsFrame)
     end
 end
 
--- ============================================================
--- Info-Anzeige aktualisieren
--- ============================================================
+-- Info-Anzeige aktualisieren ----------------------------------------
 function NachbarFelderWaypointPage:refreshWpInfo()
     local mgr   = self.manager
     local wps   = (mgr ~= nil) and mgr.userTrafficWaypoints or {}
@@ -557,9 +551,7 @@ function NachbarFelderWaypointPage:refreshWpInfo()
     end
 end
 
--- ============================================================
--- Callbacks (vom GUI-System auf der Seiten-Instanz aufgerufen)
--- ============================================================
+-- Callbacks (vom GUI-System auf der Seiten-Instanz aufgerufen) ------
 local function getPage()
     return g_NachbarFelderWaypointPage
 end

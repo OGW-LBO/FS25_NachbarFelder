@@ -1,18 +1,18 @@
-﻿---This class allows easier creation of configuration options in the general settings page.
----Originally created by Farmsim Tim based on discoveries made by Shad0wlife
----Feel free to use this class in your own mods. You may change anything except for the first three lines of this file.
----version 1.2
----Changelog:
----v1.1: Fixed choice controls when using string values
----v1.2: Choice controls can now be nillable, too
----v1.3: Fix bool elements which can have invalid slider positions
----@class NachbarFelderUIHelper
+﻿-- This class allows easier creation of configuration options in the general settings page.
+-- Originally created by Farmsim Tim based on discoveries made by Shad0wlife
+-- Feel free to use this class in your own mods. You may change anything except for the first three lines of this file.
+-- version 1.2
+-- Changelog:
+-- v1.1: Fixed choice controls when using string values
+-- v1.2: Choice controls can now be nillable, too
+-- v1.3: Fix bool elements which can have invalid slider positions
+-- @class NachbarFelderUIHelper
 NachbarFelderUIHelper = {}
 
----Creates a new section with the given title
----@param generalSettingsPage table @The general settings page of the base game
----@param i18nTitleId string @The I18N ID of the title to be displayed
----@return table|nil @The created section element
+-- Creates a new section with the given title
+-- generalSettingsPage: The general settings page of the base game
+-- i18nTitleId: The I18N ID of the title to be displayed
+-- liefert The created section element
 function NachbarFelderUIHelper.createSection(generalSettingsPage, i18nTitleId)
 	local sectionTitle = nil
 	local layoutElems = generalSettingsPage.generalSettingsLayout.elements
@@ -30,8 +30,8 @@ function NachbarFelderUIHelper.createSection(generalSettingsPage, i18nTitleId)
 	return sectionTitle
 end
 
----Sets the focusId properties of the element and any children to a new unique ID each
----@param element table the element
+-- Sets the focusId properties of the element and any children to a new unique ID each
+-- element: the element
 function NachbarFelderUIHelper.updateFocusIds(element)
 	if not element then
 		return
@@ -72,26 +72,26 @@ local function createElement(generalSettingsPage, template, id, i18nTextId, targ
 end
 
 
----Adds a simple yes/no switch to the UI
----@param generalSettingsPage   table       @The base game object for the settings page
----@param id                    string      @The unique ID of the new element
----@param i18nTextId            string      @The key in the internationalization XML (must be two keys with a _short and _long suffix)
----@param target                table       @The object which contains the callback func
----@param callbackFunc          string      @The name of the function to call when the value changes
----@return                      table       @The created object
+-- Adds a simple yes/no switch to the UI
+-- generalSettingsPage: The base game object for the settings page
+-- id: The unique ID of the new element
+-- i18nTextId: The key in the internationalization XML (must be two keys with a _short and _long suffix)
+-- target: The object which contains the callback func
+-- callbackFunc: The name of the function to call when the value changes
+-- liefert The created object
 function NachbarFelderUIHelper.createBoolElement(generalSettingsPage, id, i18nTextId, target, callbackFunc)
 	return createElement(generalSettingsPage, generalSettingsPage.checkWoodHarvesterAutoCutBox, id, i18nTextId, target, callbackFunc)
 end
 
----Creates an element which allows choosing one out of several text values
----@param generalSettingsPage   table       @The base game object for the settings page
----@param id                    string      @The unique ID of the new element
----@param i18nTextId            string      @The key in the internationalization XML (must be two keys with a _short and _long suffix)
----@param i18nValueMap          table       @An map of values containing translation IDs for the possible values
----@param target                table       @The object which contains the callback func
----@param callbackFunc          string      @The name of the function to call when the value changes
----@param nillable              string      @If set to true, the first entry will mean the setting has no effect. The text value will be "-".
----@return                      table       @The created object
+-- Creates an element which allows choosing one out of several text values
+-- generalSettingsPage: The base game object for the settings page
+-- id: The unique ID of the new element
+-- i18nTextId: The key in the internationalization XML (must be two keys with a _short and _long suffix)
+-- i18nValueMap: An map of values containing translation IDs for the possible values
+-- target: The object which contains the callback func
+-- callbackFunc: The name of the function to call when the value changes
+-- nillable: If set to true, the first entry will mean the setting has no effect. The text value will be "-".
+-- liefert The created object
 function NachbarFelderUIHelper.createChoiceElement(generalSettingsPage, id, i18nTextId, i18nValueMap, target, callbackFunc, nillable)
 	local choiceElementBox = createElement(generalSettingsPage, generalSettingsPage.multiVolumeVoiceBox, id, i18nTextId, target, callbackFunc)
 
@@ -120,18 +120,18 @@ function NachbarFelderUIHelper.createChoiceElement(generalSettingsPage, id, i18n
 	return choiceElementBox
 end
 
----Creates an element which allows choosing one out of several integer values
----@param generalSettingsPage   table       @The base game object for the settings page
----@param id                    string      @The unique ID of the new element
----@param i18nTextId            string      @The key in the internationalization XML (must be two keys with a _short and _long suffix)
----@param minValue              integer     @The first value which can be selected
----@param maxValue              integer     @The last value which can be selected
----@param step                  integer     @The difference between any two values. Make sure this matches max value
----@param unit                  string      @The unit to be displayed (may be empty)
----@param target                table       @The object which contains the callback func
----@param callbackFunc          string      @The name of the function to call when the value changes
----@param nillable              string      @If set to true, the first entry will mean the setting has no effect. The text value will be "-".
----@return                      table       @The created object
+-- Creates an element which allows choosing one out of several integer values
+-- generalSettingsPage: The base game object for the settings page
+-- id: The unique ID of the new element
+-- i18nTextId: The key in the internationalization XML (must be two keys with a _short and _long suffix)
+-- minValue: The first value which can be selected
+-- maxValue: The last value which can be selected
+-- step: The difference between any two values. Make sure this matches max value
+-- unit: The unit to be displayed (may be empty)
+-- target: The object which contains the callback func
+-- callbackFunc: The name of the function to call when the value changes
+-- nillable: If set to true, the first entry will mean the setting has no effect. The text value will be "-".
+-- liefert The created object
 function NachbarFelderUIHelper.createRangeElement(generalSettingsPage, id, i18nTextId, minValue, maxValue, step, unit, target, callbackFunc, nillable)
 	local rangeElementBox = createElement(generalSettingsPage, generalSettingsPage.multiVolumeVoiceBox, id, i18nTextId, target, callbackFunc)
 
@@ -161,17 +161,17 @@ function NachbarFelderUIHelper.createRangeElement(generalSettingsPage, id, i18nT
 	return rangeElementBox
 end
 
----Dynamically creates controls based on the controlProperties configuration table.
----For bool values, supply just the name, for ranges, additionally supply min, max and step, and for choices, supply a values table in addition to the name
----For choices, you can also set nillable to true to get a "-" item for base game behavior, for example.
----For every control name, a <prefix>_<name>_long and _short text must exist in the l10n files.
----The _short text will be the title of the setting, the _long" text will be its tool tip.
----For each control, a on_<name>_changed callback will be called on change.
----@param settingsPage table @The general settings page
----@param sectionTitle string @The i18n key for the control section. The UI element will be available as <owningTable>.sectionTitle
----@param owningTable table @The table which owns the controls and will receive the callbacks. Every control name will be available as <owningTable>.<name> and will be added to <owningTable.controls>
----@param controlProperties table @A table comprised of entries as described above
----@param prefix string @An optional prefix for every control name. This will also be prepended to the i18n keys
+-- Dynamically creates controls based on the controlProperties configuration table.
+-- For bool values, supply just the name, for ranges, additionally supply min, max and step, and for choices, supply a values table in addition to the name
+-- For choices, you can also set nillable to true to get a "-" item for base game behavior, for example.
+-- For every control name, a <prefix>_<name>_long and _short text must exist in the l10n files.
+-- The _short text will be the title of the setting, the _long" text will be its tool tip.
+-- For each control, a on_<name>_changed callback will be called on change.
+-- settingsPage: The general settings page
+-- sectionTitle: The i18n key for the control section. The UI element will be available as <owningTable>.sectionTitle
+-- owningTable: The table which owns the controls and will receive the callbacks. Every control name will be available as <owningTable>.<name> and will be added to <owningTable.controls>
+-- controlProperties: A table comprised of entries as described above
+-- prefix: An optional prefix for every control name. This will also be prepended to the i18n keys
 function NachbarFelderUIHelper.createControlsDynamically(settingsPage, sectionTitle, owningTable, controlProperties, prefix)
 	owningTable.sectionTitle = NachbarFelderUIHelper.createSection(settingsPage, sectionTitle)
 	owningTable.controls[1] = owningTable.sectionTitle
@@ -216,9 +216,9 @@ function NachbarFelderUIHelper.createControlsDynamically(settingsPage, sectionTi
 end
 
 
----Hooks into the focus manager at just the right point in time to register any relevant controls.
----Make sure you also supply your section headers here!
----@param controls table @A list of controls
+-- Hooks into the focus manager at just the right point in time to register any relevant controls.
+-- Make sure you also supply your section headers here!
+-- controls: A list of controls
 function NachbarFelderUIHelper.registerFocusControls(controls)
 	FocusManager.setGui = Utils.appendedFunction(FocusManager.setGui, function(_, gui)
 		for _, control in ipairs(controls) do
@@ -234,12 +234,12 @@ function NachbarFelderUIHelper.registerFocusControls(controls)
 	end)
 end
 
----Makes sure UI controls are being populated with data from targetTable when the settings frame gets opened, and updates the properties in targetTable when the user changes values.
----If you need to populate the controls at additional points in time, you can call the "populateAutoBindControls" function in owningTable after calling this method.
----Whenever a value changes, the updateFunc will be called, if it was supplied
----@param owningTable table @The table which owns the controls.
----@param targetTable table @The table which holds the settings. The name of the controls and the name of the settings must be identical
----@param updateFunc function @This function will be called whenever any auto-bound value changes
+-- Makes sure UI controls are being populated with data from targetTable when the settings frame gets opened, and updates the properties in targetTable when the user changes values.
+-- If you need to populate the controls at additional points in time, you can call the "populateAutoBindControls" function in owningTable after calling this method.
+-- Whenever a value changes, the updateFunc will be called, if it was supplied
+-- owningTable: The table which owns the controls.
+-- targetTable: The table which holds the settings. The name of the controls and the name of the settings must be identical
+-- updateFunc: This function will be called whenever any auto-bound value changes
 function NachbarFelderUIHelper.setupAutoBindControls(owningTable, targetTable, updateFunc)
 	-- Define and store a function which is able to populate the automatically bound controls
 	owningTable.populateAutoBindControls = function()
@@ -269,10 +269,10 @@ function NachbarFelderUIHelper.setupAutoBindControls(owningTable, targetTable, u
 	end
 end
 
----Reads the current value of an auto bound control from the settings object (rather than from the UI control's current state)
----@param control table @The UI control
----@param targetTable table @The table which is bound to the control
----@return any @The value
+-- Reads the current value of an auto bound control from the settings object (rather than from the UI control's current state)
+-- control: The UI control
+-- targetTable: The table which is bound to the control
+-- liefert The value
 function NachbarFelderUIHelper.getAutoBoundValueFromTable(control, targetTable)
 	if control.subTable == nil then
 		return targetTable[control.propName or control.name]
@@ -281,10 +281,10 @@ function NachbarFelderUIHelper.getAutoBoundValueFromTable(control, targetTable)
 	end
 end
 
----Writes the current value for an auto bound control to the settings object
----@param control table @The UI control
----@param value any @The value
----@param targetTable table @The table which is bound to the control
+-- Writes the current value for an auto bound control to the settings object
+-- control: The UI control
+-- value: The value
+-- targetTable: The table which is bound to the control
 function NachbarFelderUIHelper.setAutoBoundValueInTable(control, value, targetTable)
 	if control.subTable == nil then
 		targetTable[control.propName or control.name or "ERROR"] = value
@@ -293,9 +293,9 @@ function NachbarFelderUIHelper.setAutoBoundValueInTable(control, value, targetTa
 	end
 end
 
----Sets a range control to the given value. The method will find the appropriate index for the value automatically.
----@param control table @The UI control
----@param value number @The value which shall be displayed to the user
+-- Sets a range control to the given value. The method will find the appropriate index for the value automatically.
+-- control: The UI control
+-- value: The value which shall be displayed to the user
 function NachbarFelderUIHelper.setRangeValue(control, value)
 	local valueIndex
 	if control.nillable and value == nil then
@@ -309,10 +309,10 @@ function NachbarFelderUIHelper.setRangeValue(control, value)
 	control.elements[1]:setState(valueIndex)
 end
 
----Retrieves the current value of a UI range control.
----@param control table @The UI control
----@param controlState number @The currently selected index
----@return number|nil @The value which was selected by the user (rather than the index)
+-- Retrieves the current value of a UI range control.
+-- control: The UI control
+-- controlState: The currently selected index
+-- liefert The value which was selected by the user (rather than the index)
 function NachbarFelderUIHelper.getRangeValue(control, controlState)
 	if control.nillable and controlState == 1 then
 		return nil
@@ -325,9 +325,9 @@ function NachbarFelderUIHelper.getRangeValue(control, controlState)
 	end
 end
 
----Sets a choice control to the given value. The method will find the appropriate index for the value automatically.
----@param control table @The UI control
----@param value number @The value which shall be displayed to the user, except for enums, where this is the index
+-- Sets a choice control to the given value. The method will find the appropriate index for the value automatically.
+-- control: The UI control
+-- value: The value which shall be displayed to the user, except for enums, where this is the index
 function NachbarFelderUIHelper.setChoiceValue(control, value)
 	if control.hasStrings then
 		control.elements[1]:setState(value)
@@ -341,10 +341,10 @@ function NachbarFelderUIHelper.setChoiceValue(control, value)
 	end
 end
 
----Retrieves the current value of a UI choice control.
----@param control table @The UI control
----@param controlState number @The currently selected index
----@return number|nil @The value which was selected by the user (rather than the index, except for enums, where this will be the index)
+-- Retrieves the current value of a UI choice control.
+-- control: The UI control
+-- controlState: The currently selected index
+-- liefert The value which was selected by the user (rather than the index, except for enums, where this will be the index)
 function NachbarFelderUIHelper.getChoiceValue(control, controlState)
 	if control.hasStrings then
 		return controlState
@@ -353,23 +353,23 @@ function NachbarFelderUIHelper.getChoiceValue(control, controlState)
 	end
 end
 
----Sets the current value for a UI yes/no control.
----@param control table @The UI control
----@param value number @The value which shall be displayed to the user
+-- Sets the current value for a UI yes/no control.
+-- control: The UI control
+-- value: The value which shall be displayed to the user
 function NachbarFelderUIHelper.setBoolValue(control, value)
 	control.elements[1]:setState(value and BinaryOptionElement.STATE_RIGHT or BinaryOptionElement.STATE_LEFT)
 end
 
----Gets the current value of a UI yes/no control
----@param controlState number @The currently selected index of the control.
----@return boolean @The yes/no value as selected by the user
+-- Gets the current value of a UI yes/no control
+-- controlState: The currently selected index of the control.
+-- liefert The yes/no value as selected by the user
 function NachbarFelderUIHelper.getBoolValue(controlState)
 	return controlState == 2
 end
 
----Sets the given value for the given control. The function will automatically determine whether this is a yes/no, an enum or a number range value
----@param control table @The control
----@param value any @The value
+-- Sets the given value for the given control. The function will automatically determine whether this is a yes/no, an enum or a number range value
+-- control: The control
+-- value: The value
 function NachbarFelderUIHelper.setControlValue(control, value)
 	if control.min ~= nil then
 		NachbarFelderUIHelper.setRangeValue(control, value)
@@ -380,10 +380,10 @@ function NachbarFelderUIHelper.setControlValue(control, value)
 	end
 end
 
----Retrieves the value from the given control based on the control state (which is obtained from the callback function)
----@param control table @The UI control
----@param controlState number @The current index of the selected value
----@return any @The value of the control. This could be a boolean, a number value, an enum value or nil dependent on the type of control
+-- Retrieves the value from the given control based on the control state (which is obtained from the callback function)
+-- control: The UI control
+-- controlState: The current index of the selected value
+-- liefert The value of the control. This could be a boolean, a number value, an enum value or nil dependent on the type of control
 function NachbarFelderUIHelper.getControlValue(control, controlState)
 	if control.min ~= nil then
 		return NachbarFelderUIHelper.getRangeValue(control, controlState)

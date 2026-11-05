@@ -4,7 +4,7 @@
 > kann (Repository `FS25_NachbarFelder`, Datei `docs/PROJEKTSTAND.md`). Die Abschnitte darunter sind chronologisch gewachsen —
 > **ältere Teile sind teils überholt; im Zweifel gilt der jüngste Abschnitt am Ende.**
 >
-> **ARBEITSGRUNDLAGE — Stand 2026-10-28, Build 180 (hier zuerst lesen, alles darunter ist Historie)**
+> **ARBEITSGRUNDLAGE — Stand 2026-11-05, Build 182 (hier zuerst lesen, alles darunter ist Historie)**
 >
 > **Was die Mod heute ist**
 > - Anzeigename **„Lebendige Straßen“** (en Living Roads, fr Routes Vivantes). Mod-Name seit Build 179
@@ -1941,3 +1941,43 @@ blieb der Punkt auf dem Server bestehen und kam mit dem nächsten Sync zurück. 
 
 **Tests:** Strukturcheck, Vollparse, kein `pcall`, XML. Im Spiel: auf dem Dedicated Server als Admin-Client im Dialog
 (Strg+Alt+C bzw. Wegpunkt-Manager) einen Punkt löschen – er muss nach dem Sync weg bleiben.
+
+---
+
+# ERGÄNZUNG 2026-11-05 — Build 182: Kommentare und Store-Texte ohne Generator-Anmutung
+
+Vorgabe aus den Projektnotizen: Was bei einer ModHub-Mod nach außen geht — Store-Beschreibung,
+Hilfetexte **und der Lua-Quelltext** — darf nicht nach KI-Generat aussehen. GIANTS liest bei der
+Zertifizierung den Quelltext mit. Die Messung vorher:
+
+| Merkmal | vorher | nachher |
+|---|---|---|
+| LuaDoc-Kommentare `---` | 333 | 0 |
+| Balken `-- =====` | 118 | 0 |
+| `@param` / `@return` | 98 | 0 |
+| Zeilennummern fremder Spieldateien | 8 | 0 |
+
+Protokollsprache („verifiziert“, „laut Original-Script“) war schon vorher auf 0 — die hatte der
+Oktober-Durchgang entfernt, die Struktur aber unangetastet gelassen.
+
+**Was passiert ist.** Balkenblöcke sind zu einer Zeile `-- Titel ------` geworden. `---` wurde zu
+`--`. Bei `@param`/`@return` blieb der erklärende Text als Prosa stehen (`-- cat: 0 = normaler
+Wegpunkt …`), reine Typangaben fielen weg; vier Stellen mit mehreren `liefert`-Zeilen hintereinander
+wurden zu je einem Satz zusammengezogen. Aus `AIDrivable.lua:587` wurde `AIDrivable.lua` —
+Zeilennummern fremder Dateien veralten mit jedem Patch. Kommentarzeilen gesamt: 1353 → 1217.
+
+**Store-Beschreibung neu in allen drei Sprachen.** Vorher hatten DE, EN und FR exakt 16 Zeilen mit
+je 12 Stichpunkten, Satz für Satz parallel — das Muster einer 1:1-Übersetzung. Jetzt Fließtext mit
+unterschiedlichem Aufbau je Sprache und einem Einstieg über eine Spielsituation statt über eine
+Feature-Liste. Inhalt vollständig erhalten: was die Mod tut, Spawnpunkte, Tagesrhythmus,
+Fahrzeug-Pool, Spielverkehr, wo die Einstellungen stehen, Strg + Alt + L, der Hinweis zum
+Abschalten des Spielverkehrs.
+
+**Gegenprobe — kein Code berührt.** `py _token_vergleich.py <vorher.zip> <nachher.zip>` vergleicht
+die Tokenmengen beider ZIPs über alle Lua-Dateien: **identische Tokenmengen**. Ausführbare Zeilen
+vorher wie nachher 6523. Dazu Vollparse aller sieben Dateien, modDesc gegen minidom,
+TestRunner 0.9.23 **PASS, 15 von 15**.
+
+**Nicht angefasst:** die englischen Kommentare in `NachbarFelderUIHelper.lua`. Die stammen aus der
+GUI-Vorlage und sind kein Generat-Merkmal, sondern übernommener Fremdcode — das ist ein eigenes
+Thema.
